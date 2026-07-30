@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Royal Union | Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#775a19",
+                    "on-surface": "#1b1c1a",
+                    "secondary-fixed": "#ffdea5",
+                    "on-primary-fixed": "#40000b",
+                    "surface-dim": "#dbdad6",
+                    "background": "#fbf9f5",
+                    "on-primary-container": "#ff828a",
+                    "inverse-primary": "#ffb3b5",
+                    "secondary-container": "#fed488",
+                    "surface-container-highest": "#e4e2de",
+                    "secondary-fixed-dim": "#e9c176",
+                    "surface": "#fbf9f5",
+                    "on-primary-fixed-variant": "#8e0f28",
+                    "tertiary-fixed": "#e0e0ff",
+                    "on-tertiary-fixed": "#000767",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#5d4201",
+                    "on-background": "#1b1c1a",
+                    "on-error": "#ffffff",
+                    "on-secondary-container": "#785a1a",
+                    "tertiary-container": "#2a338c",
+                    "on-primary": "#ffffff",
+                    "inverse-on-surface": "#f2f0ed",
+                    "on-secondary-fixed": "#261900",
+                    "outline-variant": "#e0bfbf",
+                    "surface-variant": "#e4e2de",
+                    "outline": "#8c7071",
+                    "tertiary": "#0f1976",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#584141",
+                    "inverse-surface": "#30312e",
+                    "on-tertiary-container": "#98a1ff",
+                    "surface-container-high": "#eae8e4",
+                    "primary-fixed-dim": "#ffb3b5",
+                    "primary-fixed": "#ffdada",
+                    "error": "#ba1a1a",
+                    "surface-container": "#efeeea",
+                    "error-container": "#ffdad6",
+                    "primary": "#570013",
+                    "surface-bright": "#fbf9f5",
+                    "on-tertiary-fixed-variant": "#343d96",
+                    "primary-container": "#800020",
+                    "surface-tint": "#af2b3e",
+                    "tertiary-fixed-dim": "#bdc2ff",
+                    "surface-container-low": "#f5f3ef",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-sm": "8px",
+                    "section-padding": "64px",
+                    "margin-mobile": "16px",
+                    "container-max-width": "1200px",
+                    "stack-md": "16px",
+                    "margin-desktop": "40px",
+                    "stack-lg": "32px",
+                    "unit": "8px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Manrope"],
+                    "headline-lg-mobile": ["Playfair Display"],
+                    "headline-lg": ["Playfair Display"],
+                    "title-lg": ["Manrope"],
+                    "display-md": ["Playfair Display"],
+                    "display-lg": ["Playfair Display"],
+                    "label-md": ["Manrope"],
+                    "body-md": ["Manrope"],
+                    "headline-md": ["Playfair Display"],
+                    "body-lg": ["Manrope"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                    "title-lg": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "700"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .onboarding-slider {
+        display: flex;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 500%;
+      }
+      .onboarding-screen {
+        width: 20%;
+        height: 100vh;
+        flex-shrink: 0;
+      }
+      .dot-active {
+        background-color: #570013 !important;
+        width: 24px !important;
+      }
+      .paisley-bg {
+        background-image: radial-gradient(circle at 2px 2px, rgba(87, 0, 19, 0.03) 1px, transparent 0);
+        background-size: 24px 24px;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md overflow-hidden paisley-bg">
+<!-- Top Navigation (Skip) -->
+<header class="fixed top-0 left-0 right-0 z-50 flex justify-end px-margin-mobile md:px-margin-desktop py-6">
+<button class="text-primary font-label-md text-label-md hover:opacity-80 transition-opacity flex items-center gap-1 active:scale-95 duration-200" id="skip-btn">
+            Skip
+            <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</header>
+<!-- Main Content Slider -->
+<main class="h-screen w-screen overflow-hidden">
+<div class="onboarding-slider h-full" id="slider">
+<!-- Screen 1: Verified Profiles -->
+<section class="onboarding-screen flex flex-col items-center justify-between py-24 px-margin-mobile md:px-margin-desktop">
+<div class="w-full max-w-lg flex flex-col items-center gap-12">
+<div class="relative w-full aspect-square max-h-[380px] rounded-full overflow-hidden shadow-[0px_20px_40px_rgba(87,0,19,0.12)] border-2 border-secondary/20 bg-white">
+<img class="w-full h-full object-cover" data-alt="A portrait of a sophisticated young woman in elegant Indian ethnic attire, smiling warmly against a soft, blurred historical monument background. The lighting is golden hour, highlighting textures of silk and gold jewelry. The overall aesthetic is premium, clean, and trustworthy, reflecting the Royal Union brand palette of deep maroons and soft ivories." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlE3TE6Ppg2dccuw1J7-M_m2lZeWJYyEhOgeNmEsTLwh2L6COyrcYzhz6ZZccNE7c5TVwuI6uXaNDjwE0z3PsleBU0pRH82cT94veGtDZFLwfaXyhgBDEsDajJPU5l5Q0ln2BSXqL42AkACnlbkN1Ixq1fwv6gTJTqFAnUWlucwbdJ3awJaEM1_UlA3ynBj5uMv5jj6k3VLrnzUhGDUIOmoueSOycBMDoOkpel7XR-EEK15RYZJ9hR"/>
+<div class="absolute bottom-6 right-6 bg-tertiary text-white p-3 rounded-full shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<div class="text-center space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">Verified Profiles</h1>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed px-4">Every member on Royal Union undergoes a rigorous verification process to ensure a secure and authentic search for your life partner.</p>
+</div>
+</div>
+</section>
+<!-- Screen 2: Smart Matchmaking -->
+<section class="onboarding-screen flex flex-col items-center justify-between py-24 px-margin-mobile md:px-margin-desktop">
+<div class="w-full max-w-lg flex flex-col items-center gap-12">
+<div class="relative w-full aspect-square max-h-[380px] rounded-[2rem] overflow-hidden shadow-[0px_20px_40px_rgba(87,0,19,0.12)] border-2 border-secondary/20 bg-white">
+<img class="w-full h-full object-cover" data-alt="A high-end conceptual 3D render of two golden rings interlocking within a crystalline mandala geometric pattern. The background is a deep Royal Maroon with subtle glowing particles. The lighting is professional and moody, emphasizing compatibility, tradition, and the precision of smart technology in a luxury matrimonial context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD87XoF4etLNQ6mPeN6scjQ66PMiXirRwn05bCQPdtqFlVcqiq7hjLjqLAiJ0IgumSgQXKOSsSqOhXrVZ5N18eWc3If6Y4F-DqpXDBjAQYHjsm3lkDLc7D69WcIHy4I6nhC9fnA42vmjbxtaVF48CTxfPmunNFp3s6Vrlqf8CrDfIuIf-IAzEDfd4Z_A6jWktWdGe8pdPrJQZGxVEkZUbXAlrGiye0irs87fqmX4Bw0aECMEC2KV0Ck"/>
+</div>
+<div class="text-center space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">Smart Matchmaking</h1>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed px-4">Our advanced algorithm blends traditional values with modern preferences to suggest matches that truly resonate with your soul and lineage.</p>
+</div>
+</div>
+</section>
+<!-- Screen 3: Secure Chat -->
+<section class="onboarding-screen flex flex-col items-center justify-between py-24 px-margin-mobile md:px-margin-desktop">
+<div class="w-full max-w-lg flex flex-col items-center gap-12">
+<div class="relative w-full aspect-square max-h-[380px] rounded-3xl overflow-hidden shadow-[0px_20px_40px_rgba(87,0,19,0.12)] border-2 border-secondary/20 bg-white p-8 flex items-center justify-center">
+<div class="w-full space-y-4">
+<div class="flex justify-start">
+<div class="bg-surface-container-high rounded-2xl rounded-bl-none p-4 max-w-[80%] shadow-sm">
+<p class="text-primary font-label-md">Hello! It was great reading your profile.</p>
+</div>
+</div>
+<div class="flex justify-end">
+<div class="bg-primary text-white rounded-2xl rounded-br-none p-4 max-w-[80%] shadow-md">
+<p class="font-label-md">Thank you, Rohan. I'd love to connect more!</p>
+</div>
+</div>
+<div class="flex justify-center mt-8">
+<div class="flex items-center gap-2 text-secondary font-label-sm bg-secondary/10 px-4 py-2 rounded-full">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+                                    End-to-end Encrypted
+                                </div>
+</div>
+</div>
+</div>
+<div class="text-center space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">Secure Chat</h1>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed px-4">Initiate conversations with complete peace of mind. Your privacy is our priority, with industry-leading encryption and safety controls.</p>
+</div>
+</div>
+</section>
+<!-- Screen 4: Family Managed -->
+<section class="onboarding-screen flex flex-col items-center justify-between py-24 px-margin-mobile md:px-margin-desktop">
+<div class="w-full max-w-lg flex flex-col items-center gap-12">
+<div class="relative w-full aspect-square max-h-[380px] rounded-full overflow-hidden shadow-[0px_20px_40px_rgba(87,0,19,0.12)] border-2 border-secondary/20 bg-white">
+<img class="w-full h-full object-cover" data-alt="A warm, candid photograph of an Indian family including parents and a daughter sitting together in a beautifully decorated home interior, looking at a tablet together and laughing. The sunlight streams through windows, creating a soft, celebratory atmosphere. The style is professional lifestyle photography with a focus on family values and togetherness." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4mrI06yhXz9nCEluzE52_PTQfBX4DNg93fuQLTCoerXJj9RW8Bs0SvjyA2HI_tecR1Q2Z_bPYhZ9vP1yUDuyLQ8Vci44R4JICr3nsjQDYaTKNJPQXzhv_D0UyeU_Xggh22u7DQxkKsU-shg0lPNm4YMcxktGsMcNvr3T6aDC9RwjVsMn1UjpmW_yTAtRbKOOyj9ZF3_cecnHFeTBh3ja7_xPjA-JoXphLve0YwYM1o4WsW4r3DZCJ"/>
+</div>
+<div class="text-center space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">Family Managed</h1>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed px-4">We respect the role of family. Royal Union allows elders to assist in the matchmaking process, honoring the tradition of collaborative partner search.</p>
+</div>
+</div>
+</section>
+<!-- Screen 5: Premium Membership -->
+<section class="onboarding-screen flex flex-col items-center justify-between py-24 px-margin-mobile md:px-margin-desktop">
+<div class="w-full max-w-lg flex flex-col items-center gap-12">
+<div class="relative w-full aspect-square max-h-[380px] rounded-2xl overflow-hidden shadow-[0px_30px_60px_rgba(119,90,25,0.15)] border-2 border-secondary/40 bg-primary-container p-1 flex items-center justify-center">
+<div class="absolute inset-0 opacity-10">
+<div class="h-full w-full paisley-bg"></div>
+</div>
+<div class="relative z-10 text-center flex flex-col items-center">
+<div class="w-24 h-24 bg-secondary-fixed rounded-full flex items-center justify-center mb-6 shadow-xl">
+<span class="material-symbols-outlined text-[48px] text-on-secondary-fixed-variant" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-secondary-fixed">ROYAL ACCESS</h3>
+<div class="h-1 w-20 bg-secondary-fixed/50 my-4"></div>
+<p class="text-secondary-fixed/80 font-label-sm uppercase tracking-widest">Exclusive Concierge Service</p>
+</div>
+</div>
+<div class="text-center space-y-4">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">Premium Membership</h1>
+<p class="text-on-surface-variant font-body-md text-body-md leading-relaxed px-4">Unlock elite benefits including direct profile promotion, unlimited contact details, and a dedicated relationship manager for your journey.</p>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Actions (Indicator + Next) -->
+<footer class="fixed bottom-0 left-0 right-0 z-50 px-margin-mobile md:px-margin-desktop pb-12 pt-6 bg-gradient-to-t from-background via-background/90 to-transparent">
+<div class="max-w-lg mx-auto flex flex-col items-center gap-8">
+<!-- Page Indicator Dots -->
+<div class="flex gap-2">
+<div class="indicator-dot w-2 h-2 rounded-full bg-outline-variant transition-all duration-300 dot-active"></div>
+<div class="indicator-dot w-2 h-2 rounded-full bg-outline-variant transition-all duration-300"></div>
+<div class="indicator-dot w-2 h-2 rounded-full bg-outline-variant transition-all duration-300"></div>
+<div class="indicator-dot w-2 h-2 rounded-full bg-outline-variant transition-all duration-300"></div>
+<div class="indicator-dot w-2 h-2 rounded-full bg-outline-variant transition-all duration-300"></div>
+</div>
+<!-- Primary CTA -->
+<button class="w-full py-4 bg-primary text-white font-label-md text-body-lg rounded-xl shadow-[0px_10px_20px_rgba(87,0,19,0.15)] hover:shadow-[0px_15px_30px_rgba(87,0,19,0.25)] transition-all active:scale-[0.98]" id="next-btn">
+                Next
+            </button>
+</div>
+</footer>
+<script>
+        const slider = document.getElementById('slider');
+        const nextBtn = document.getElementById('next-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const dots = document.querySelectorAll('.indicator-dot');
+        let currentScreen = 0;
+        const totalScreens = 5;
+
+        function updateSlider() {
+            slider.style.transform = `translateX(-${currentScreen * 20}%)`;
+            
+            // Update Dots
+            dots.forEach((dot, index) => {
+                if (index === currentScreen) {
+                    dot.classList.add('dot-active');
+                } else {
+                    dot.classList.remove('dot-active');
+                }
+            });
+
+            // Update Button Text
+            if (currentScreen === totalScreens - 1) {
+                nextBtn.innerText = 'Get Started';
+                skipBtn.style.opacity = '0';
+                skipBtn.style.pointerEvents = 'none';
+            } else {
+                nextBtn.innerText = 'Next';
+                skipBtn.style.opacity = '1';
+                skipBtn.style.pointerEvents = 'auto';
+            }
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentScreen < totalScreens - 1) {
+                currentScreen++;
+                updateSlider();
+            } else {
+                // Handle "Get Started" action
+                nextBtn.innerHTML = '<span class="flex items-center justify-center gap-2"><span class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Connecting...</span>';
+                setTimeout(() => {
+                    alert('Redirecting to Registration/Home...');
+                }, 1000);
+            }
+        });
+
+        skipBtn.addEventListener('click', () => {
+            currentScreen = totalScreens - 1;
+            updateSlider();
+        });
+
+        // Touch handling for mobile swiping
+        let startX = 0;
+        let isDragging = false;
+
+        slider.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            isDragging = true;
+        });
+
+        slider.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const currentX = e.touches[0].clientX;
+            const diff = startX - currentX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0 && currentScreen < totalScreens - 1) {
+                    currentScreen++;
+                    updateSlider();
+                    isDragging = false;
+                } else if (diff < 0 && currentScreen > 0) {
+                    currentScreen--;
+                    updateSlider();
+                    isDragging = false;
+                }
+            }
+        });
+
+        slider.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+    </script>
+</body></html>

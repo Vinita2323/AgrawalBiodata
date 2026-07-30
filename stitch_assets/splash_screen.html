@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Royal Union - Welcome</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Manrope:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "secondary": "#775a19",
+                "on-surface": "#1b1c1a",
+                "secondary-fixed": "#ffdea5",
+                "on-primary-fixed": "#40000b",
+                "surface-dim": "#dbdad6",
+                "background": "#fbf9f5",
+                "on-primary-container": "#ff828a",
+                "inverse-primary": "#ffb3b5",
+                "secondary-container": "#fed488",
+                "surface-container-highest": "#e4e2de",
+                "secondary-fixed-dim": "#e9c176",
+                "surface": "#fbf9f5",
+                "on-primary-fixed-variant": "#8e0f28",
+                "tertiary-fixed": "#e0e0ff",
+                "on-tertiary-fixed": "#000767",
+                "on-tertiary": "#ffffff",
+                "on-secondary-fixed-variant": "#5d4201",
+                "on-background": "#1b1c1a",
+                "on-error": "#ffffff",
+                "on-secondary-container": "#785a1a",
+                "tertiary-container": "#2a338c",
+                "on-primary": "#ffffff",
+                "inverse-on-surface": "#f2f0ed",
+                "on-secondary-fixed": "#261900",
+                "outline-variant": "#e0bfbf",
+                "surface-variant": "#e4e2de",
+                "outline": "#8c7071",
+                "tertiary": "#0f1976",
+                "surface-container-lowest": "#ffffff",
+                "on-surface-variant": "#584141",
+                "inverse-surface": "#30312e",
+                "on-tertiary-container": "#98a1ff",
+                "surface-container-high": "#eae8e4",
+                "primary-fixed-dim": "#ffb3b5",
+                "primary-fixed": "#ffdada",
+                "error": "#ba1a1a",
+                "surface-container": "#efeeea",
+                "error-container": "#ffdad6",
+                "primary": "#570013",
+                "surface-bright": "#fbf9f5",
+                "on-tertiary-fixed-variant": "#343d96",
+                "primary-container": "#800020",
+                "surface-tint": "#af2b3e",
+                "tertiary-fixed-dim": "#bdc2ff",
+                "surface-container-low": "#f5f3ef",
+                "on-error-container": "#93000a",
+                "on-secondary": "#ffffff"
+            },
+            "fontFamily": {
+                "label-sm": ["Manrope"],
+                "headline-lg": ["Playfair Display"],
+                "title-lg": ["Manrope"],
+                "display-md": ["Playfair Display"],
+                "display-lg": ["Playfair Display"],
+                "body-md": ["Manrope"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        @keyframes scaleFadeIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes subtleRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .animate-scale-fade {
+            animation: scaleFadeIn 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .animate-slow-rotate {
+            animation: subtleRotate 12s linear infinite;
+        }
+
+        .shimmer-text {
+            background: linear-gradient(90deg, #775a19 25%, #ffdea5 50%, #775a19 75%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 3s infinite linear;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background overflow-hidden h-screen w-screen flex items-center justify-center">
+<!-- Background Shader -->
+<!-- STITCH_SHADER_START:ANIMATION_3 class="absolute inset-0 w-full h-full opacity-60" -->
+<div class="absolute inset-0 w-full h-full opacity-60" style="display:block;">
+<canvas id="shader-canvas-ANIMATION_3" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_3');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord;
+    
+    // Royal Maroon base (#800020)
+    vec3 color1 = vec3(0.502, 0.0, 0.125); 
+    // Deep Royal Blue accent (#002366)
+    vec3 color2 = vec3(0.0, 0.137, 0.4);
+    
+    float noise = sin(uv.x * 10.0 + u_time) * cos(uv.y * 10.0 + u_time) * 0.5 + 0.5;
+    vec3 finalColor = mix(color1, color2, noise * 0.3);
+    
+    // Add a subtle gold shimmer
+    float shimmer = pow(max(0.0, sin(uv.x * 20.0 - u_time * 2.0) * cos(uv.y * 20.0 + u_time)), 10.0);
+    finalColor += vec3(1.0, 0.84, 0.0) * shimmer * 0.2;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_3 -->
+<!-- Overlay Vignette for Depth -->
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/40 pointer-events-none"></div>
+<!-- Main Content Container -->
+<main class="relative z-10 flex flex-col items-center justify-center px-margin-mobile text-center">
+<!-- Logo Section -->
+<div class="animate-scale-fade opacity-0 flex flex-col items-center">
+<div class="relative mb-stack-lg">
+<!-- Decorative Ring -->
+<div class="absolute inset-[-16px] border border-secondary/20 rounded-full animate-slow-rotate"></div>
+<div class="absolute inset-[-8px] border-2 border-secondary/10 rounded-full animate-slow-rotate" style="animation-direction: reverse;"></div>
+<!-- App Logo Image -->
+<div class="relative w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden shadow-[0px_20px_50px_rgba(87,0,19,0.15)] bg-surface border-4 border-surface">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8HeUOowHnJIQx1gh1o_OPQpgFNfyeGyzRUZCDOKFgJcIRcxur98xnjMeOXaRtbR0en_9ITOx_CmLl1x22TcgHPvAqV3odRQCYtNyhoaBZyAbhGChC_deq_SYwzatv_28cI4VkrcoYjwfXc-DN8oz1AXLEMqnZiRXFfaZ7FJ2dTmiIi-75dm-ya_jUyyf2qU4S_7SJjYklKnAi3fYsxS-hJIGKzG35A0_rs70Iubx_QeuKZ69Fe-ap4xPvd6JpqWh1qA"/>
+</div>
+</div>
+<!-- Brand Identity -->
+<div class="space-y-stack-sm mt-stack-md">
+<h1 class="font-display-lg text-[48px] md:text-[64px] tracking-tight text-primary leading-tight">
+                    Royal Union
+                </h1>
+<p class="font-title-lg text-secondary uppercase tracking-[0.2em] opacity-90">
+                    Where Traditions Meet Hearts
+                </p>
+</div>
+<!-- Loading Indicator -->
+<div class="mt-16 flex flex-col items-center gap-4">
+<!-- Traditional Motif Spinner -->
+<div class="relative w-12 h-12 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-4xl animate-slow-rotate" style="font-variation-settings: 'FILL' 0, 'wght' 200;">
+                        settings_suggest
+                    </span>
+<!-- Inner fast pulse -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-2 h-2 bg-primary rounded-full animate-ping"></div>
+</div>
+</div>
+<!-- Shimmer Loading Text -->
+<span class="font-label-md text-label-md tracking-widest uppercase shimmer-text opacity-80">
+                    Curating Your Matches
+                </span>
+</div>
+</div>
+</main>
+<!-- Bottom Aesthetic Detail -->
+<footer class="fixed bottom-12 w-full text-center z-10">
+<div class="flex items-center justify-center gap-4 opacity-30">
+<div class="h-[1px] w-12 bg-secondary"></div>
+<span class="material-symbols-outlined text-secondary scale-75">
+                favorite
+            </span>
+<div class="h-[1px] w-12 bg-secondary"></div>
+</div>
+</footer>
+<!-- Atmosphere Script -->
+<script>
+        // Smoothly fade in content on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Royal Union Splash Loaded');
+            
+            // Redirect simulation (Optional for demonstration)
+            /*
+            setTimeout(() => {
+                document.body.style.transition = 'opacity 1s ease';
+                document.body.style.opacity = '0';
+            }, 4500);
+            */
+        });
+
+        // Subtle parallax movement based on mouse/gyro
+        document.addEventListener('mousemove', (e) => {
+            const moveX = (e.clientX - window.innerWidth / 2) * 0.01;
+            const moveY = (e.clientY - window.innerHeight / 2) * 0.01;
+            const content = document.querySelector('.animate-scale-fade');
+            if (content) {
+                content.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            }
+        });
+    </script>
+</body></html>

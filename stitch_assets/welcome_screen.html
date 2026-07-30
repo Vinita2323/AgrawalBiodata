@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Welcome to Royal Union - Premium Matrimony</title>
+<!-- Google Fonts: Playfair Display for Serifs, Manrope for Sans -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary": "#775a19",
+                      "on-surface": "#1b1c1a",
+                      "secondary-fixed": "#ffdea5",
+                      "on-primary-fixed": "#40000b",
+                      "surface-dim": "#dbdad6",
+                      "background": "#fbf9f5",
+                      "on-primary-container": "#ff828a",
+                      "inverse-primary": "#ffb3b5",
+                      "secondary-container": "#fed488",
+                      "surface-container-highest": "#e4e2de",
+                      "secondary-fixed-dim": "#e9c176",
+                      "surface": "#fbf9f5",
+                      "on-primary-fixed-variant": "#8e0f28",
+                      "tertiary-fixed": "#e0e0ff",
+                      "on-tertiary-fixed": "#000767",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed-variant": "#5d4201",
+                      "on-background": "#1b1c1a",
+                      "on-error": "#ffffff",
+                      "on-secondary-container": "#785a1a",
+                      "tertiary-container": "#2a338c",
+                      "on-primary": "#ffffff",
+                      "inverse-on-surface": "#f2f0ed",
+                      "on-secondary-fixed": "#261900",
+                      "outline-variant": "#e0bfbf",
+                      "surface-variant": "#e4e2de",
+                      "outline": "#8c7071",
+                      "tertiary": "#0f1976",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface-variant": "#584141",
+                      "inverse-surface": "#30312e",
+                      "on-tertiary-container": "#98a1ff",
+                      "surface-container-high": "#eae8e4",
+                      "primary-fixed-dim": "#ffb3b5",
+                      "primary-fixed": "#ffdada",
+                      "error": "#ba1a1a",
+                      "surface-container": "#efeeea",
+                      "error-container": "#ffdad6",
+                      "primary": "#570013",
+                      "surface-bright": "#fbf9f5",
+                      "on-tertiary-fixed-variant": "#343d96",
+                      "primary-container": "#800020",
+                      "surface-tint": "#af2b3e",
+                      "tertiary-fixed-dim": "#bdc2ff",
+                      "surface-container-low": "#f5f3ef",
+                      "on-error-container": "#93000a",
+                      "on-secondary": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-sm": "8px",
+                      "section-padding": "64px",
+                      "margin-mobile": "16px",
+                      "container-max-width": "1200px",
+                      "stack-md": "16px",
+                      "margin-desktop": "40px",
+                      "stack-lg": "32px",
+                      "unit": "8px",
+                      "gutter": "24px"
+              },
+              "fontFamily": {
+                      "label-sm": ["Manrope"],
+                      "headline-lg-mobile": ["Playfair Display"],
+                      "headline-lg": ["Playfair Display"],
+                      "title-lg": ["Manrope"],
+                      "display-md": ["Playfair Display"],
+                      "display-lg": ["Playfair Display"],
+                      "label-md": ["Manrope"],
+                      "body-md": ["Manrope"],
+                      "headline-md": ["Playfair Display"],
+                      "body-lg": ["Manrope"]
+              },
+              "fontSize": {
+                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "500"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                      "title-lg": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "700"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .royal-shadow {
+            box-shadow: 0px 20px 40px rgba(87, 0, 19, 0.08);
+        }
+        .glass-header {
+            backdrop-filter: blur(8px);
+            background: rgba(251, 249, 245, 0.8);
+        }
+        .indian-border-top {
+            background-image: radial-gradient(circle at 50% 50%, #775a19 1px, transparent 1px);
+            background-size: 24px 24px;
+            height: 4px;
+            width: 100%;
+            opacity: 0.3;
+        }
+        .shimmer-effect {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer-effect::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to bottom right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0) 40%,
+                rgba(255, 255, 255, 0.4) 50%,
+                rgba(255, 255, 255, 0) 60%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: rotate(45deg);
+            animation: shimmer 4s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden min-h-screen flex flex-col">
+<!-- Top Pattern Accent -->
+<div class="fixed top-0 left-0 w-full z-[60] indian-border-top"></div>
+<!-- Top Navigation / Header -->
+<header class="fixed top-0 w-full z-50 glass-header royal-shadow">
+<div class="max-w-container-max-width mx-auto px-margin-mobile md:px-margin-desktop h-16 flex items-center justify-between">
+<!-- Logo Section -->
+<div class="flex items-center gap-3">
+<img alt="Royal Union Logo" class="h-10 w-auto rounded-full border border-secondary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-ulKKDW_0_1BCpcNjUkgrbizBiX8sWRvP4PzpRv03xUVP-gjBJOowEhYIsyHTSjSjY9g_DEjbrR2kkzshacOyGQShZyAto-fhaDG8-7wdQLOTckdYlBsRud9T7BnWweq9v75dyzrfEKNfIEnYQM4FUwCdRlW3WbYkneDcrlkI2TYTYsqxxThmUBqTuHamcHHmj6I9NIF615wpzfalnJpi-DpoASSoL2hk-IaLvODTAXrKzcQ-9XmA3S462zzp2uYi_w"/>
+<span class="hidden md:block font-display-md text-headline-md text-primary tracking-tight">Royal Union</span>
+</div>
+<!-- Language & Utility -->
+<div class="flex items-center gap-4">
+<div class="relative group">
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-full border border-outline/30 text-primary font-label-md hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[18px]">language</span>
+<span>English</span>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+<!-- Simple Dropdown Mock -->
+<div class="absolute right-0 mt-2 w-32 bg-surface border border-outline/20 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+<ul class="py-2">
+<li class="px-4 py-2 hover:bg-secondary-container/10 cursor-pointer font-label-md">Hindi</li>
+<li class="px-4 py-2 hover:bg-secondary-container/10 cursor-pointer font-label-md">Marathi</li>
+<li class="px-4 py-2 hover:bg-secondary-container/10 cursor-pointer font-label-md">Gujarati</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-grow flex flex-col pt-16">
+<!-- Hero Section -->
+<section class="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
+<!-- Background Image with Fade -->
+<div class="absolute inset-0 z-0">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background z-10"></div>
+<div class="w-full h-full bg-cover bg-center transition-transform duration-10000 hover:scale-110" data-alt="A premium and elegant photograph of a happy Indian couple in traditional wedding attire, laughing softly together in a sun-drenched palatial garden. The lighting is golden and soft-focus, creating a romantic and high-end aesthetic. The background features ivory architectural details and lush greenery, maintaining a luxurious light-mode feel consistent with a prestigious matrimonial service." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBcDyV7co8Al__h0nL6djWz-xPVV9E3shjs1nttIJj-B-an6SYLqxOTDvySDmKy92-aI1e0_Wquh9i2_V-JbLcGeJIIK64AI2t2GdgYNLy4aeTf8T1ygRCYuzaE3YH53zj3ULbedFsYHfIG2POs-zziGB6wzDjL7ETDSJuU2ZMMSg7a70C1PY9ZW_vvu6jTF7glO6w1ITIXfEpkLmOS2xoas20yxIhFjtq4rUqXyK9QYZXPi_H2G9KM')"></div>
+</div>
+<!-- Content Overlay -->
+<div class="relative z-20 max-w-2xl mx-auto text-center px-margin-mobile">
+<div class="inline-flex items-center gap-2 mb-6 px-4 py-1 rounded-full bg-secondary-container/30 border border-secondary/20">
+<span class="material-symbols-outlined text-secondary text-[16px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-secondary font-label-sm uppercase tracking-widest">Heritage of Trust</span>
+</div>
+<h1 class="font-display-lg text-display-lg md:text-display-lg text-primary mb-6 leading-tight">
+                    Where Sacred Traditions Meet Modern Unions
+                </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-10 max-w-lg mx-auto">
+                    Trusted by families for generations. Your journey to a lifelong union begins here with precision matching and cultural depth.
+                </p>
+<!-- Actions Container -->
+<div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+<button class="w-full sm:w-auto px-10 py-4 bg-primary text-on-primary font-title-lg rounded-full royal-shadow hover:bg-primary-container transition-all active:scale-95 shimmer-effect">
+                        Register Now
+                    </button>
+<button class="w-full sm:w-auto px-10 py-4 border-2 border-primary text-primary font-title-lg rounded-full hover:bg-primary/5 transition-all active:scale-95">
+                        Login
+                    </button>
+</div>
+</div>
+<!-- Floating Elements / Atmospheric Decor -->
+<div class="absolute bottom-10 left-10 hidden lg:block opacity-40">
+<span class="material-symbols-outlined text-primary text-[48px]">auto_awesome</span>
+</div>
+<div class="absolute top-20 right-20 hidden lg:block opacity-40">
+<span class="material-symbols-outlined text-secondary text-[48px]">local_florist</span>
+</div>
+</section>
+<!-- Trust & Features Section -->
+<section class="py-section-padding bg-surface-container-low">
+<div class="max-w-container-max-width mx-auto px-margin-mobile md:px-margin-desktop">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Feature 1 -->
+<div class="p-8 bg-surface rounded-2xl border border-secondary/10 royal-shadow flex flex-col items-center text-center">
+<div class="w-14 h-14 rounded-full bg-secondary-container/20 flex items-center justify-center mb-4 text-secondary">
+<span class="material-symbols-outlined text-[32px]">diversity_3</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Community First</h3>
+<p class="text-on-surface-variant">Profiles curated specifically for your cultural and familial preferences.</p>
+</div>
+<!-- Feature 2 -->
+<div class="p-8 bg-surface rounded-2xl border border-secondary/10 royal-shadow flex flex-col items-center text-center">
+<div class="w-14 h-14 rounded-full bg-secondary-container/20 flex items-center justify-center mb-4 text-secondary">
+<span class="material-symbols-outlined text-[32px]">lock_person</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Private &amp; Secure</h3>
+<p class="text-on-surface-variant">Highest standards of privacy with 100% verified identities.</p>
+</div>
+<!-- Feature 3 -->
+<div class="p-8 bg-surface rounded-2xl border border-secondary/10 royal-shadow flex flex-col items-center text-center">
+<div class="w-14 h-14 rounded-full bg-secondary-container/20 flex items-center justify-center mb-4 text-secondary">
+<span class="material-symbols-outlined text-[32px]">award_star</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Expert Concierge</h3>
+<p class="text-on-surface-variant">Personalized support to help navigate your family's search.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Decorative Bottom Accent -->
+<section class="py-12 bg-background relative flex flex-col items-center justify-center overflow-hidden">
+<!-- Traditional Diya / Lamp Symbolism -->
+<div class="relative w-24 h-24 flex items-center justify-center">
+<div class="absolute inset-0 bg-secondary/10 rounded-full animate-pulse"></div>
+<span class="material-symbols-outlined text-secondary text-[40px]" style="font-variation-settings: 'FILL' 1;">fireplace</span>
+</div>
+<div class="mt-4 text-center">
+<p class="font-label-sm uppercase tracking-[0.3em] text-secondary/60">May every union be blessed</p>
+</div>
+<!-- Bottom Paisley Pattern Border (CSS Grid based) -->
+<div class="w-full absolute bottom-0 flex justify-center gap-8 py-2 opacity-10 select-none pointer-events-none">
+<span class="material-symbols-outlined text-primary text-[32px]">spa</span>
+<span class="material-symbols-outlined text-primary text-[32px]">spa</span>
+<span class="material-symbols-outlined text-primary text-[32px]">spa</span>
+<span class="material-symbols-outlined text-primary text-[32px]">spa</span>
+<span class="material-symbols-outlined text-primary text-[32px]">spa</span>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface py-8 border-t border-secondary/10">
+<div class="max-w-container-max-width mx-auto px-margin-mobile md:px-margin-desktop flex flex-col md:flex-row items-center justify-between gap-4">
+<p class="text-label-sm text-on-surface-variant">© 2024 Royal Union Matrimony. All rights reserved.</p>
+<div class="flex gap-6">
+<a class="text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Contact Support</a>
+</div>
+</div>
+</footer>
+<!-- Bottom Ornament -->
+<div class="fixed bottom-0 left-0 w-full z-[60] h-1.5 bg-primary overflow-hidden">
+<div class="w-full h-full bg-[radial-gradient(circle_at_center,_#fed488_1px,_transparent_1px)] bg-[length:12px_12px] opacity-40"></div>
+</div>
+<!-- Micro-interactions Script -->
+<script>
+        // Simple parallax effect on hero content
+        window.addEventListener('mousemove', (e) => {
+            const x = (window.innerWidth / 2 - e.pageX) / 50;
+            const y = (window.innerHeight / 2 - e.pageY) / 50;
+            const heroContent = document.querySelector('.relative.z-20');
+            if (heroContent) {
+                heroContent.style.transform = `translate(${x}px, ${y}px)`;
+            }
+        });
+    </script>
+</body></html>
