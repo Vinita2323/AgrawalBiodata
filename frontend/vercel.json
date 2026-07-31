@@ -15,27 +15,27 @@
   "rewrites": [
     {
       "source": "/admin/:path*",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/super-admin/:path*",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/seller/:path*",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/driver/:path*",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/user/:path*",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }
