@@ -20,12 +20,23 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-none, .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar, .no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .font-display {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Lato', sans-serif;
 }
 
 .font-body {
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Open Sans', sans-serif;
 }
 
 .material-symbols-outlined {

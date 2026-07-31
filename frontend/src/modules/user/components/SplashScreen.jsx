@@ -4,6 +4,13 @@ export default function SplashScreen({ onComplete }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onComplete) onComplete()
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [onComplete])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
@@ -72,7 +79,7 @@ export default function SplashScreen({ onComplete }) {
   }, [])
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#570013] text-[#fbf9f5] flex items-center justify-center font-body">
+    <div className="relative w-full min-h-screen flex-grow overflow-hidden bg-[#570013] text-[#fbf9f5] flex flex-col items-center justify-center font-body">
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-70" width={1280} height={720} />
 
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60 pointer-events-none" />
@@ -91,7 +98,7 @@ export default function SplashScreen({ onComplete }) {
             Vows of Elegance
           </h1>
           <p className="font-body text-xs md:text-sm text-[#ffdea5]/90 uppercase tracking-[0.25em] font-semibold mb-8">
-            Agrawal Matrimonial Sanctum
+            Agrawal Biodata
           </p>
 
           <div className="flex flex-col items-center gap-4">
@@ -115,7 +122,7 @@ export default function SplashScreen({ onComplete }) {
         </div>
       </main>
 
-      <footer className="fixed bottom-6 w-full text-center z-10 opacity-40 flex items-center justify-center gap-3">
+      <footer className="absolute bottom-6 w-full text-center z-10 opacity-40 flex items-center justify-center gap-3">
         <div className="h-[1px] w-12 bg-[#ffdea5]" />
         <span className="material-symbols-outlined text-[#ffdea5] text-sm">favorite</span>
         <div className="h-[1px] w-12 bg-[#ffdea5]" />
