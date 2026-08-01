@@ -77,7 +77,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
           {authTab === 'mobile' ? (
             <div className="space-y-4 mb-6">
               <div>
-                <div className="w-full border border-gray-300 rounded-2xl p-3.5 flex items-center gap-3 bg-white focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition">
+                <div className="w-full border border-gray-300 rounded-md p-3.5 flex items-center gap-3 bg-white focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition">
                   <div className="flex items-center gap-1.5 pr-2 border-r border-gray-200 text-sm font-semibold text-slate-700">
                     <span className="text-base">🇮🇳</span>
                     <span>+91</span>
@@ -102,7 +102,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
                     placeholder="1 2 3 4"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
-                    className="w-full p-3.5 rounded-2xl border border-gray-300 text-center tracking-widest text-lg font-bold text-slate-900 bg-white focus:border-[#570013] focus:outline-none shadow-sm"
+                    className="w-full p-3.5 rounded-md border border-gray-300 text-center tracking-widest text-lg font-bold text-slate-900 bg-white focus:border-[#570013] focus:outline-none shadow-sm"
                     required
                   />
                 </div>
@@ -110,7 +110,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
             </div>
           ) : (
             <div className="mb-6">
-              <div className="w-full border border-gray-300 rounded-2xl p-3.5 flex items-center gap-3 bg-white focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition">
+              <div className="w-full border border-gray-300 rounded-md p-3.5 flex items-center gap-3 bg-white focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition">
                 <span className="material-symbols-outlined text-gray-400 text-xl">mail</span>
                 <input
                   type="email"
@@ -127,7 +127,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
           {/* Primary Submit Button */}
           <button
             type="submit"
-            className="w-full py-3.5 px-6 rounded-2xl bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all mb-8"
+            className="w-full py-3.5 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all mb-8"
           >
             <span>{otpSent ? 'Verify & Login' : 'Send OTP'}</span>
             <span className="material-symbols-outlined text-base">arrow_forward</span>
@@ -150,7 +150,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
           <button
             type="button"
             onClick={onSuccess}
-            className="flex items-center justify-center p-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 active:scale-95 transition"
+            className="flex items-center justify-center p-3 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 active:scale-95 transition"
             aria-label="Login with Google"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -177,7 +177,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
           <button
             type="button"
             onClick={onSuccess}
-            className="flex items-center justify-center p-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 active:scale-95 transition"
+            className="flex items-center justify-center p-3 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 active:scale-95 transition"
             aria-label="Login with Apple"
           >
             <svg className="w-5 h-5 fill-slate-900" viewBox="0 0 24 24">
@@ -189,7 +189,7 @@ export default function AuthScreen({ onBack, onSuccess }) {
           <button
             type="button"
             onClick={onSuccess}
-            className="flex items-center justify-center p-3 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 active:scale-95 transition"
+            className="flex items-center justify-center p-3 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 active:scale-95 transition"
             aria-label="Login with Facebook"
           >
             <svg className="w-5 h-5 fill-[#1877F2]" viewBox="0 0 24 24">

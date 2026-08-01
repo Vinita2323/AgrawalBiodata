@@ -26,7 +26,7 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
                 <span className="material-symbols-outlined text-sm sm:text-base">expand_more</span>
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1">
+                <div className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
                   {['English', 'Hindi', 'Marathi', 'Gujarati'].map((l) => (
                     <button
                       key={l}
@@ -98,8 +98,8 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
             { icon: 'auto_awesome', title: 'Gotra & Horoscope Match', desc: 'Filter matches seamlessly by 18 Agrawal Gotras and horoscope details.' },
             { icon: 'lock', title: 'Strict Privacy Controls', desc: 'Your photos and contact numbers are protected with strict multi-layer permissions.' },
           ].map((f, idx) => (
-            <div key={idx} className="bg-white p-6 rounded-2xl border border-amber-200/60 shadow-sm hover:shadow-md transition">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 text-[#570013] flex items-center justify-center mb-4">
+            <div key={idx} className="bg-white p-6 rounded-md border border-amber-200/60 shadow-sm hover:shadow-md transition">
+              <div className="w-12 h-12 rounded-md bg-amber-100 text-[#570013] flex items-center justify-center mb-4">
                 <span className="material-symbols-outlined text-2xl">{f.icon}</span>
               </div>
               <h3 className="font-display text-lg font-bold text-[#570013] mb-2">{f.title}</h3>

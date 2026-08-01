@@ -30,7 +30,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
         </div>
 
         {/* Group 1 Settings Card */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden mb-4">
           {mainSettings.map((item, idx) => (
             <button
               key={item.id}
@@ -48,7 +48,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
         </div>
 
         {/* Group 2 Settings Card */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden mb-6">
           {secondarySettings.map((item, idx) => (
             <button
               key={item.id}
@@ -66,7 +66,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
         </div>
 
         {/* Group 3 Logout Card */}
-        <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-md border border-red-100 shadow-sm overflow-hidden">
           <button
             onClick={onLogout}
             className="w-full px-4 py-3.5 flex items-center gap-3.5 hover:bg-red-50/50 transition text-left active:scale-[0.99] text-red-600"

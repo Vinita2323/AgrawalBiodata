@@ -61,7 +61,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
       {/* Form Area */}
       <main className="flex-1 w-full max-w-sm mx-auto px-4 pb-4">
         
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgba(87,0,19,0.04)] border border-[#e6dfd1]/60 p-4 relative overflow-hidden">
+        <div className="bg-white rounded-lg shadow-[0_8px_30px_rgba(87,0,19,0.04)] border border-[#e6dfd1]/60 p-4 relative overflow-hidden">
           {/* Subtle card background glow */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-50 to-transparent rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
           
@@ -76,7 +76,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
                 <select
                   value={formData.createdFor}
                   onChange={(e) => handleChange('createdFor', e.target.value)}
-                  className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-2xl px-3 py-2.5 text-[12px] font-semibold text-slate-800 appearance-none focus:border-[#570013] focus:bg-white focus:ring-1 focus:ring-[#570013] focus:outline-none shadow-sm pr-10 transition-all"
+                  className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2.5 text-[12px] font-semibold text-slate-800 appearance-none focus:border-[#570013] focus:bg-white focus:ring-1 focus:ring-[#570013] focus:outline-none shadow-sm pr-10 transition-all"
                 >
                   {['Myself', 'Son', 'Daughter', 'Brother', 'Sister', 'Relative', 'Friend'].map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
@@ -93,7 +93,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
               <label className="block text-[10px] font-bold text-[#570013] uppercase tracking-wider mb-1">
                 Full Name
               </label>
-              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-2xl px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
+              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
                 <span className="material-symbols-outlined text-[#775a19] text-[18px]">person</span>
                 <input
                   type="text"
@@ -112,13 +112,13 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
                 <label className="block text-[10px] font-bold text-[#570013] uppercase tracking-wider mb-1">
                   Gender
                 </label>
-                <div className="flex bg-[#fbf9f5] border border-[#e6dfd1] rounded-2xl overflow-hidden shadow-sm p-0.5 h-[40px]">
+                <div className="flex bg-[#fbf9f5] border border-[#e6dfd1] rounded-md overflow-hidden shadow-sm p-0.5 h-[40px]">
                   {['Male', 'Female'].map((g) => (
                     <button
                       key={g}
                       type="button"
                       onClick={() => handleChange('gender', g)}
-                      className={`flex-1 text-[11px] font-bold transition rounded-[14px] flex items-center justify-center gap-1 min-w-0 px-1 ${
+                      className={`flex-1 text-[11px] font-bold transition rounded-sm flex items-center justify-center gap-1 min-w-0 px-1 ${
                         formData.gender === g
                           ? 'bg-[#570013] text-[#ffdea5] shadow-md'
                           : 'text-slate-500 hover:bg-white'
@@ -137,7 +137,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
                 <label className="block text-[10px] font-bold text-[#570013] uppercase tracking-wider mb-1">
                   Date of Birth
                 </label>
-                <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-2xl px-2 flex items-center gap-1 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all h-[40px]">
+                <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2 flex items-center gap-1 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all h-[40px]">
                   <span className="material-symbols-outlined text-[#775a19] text-[15px] shrink-0 pl-0.5">calendar_month</span>
                   <input
                     type="date"
@@ -155,7 +155,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
               <label className="block text-[10px] font-bold text-[#570013] uppercase tracking-wider mb-1">
                 Mobile Number
               </label>
-              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-2xl px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
+              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
                 <div className="flex items-center gap-1 pr-2 border-r border-[#e6dfd1] text-[12px] font-extrabold text-[#570013]">
                   <span>🇮🇳</span>
                   <span>+91</span>
@@ -177,7 +177,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
               <label className="block text-[10px] font-bold text-[#570013] uppercase tracking-wider mb-1">
                 Email <span className="font-medium text-slate-400 normal-case tracking-normal">(Optional)</span>
               </label>
-              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-2xl px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
+              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
                 <span className="material-symbols-outlined text-[#775a19] text-[18px]">mail</span>
                 <input
                   type="email"
@@ -211,7 +211,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
             <button
               type="submit"
               disabled={!formData.fullName || formData.mobile.length < 10 || !formData.dob || !formData.acceptTerms}
-              className="w-full py-3 mt-2 rounded-2xl bg-[#570013] hover:bg-[#72001a] disabled:bg-[#e6dfd1] disabled:text-slate-400 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+              className="w-full py-3 mt-2 rounded-md bg-[#570013] hover:bg-[#72001a] disabled:bg-[#e6dfd1] disabled:text-slate-400 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
               <span>Proceed to Verify</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>

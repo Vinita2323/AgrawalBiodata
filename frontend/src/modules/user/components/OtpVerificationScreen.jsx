@@ -144,7 +144,7 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
                   value={digit}
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(idx, e)}
-                  className={`w-11 h-12 text-center text-lg font-bold rounded-2xl border transition shadow-sm focus:outline-none ${
+                  className={`w-11 h-12 text-center text-lg font-bold rounded-md border transition shadow-sm focus:outline-none ${
                     errorMsg
                       ? 'border-red-500 bg-red-50/50 text-red-600'
                       : digit
@@ -183,7 +183,7 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
             <button
               onClick={handleVerify}
               disabled={isSubmitting || otp.some((d) => !d)}
-              className="w-full py-3.5 px-6 rounded-2xl bg-[#570013] hover:bg-[#72001a] disabled:bg-gray-300 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all"
+              className="w-full py-3.5 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] disabled:bg-gray-300 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all"
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

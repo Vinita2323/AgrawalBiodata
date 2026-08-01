@@ -18,6 +18,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [interested, setInterested] = useState({})
 
   const [notificationsTab, setNotificationsTab] = useState('All')
+  const [userProfile, setUserProfile] = useState(null)
+
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('userProfile')
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile))
+    }
+  }, [])
 
   useEffect(() => {
     const path = location.pathname
@@ -45,6 +53,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       navigate('/notifications')
     } else if (tabId === 'Membership') {
       navigate('/membership')
+    } else if (tabId === 'MyProfile') {
+      setActiveTab('MyProfile')
     }
   }
 
@@ -474,13 +484,18 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         /* PROFILE PAGE VIEW */
         <div className="pb-6">
           {/* Top Maroon Profile Banner */}
-          <div className="bg-gradient-to-b from-[#570013] to-[#7a0d1c] text-white pt-6 pb-14 px-5 rounded-b-3xl relative">
+          <div className="bg-gradient-to-b from-[#570013] to-[#7a0d1c] text-white pt-4 pb-12 px-5 rounded-b-3xl relative">
+            {/* Header: Logo */}
+            <div className="flex justify-end mb-1">
+              <span className="material-symbols-outlined text-amber-300 text-2xl opacity-80">family_star</span>
+            </div>
+
             <div className="flex items-center gap-4">
               {/* Profile Picture */}
               <div className="relative w-20 h-20 rounded-full border-4 border-amber-300/80 shadow-lg overflow-hidden flex-shrink-0">
                 <img
-                  src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=300"
-                  alt="Rahul Sharma"
+                  src={userProfile?.profilePicture || "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=300"}
+                  alt={userProfile?.fullName || "Rahul Sharma"}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -488,7 +503,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               {/* User Details & Edit Profile Button */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <h1 className="text-xl font-bold truncate">Rahul Sharma</h1>
+                  <h1 className="text-xl font-bold truncate">{userProfile?.fullName || 'Rahul Sharma'}</h1>
                   <span className="w-4.5 h-4.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs" title="Verified Member">
                     ✓
                   </span>
@@ -503,7 +518,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   )}
                 </p>
 
-                <button className="px-4 py-1.5 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shadow-2xs active:scale-95 transition">
+                <button 
+                  onClick={() => navigate('/profile-completion-dashboard')}
+                  className="px-4 py-1.5 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shadow-2xs active:scale-95 transition"
+                >
                   Edit Profile
                 </button>
               </div>
@@ -511,7 +529,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
 
           {/* Profile Completion Overlapping Card */}
-          <div className="bg-white rounded-3xl p-4 shadow-xl border border-amber-100/90 -mt-8 mx-5 relative z-20 mb-6 flex items-center justify-between gap-3">
+          <div className="bg-white rounded-lg p-4 shadow-xl border border-amber-100/90 -mt-8 mx-5 relative z-20 mb-6 flex items-center justify-between gap-3">
             <div className="flex-1">
               <h2 className="text-xs font-bold text-slate-800 mb-1">Profile Completion</h2>
               <p className="text-xs text-slate-500 max-w-[190px] leading-snug mb-3">
@@ -568,8 +586,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     if (item.id === 'interests') handleTabNavigate('Interests')
                     else if (item.id === 'premium') navigate('/membership')
                     else if (item.id === 'settings') navigate('/settings')
+                    else if (item.id === 'my-profile') handleTabNavigate('MyProfile')
                   }}
-                  className="flex flex-col items-center justify-center p-2.5 py-3.5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/30 active:scale-95 transition min-h-[85px]"
+                  className="flex flex-col items-center justify-center p-2.5 py-3.5 bg-white rounded-md border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/30 active:scale-95 transition min-h-[85px]"
                 >
                   <div className="relative mb-2 flex items-center justify-center">
                     <span
@@ -591,6 +610,18 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 </button>
               ))}
             </div>
+
+            {/* Logout Button */}
+            <button
+              onClick={() => {
+                localStorage.removeItem('userProfile');
+                navigate('/welcome');
+              }}
+              className="mt-5 w-full bg-white border border-red-100 text-red-600 font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-red-50 active:scale-95 transition"
+            >
+              <span className="material-symbols-outlined text-[20px]">logout</span>
+              Logout
+            </button>
           </div>
         </div>
       ) : activeTab === 'Messages' ? (
@@ -654,7 +685,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-xs leading-normal shadow-2xs flex flex-wrap items-end gap-2 ${
+                    className={`max-w-[80%] px-3.5 py-2 rounded-md text-xs leading-normal shadow-2xs flex flex-wrap items-end gap-2 ${
                       msg.sender === 'me'
                         ? 'bg-[#ffe6c9] text-slate-900 rounded-tr-none'
                         : 'bg-white border border-amber-100/70 text-slate-800 rounded-tl-none'
@@ -745,7 +776,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
             {/* Chats List */}
             {chatsTab === 'Chats' ? (
-              <div className="divide-y divide-gray-100 bg-white rounded-3xl border border-gray-100 shadow-2xs overflow-hidden">
+              <div className="divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 shadow-2xs overflow-hidden">
                 {chatsList.map((chat) => (
                   <div
                     key={chat.id}
@@ -802,7 +833,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-3xl border border-gray-100">
+              <div className="text-center py-12 bg-white rounded-lg border border-gray-100">
                 <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">call</span>
                 <p className="text-sm font-semibold text-slate-700">No recent calls</p>
                 <p className="text-xs text-slate-400">Audio and video calls will show up here</p>
@@ -860,7 +891,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               filteredInterests.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white rounded-3xl p-4 border border-gray-100/90 shadow-sm flex flex-col gap-3 hover:shadow-md transition"
+                  className="bg-white rounded-lg p-4 border border-gray-100/90 shadow-sm flex flex-col gap-3 hover:shadow-md transition"
                 >
                   <div className="flex items-center gap-3.5">
                     {/* User Avatar with Online Badge */}
@@ -892,13 +923,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     <div className="flex items-center gap-3 pt-1">
                       <button
                         onClick={(e) => handleUpdateInterestStatus(item.id, 'Accepted', e)}
-                        className="flex-1 py-2.5 rounded-2xl bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow transition active:scale-95 text-center"
+                        className="flex-1 py-2.5 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow transition active:scale-95 text-center"
                       >
                         Accept
                       </button>
                       <button
                         onClick={(e) => handleUpdateInterestStatus(item.id, 'Declined', e)}
-                        className="flex-1 py-2.5 rounded-2xl bg-white border border-[#570013] text-[#570013] font-bold text-xs hover:bg-red-50 transition active:scale-95 text-center"
+                        className="flex-1 py-2.5 rounded-md bg-white border border-[#570013] text-[#570013] font-bold text-xs hover:bg-red-50 transition active:scale-95 text-center"
                       >
                         Decline
                       </button>
@@ -906,21 +937,21 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   )}
 
                   {interestsTab === 'Accepted' && (
-                    <div className="flex items-center gap-2 pt-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-xl">
+                    <div className="flex items-center gap-2 pt-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-md">
                       <span className="material-symbols-outlined text-sm">check_circle</span>
                       <span>Interest Accepted • Contact Details Unlocked</span>
                     </div>
                   )}
 
                   {interestsTab === 'Declined' && (
-                    <div className="flex items-center gap-2 pt-1 text-xs font-semibold text-slate-400 bg-gray-50 px-3 py-2 rounded-xl">
+                    <div className="flex items-center gap-2 pt-1 text-xs font-semibold text-slate-400 bg-gray-50 px-3 py-2 rounded-md">
                       <span>Interest Declined</span>
                     </div>
                   )}
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 bg-white rounded-3xl border border-gray-100">
+              <div className="text-center py-12 bg-white rounded-lg border border-gray-100">
                 <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">person_search</span>
                 <p className="text-sm font-semibold text-slate-700">No {interestsTab.toLowerCase()} interests</p>
                 <p className="text-xs text-slate-400">Interests will appear here as members connect with you</p>
@@ -945,7 +976,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           {/* Search Bar Input Row */}
           <div className="flex items-center gap-2 mb-4">
-            <div className="flex-1 h-11 bg-white border border-gray-200/90 rounded-2xl px-3 flex items-center gap-2 shadow-sm focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] transition">
+            <div className="flex-1 h-11 bg-white border border-gray-200/90 rounded-md px-3 flex items-center gap-2 shadow-sm focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] transition">
               <span className="material-symbols-outlined text-gray-400 text-lg flex-shrink-0">search</span>
               <input
                 type="text"
@@ -964,7 +995,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             {/* Filter Funnel Icon Button */}
             <button
               onClick={() => setActiveFilter(activeFilter ? null : 'all')}
-              className={`w-11 h-11 rounded-2xl border transition shadow-sm flex items-center justify-center flex-shrink-0 ${
+              className={`w-11 h-11 rounded-md border transition shadow-sm flex items-center justify-center flex-shrink-0 ${
                 activeFilter
                   ? 'bg-[#570013] text-white border-[#570013]'
                   : 'bg-white border-gray-200 text-slate-700 hover:bg-gray-50'
@@ -986,12 +1017,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   <div
                     key={match.id}
                     onClick={() => onSelectProfile && onSelectProfile(match)}
-                    className="bg-white rounded-2xl p-2.5 border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md transition cursor-pointer"
+                    className="bg-white rounded-md p-2.5 border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md transition cursor-pointer"
                   >
                     <img
                       src={match.image}
                       alt={match.name}
-                      className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                      className="w-12 h-12 rounded-md object-cover flex-shrink-0"
                     />
                     <div className="flex-grow min-w-0">
                       <h3 className="font-bold text-xs text-slate-900 truncate">
@@ -1006,7 +1037,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 bg-white rounded-2xl border border-gray-100">
+                <div className="text-center py-8 bg-white rounded-md border border-gray-100">
                   <span className="material-symbols-outlined text-3xl text-gray-300 mb-1 block">search_off</span>
                   <p className="text-xs font-semibold text-slate-700">No profiles found</p>
                   <p className="text-[11px] text-slate-400">Try searching for another keyword or location</p>
@@ -1021,7 +1052,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   <button
                     key={filter.id}
                     onClick={() => setSearchQuery(filter.label)}
-                    className="flex flex-col items-center justify-center py-2.5 px-1 bg-white border border-gray-100/90 rounded-2xl shadow-2xs hover:border-amber-300 hover:bg-amber-50/40 active:scale-95 transition"
+                    className="flex flex-col items-center justify-center py-2.5 px-1 bg-white border border-gray-100/90 rounded-md shadow-2xs hover:border-amber-300 hover:bg-amber-50/40 active:scale-95 transition"
                   >
                     <div className="w-8 h-8 rounded-full bg-amber-50/80 text-[#570013] flex items-center justify-center mb-1">
                       <span className="material-symbols-outlined text-base">{filter.icon}</span>
@@ -1058,7 +1089,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                       <div
                         key={item.id}
                         onClick={() => setSearchQuery(item.title.split(',')[0])}
-                        className="bg-white border border-gray-100/90 rounded-xl p-2 flex items-center justify-between shadow-2xs hover:bg-gray-50/70 transition cursor-pointer"
+                        className="bg-white border border-gray-100/90 rounded-md p-2 flex items-center justify-between shadow-2xs hover:bg-gray-50/70 transition cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
@@ -1135,10 +1166,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <div
                 key={match.id}
                 onClick={() => onSelectProfile && onSelectProfile(match)}
-                className="bg-white rounded-3xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer"
+                className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer"
               >
                 {/* Candidate Image Card */}
-                <div className="w-full h-64 rounded-2xl overflow-hidden relative bg-gray-100 mb-4">
+                <div className="w-full h-64 rounded-md overflow-hidden relative bg-gray-100 mb-4">
                   <img
                     src={match.image}
                     alt={match.name}
@@ -1201,7 +1232,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 {/* Compatibility & Interested Action Row */}
                 <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
                   {/* Compatibility Badge */}
-                  <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-2xl text-center">
+                  <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-md text-center">
                     <span className="block text-sm font-extrabold text-emerald-700 leading-tight">
                       {match.compatibility}%
                     </span>
@@ -1213,7 +1244,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   {/* Interested Button */}
                   <button
                     onClick={(e) => toggleInterest(match.id, e)}
-                    className={`flex-1 py-3 px-5 rounded-2xl font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all ${
+                    className={`flex-1 py-3 px-5 rounded-md font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all ${
                       interested[match.id]
                         ? 'bg-emerald-600 text-white'
                         : 'bg-[#570013] hover:bg-[#72001a] text-white'
@@ -1227,6 +1258,77 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             ))}
           </div>
         </div>
+      ) : activeTab === 'MyProfile' ? (
+        /* MY PROFILE VIEW */
+        <div className="pb-6">
+          <div className="bg-[#f2ebd9] px-4 pt-5 pb-4 border-b border-[#e6dfd1]/80 flex items-center gap-3">
+            <button
+              onClick={() => handleTabNavigate('Profile')}
+              className="p-1 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013]"
+            >
+              <span className="material-symbols-outlined text-2xl block">arrow_back</span>
+            </button>
+            <h1 className="text-lg font-extrabold text-[#570013]">My Details</h1>
+          </div>
+          <div className="p-4 space-y-4">
+            {userProfile ? (
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3 relative">
+                  <button onClick={() => navigate('/profile-completion-dashboard')} className="absolute top-4 right-4 p-1.5 bg-amber-50 text-[#775a19] rounded-full hover:bg-amber-100 active:scale-95 transition border border-amber-200/60 shadow-sm" title="Edit Profile">
+                    <span className="material-symbols-outlined text-[16px] block">edit</span>
+                  </button>
+                  <h2 className="font-bold text-[#570013] border-b pb-2 pr-8">Personal Information</h2>
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                    <div className="text-gray-500 text-[11px] leading-tight">Full Name</div><div className="font-semibold text-gray-800 text-xs">{userProfile.fullName || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Gender</div><div className="font-semibold text-gray-800 text-xs">{userProfile.gender || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Gotra</div><div className="font-semibold text-gray-800 text-xs">{userProfile.gotra || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Date of Birth</div><div className="font-semibold text-gray-800 text-xs">{userProfile.dob || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Height</div><div className="font-semibold text-gray-800 text-xs">{userProfile.height || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Complexion</div><div className="font-semibold text-gray-800 text-xs">{userProfile.complexion || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Manglik</div><div className="font-semibold text-gray-800 text-xs">{userProfile.manglik || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Qualification</div><div className="font-semibold text-gray-800 text-xs">{userProfile.qualification || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Income</div><div className="font-semibold text-gray-800 text-xs">{userProfile.income || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Working At</div><div className="font-semibold text-gray-800 text-xs">{userProfile.workingAt || '-'}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3">
+                  <h2 className="font-bold text-[#570013] border-b pb-2">Family Details</h2>
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                    <div className="text-gray-500 text-[11px] leading-tight">Grandfather</div><div className="font-semibold text-gray-800 text-xs">{userProfile.grandfather || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Grandmother</div><div className="font-semibold text-gray-800 text-xs">{userProfile.grandmother || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Father</div><div className="font-semibold text-gray-800 text-xs">{userProfile.father || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Mother</div><div className="font-semibold text-gray-800 text-xs">{userProfile.mother || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Brothers</div><div className="font-semibold text-gray-800 text-xs">{userProfile.brothers || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Sisters</div><div className="font-semibold text-gray-800 text-xs">{userProfile.sisters || '-'}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3">
+                  <h2 className="font-bold text-[#570013] border-b pb-2">Maternal & Contact</h2>
+                  <div className="grid grid-cols-1 gap-y-2 text-sm">
+                    <div>
+                      <div className="text-gray-500 text-[11px] mb-0.5">Mama Ji</div>
+                      <div className="font-semibold text-gray-800 text-xs">{userProfile.mamaji || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-[11px] mb-0.5">Residential Address</div>
+                      <div className="font-semibold text-gray-800 text-xs leading-snug bg-gray-50 p-2 rounded-md border border-gray-100">{userProfile.residentialAddress || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-[11px] mb-0.5">Mobile Number</div>
+                      <div className="font-semibold text-gray-800 text-xs">{userProfile.mobileNumber || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-10">
+                No profile details found. Please complete your profile.
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         /* HOME PAGE VIEW */
         <div className="px-5 pt-4">
@@ -1236,15 +1338,15 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             <div className="flex items-center gap-3">
               <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] to-amber-300 shadow-sm">
                 <img
-                  src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200"
-                  alt="Rahul Sharma Profile"
+                  src={userProfile?.profilePicture || "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200"}
+                  alt={userProfile?.fullName ? `${userProfile.fullName} Profile` : "Rahul Sharma Profile"}
                   className="w-full h-full rounded-full object-cover border-2 border-white"
                 />
               </div>
               <div>
                 <p className="text-[10px] text-[#775a19] font-bold uppercase tracking-wider mb-0.5">Welcome back,</p>
                 <h1 className="text-lg font-extrabold text-[#570013] leading-tight truncate max-w-[150px]">
-                  Rahul Sharma
+                  {userProfile?.fullName || 'Rahul Sharma'}
                 </h1>
               </div>
             </div>
@@ -1260,7 +1362,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
 
           {/* Compact Profile Completion Banner */}
-          <div className="bg-gradient-to-r from-[#6e0b18] via-[#7d0d1c] to-[#50040f] rounded-2xl p-3.5 text-white shadow-lg relative overflow-hidden mb-4">
+          <div className="bg-gradient-to-r from-[#6e0b18] via-[#7d0d1c] to-[#50040f] rounded-md p-3.5 text-white shadow-lg relative overflow-hidden mb-4">
             <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
 
             <div className="flex items-center justify-between gap-3 relative z-10">
@@ -1325,9 +1427,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 <div
                   key={match.id}
                   onClick={() => onSelectProfile && onSelectProfile(match)}
-                  className="w-36 flex-shrink-0 bg-white rounded-2xl border border-gray-100 p-2 shadow-sm hover:shadow-md transition cursor-pointer relative group"
+                  className="w-36 flex-shrink-0 bg-white rounded-md border border-gray-100 p-2 shadow-sm hover:shadow-md transition cursor-pointer relative group"
                 >
-                  <div className="w-full h-36 rounded-xl overflow-hidden relative bg-gray-100 mb-2">
+                  <div className="w-full h-36 rounded-md overflow-hidden relative bg-gray-100 mb-2">
                     <img
                       src={match.image}
                       alt={match.name}
@@ -1384,9 +1486,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     else if (action.id === 'interests') handleTabNavigate('Interests')
                     else if (action.id === 'messages') handleTabNavigate('Messages')
                   }}
-                  className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/40 transition active:scale-95"
+                  className="flex flex-col items-center justify-center p-3 bg-white rounded-md border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/40 transition active:scale-95"
                 >
-                  <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-b from-amber-50 to-amber-100/60 text-[#6e0b18] flex items-center justify-center mb-1.5">
+                  <div className="relative w-11 h-11 rounded-md bg-gradient-to-b from-amber-50 to-amber-100/60 text-[#6e0b18] flex items-center justify-center mb-1.5">
                     <span className="material-symbols-outlined text-xl">{action.icon}</span>
                     {action.badge && (
                       <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">

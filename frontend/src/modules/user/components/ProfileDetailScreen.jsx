@@ -77,7 +77,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
         </div>
 
         {/* Kundali & Horoscope Card */}
-        <div className="bg-white rounded-2xl border border-amber-200/80 p-4 shadow-sm">
+        <div className="bg-white rounded-md border border-amber-200/80 p-4 shadow-sm">
           <h2 className="font-display text-[15px] font-bold text-[#570013] mb-3 flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
             <span className="material-symbols-outlined text-[#775a19] text-[18px]">auto_awesome</span>
             <span>Horoscope & Kundali</span>
@@ -103,7 +103,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
         </div>
 
         {/* Ancestral & Family Background */}
-        <div className="bg-white rounded-2xl border border-amber-200/80 p-4 shadow-sm">
+        <div className="bg-white rounded-md border border-amber-200/80 p-4 shadow-sm">
           <h2 className="font-display text-[15px] font-bold text-[#570013] mb-3 flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
             <span className="material-symbols-outlined text-[#775a19] text-[18px]">family_history</span>
             <span>Family Background</span>
@@ -129,7 +129,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
         </div>
 
         {/* Education & Profession */}
-        <div className="bg-white rounded-2xl border border-amber-200/80 p-4 shadow-sm">
+        <div className="bg-white rounded-md border border-amber-200/80 p-4 shadow-sm">
           <h2 className="font-display text-[15px] font-bold text-[#570013] mb-3 flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
             <span className="material-symbols-outlined text-[#775a19] text-[18px]">work</span>
             <span>Education & Profession</span>
@@ -158,13 +158,13 @@ export default function ProfileDetailScreen({ profile, onBack }) {
         <div className="max-w-xl mx-auto flex items-center gap-2.5">
           <button
             onClick={() => alert(`Shortlisted ${p.name}`)}
-            className="px-3.5 py-2.5 rounded-xl border border-amber-300 text-[#775a19] font-bold text-[11px] hover:bg-amber-50 transition flex items-center justify-center shadow-sm"
+            className="px-3.5 py-2.5 rounded-md border border-amber-300 text-[#775a19] font-bold text-[11px] hover:bg-amber-50 transition flex items-center justify-center shadow-sm"
           >
             <span className="material-symbols-outlined text-[18px]">bookmark</span>
           </button>
           <button
             onClick={() => alert(`Express Interest sent to ${p.name}'s family!`)}
-            className="flex-1 py-2.5 rounded-xl bg-[#570013] text-[#ffdea5] font-bold text-[12px] hover:bg-[#800020] transition shadow text-center flex items-center justify-center gap-1.5 active:scale-95"
+            className="flex-1 py-2.5 rounded-md bg-[#570013] text-[#ffdea5] font-bold text-[12px] hover:bg-[#800020] transition shadow text-center flex items-center justify-center gap-1.5 active:scale-95"
           >
             <span className="material-symbols-outlined text-[16px]">favorite</span>
             <span>Express Interest</span>

@@ -81,7 +81,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-xl mx-auto w-full my-auto bg-white p-6 md:p-10 rounded-3xl border border-amber-200/80 shadow-xl">
+      <main className="max-w-xl mx-auto w-full my-auto bg-white p-6 md:p-10 rounded-lg border border-amber-200/80 shadow-xl">
         {/* Step Indicator */}
         <div className="flex justify-center items-center gap-2 mb-8">
           {steps.map((_, idx) => (
@@ -116,7 +116,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                 <select
                   value={formData.profileFor}
                   onChange={(e) => setFormData({ ...formData, profileFor: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm focus:border-[#570013]"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm focus:border-[#570013]"
                 >
                   <option>Self</option>
                   <option>Son</option>
@@ -133,7 +133,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                   placeholder="e.g. Rahul Agrawal"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm focus:border-[#570013]"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm focus:border-[#570013]"
                 />
               </div>
             </>
@@ -146,7 +146,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                 <select
                   value={formData.gotra}
                   onChange={(e) => setFormData({ ...formData, gotra: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm"
                 >
                   {gotraOptions.map((g) => (
                     <option key={g}>{g}</option>
@@ -158,7 +158,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                 <select
                   value={formData.subGotra}
                   onChange={(e) => setFormData({ ...formData, subGotra: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm"
                 >
                   {gotraOptions.map((g) => (
                     <option key={g}>{g}</option>
@@ -175,7 +175,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                 <select
                   value={formData.manglik}
                   onChange={(e) => setFormData({ ...formData, manglik: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm"
                 >
                   <option>Non-Manglik</option>
                   <option>Anshik Manglik</option>
@@ -190,7 +190,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                   placeholder="e.g. Indore, MP"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm"
                 />
               </div>
             </>
@@ -205,7 +205,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                   placeholder="e.g. MBA, B.Tech, CA, MBBS"
                   value={formData.education}
                   onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm"
                 />
               </div>
               <div>
@@ -215,7 +215,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                   placeholder="e.g. Senior Product Manager / Business Owner"
                   value={formData.occupation}
                   onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-300 text-sm"
+                  className="w-full p-3 rounded-md border border-gray-300 text-sm"
                 />
               </div>
             </>
@@ -225,7 +225,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
         {/* Next / Finish Button */}
         <button
           onClick={handleNext}
-          className="w-full py-4 rounded-xl bg-[#570013] text-[#ffdea5] font-bold text-sm hover:bg-[#800020] active:scale-98 transition shadow-lg flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-md bg-[#570013] text-[#ffdea5] font-bold text-sm hover:bg-[#800020] active:scale-98 transition shadow-lg flex items-center justify-center gap-2"
         >
           <span>{currentStep === steps.length - 1 ? 'Complete Biodata Setup' : 'Continue'}</span>
           <span className="material-symbols-outlined text-base">arrow_forward</span>

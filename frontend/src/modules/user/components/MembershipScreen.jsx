@@ -108,7 +108,7 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className={`w-[260px] flex-shrink-0 snap-center rounded-3xl p-5 border shadow-xl flex flex-col justify-between ${plan.cardStyle} relative transition-transform hover:scale-[1.02]`}
+            className={`w-[260px] flex-shrink-0 snap-center rounded-lg p-5 border shadow-xl flex flex-col justify-between ${plan.cardStyle} relative transition-transform hover:scale-[1.02]`}
           >
             {plan.headerBadge && (
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#570013] text-amber-300 text-[10px] font-extrabold uppercase tracking-wider px-3 py-0.5 rounded-full border border-amber-400 shadow-sm">
@@ -139,7 +139,7 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
 
             <button
               onClick={() => onSelectPlan && onSelectPlan(plan)}
-              className="w-full py-3 rounded-xl bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow-md active:scale-95 transition"
+              className="w-full py-3 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow-md active:scale-95 transition"
             >
               Choose Plan
             </button>

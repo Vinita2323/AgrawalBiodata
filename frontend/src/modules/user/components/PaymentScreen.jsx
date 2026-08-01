@@ -52,7 +52,7 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
       <main className="flex-1 px-4 max-w-xl mx-auto w-full pb-24 relative">
         {/* Loading Overlay */}
         {isProcessing && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-2xl">
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-30 flex flex-col items-center justify-center rounded-md">
             <div className="w-12 h-12 border-4 border-amber-100 border-t-amber-500 rounded-full animate-spin mb-3"></div>
             <p className="text-[#570013] font-bold">Processing Payment...</p>
             <p className="text-xs text-slate-500">Please do not close this window</p>
@@ -60,7 +60,7 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
         )}
 
         {/* Order Summary */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-amber-200/60 mb-6 relative z-10">
+        <div className="bg-white rounded-md p-4 shadow-sm border border-amber-200/60 mb-6 relative z-10">
           <h2 className="font-display font-bold text-[#570013] mb-3 border-b border-amber-100 pb-2">Order Summary</h2>
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-semibold text-slate-800">Premium Gold (Yearly)</span>
@@ -80,7 +80,7 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
         <h2 className="font-display font-bold text-[#570013] mb-3 px-1 relative z-10">Select Payment Method</h2>
         <div className="space-y-3 relative z-10">
           {/* UPI Option */}
-          <label className={`flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${selectedMethod === 'upi' ? 'bg-amber-50/50 border-amber-400 shadow-md' : 'bg-white border-amber-200/50 shadow-sm'}`}>
+          <label className={`flex items-center gap-3 p-4 rounded-md border transition-all cursor-pointer ${selectedMethod === 'upi' ? 'bg-amber-50/50 border-amber-400 shadow-md' : 'bg-white border-amber-200/50 shadow-sm'}`}>
             <input 
               type="radio" 
               name="payment_method" 
@@ -98,7 +98,7 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
           </label>
 
           {/* Cards Option */}
-          <label className={`flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${selectedMethod === 'cards' ? 'bg-amber-50/50 border-amber-400 shadow-md' : 'bg-white border-amber-200/50 shadow-sm'}`}>
+          <label className={`flex items-center gap-3 p-4 rounded-md border transition-all cursor-pointer ${selectedMethod === 'cards' ? 'bg-amber-50/50 border-amber-400 shadow-md' : 'bg-white border-amber-200/50 shadow-sm'}`}>
             <input 
               type="radio" 
               name="payment_method" 
@@ -123,7 +123,7 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
           <button
             disabled={isProcessing}
             onClick={handlePayment}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm transition shadow-lg text-center flex items-center justify-center gap-2 ${
+            className={`w-full py-3.5 rounded-md font-bold text-sm transition shadow-lg text-center flex items-center justify-center gap-2 ${
               isProcessing 
                 ? 'bg-gray-400 text-white cursor-not-allowed' 
                 : 'bg-[#570013] text-[#ffdea5] hover:bg-[#800020]'

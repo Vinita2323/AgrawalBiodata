@@ -54,7 +54,7 @@ export default function LoginScreen({ onBack, onSendOtp }) {
             <label className="block text-xs font-bold text-slate-700 mb-2">
               Mobile Number
             </label>
-            <div className="w-full border border-gray-300 rounded-2xl p-3.5 flex items-center gap-3 bg-white focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition">
+            <div className="w-full border border-gray-300 rounded-md p-3.5 flex items-center gap-3 bg-white focus-within:border-[#570013] focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition">
               <div className="flex items-center gap-1.5 pr-2 border-r border-gray-200 text-sm font-semibold text-slate-700">
                 <span className="text-base">🇮🇳</span>
                 <span>+91</span>
@@ -74,7 +74,7 @@ export default function LoginScreen({ onBack, onSendOtp }) {
           <button
             type="submit"
             disabled={mobile.length < 10}
-            className="w-full py-3.5 px-6 rounded-2xl bg-[#570013] hover:bg-[#72001a] disabled:bg-gray-300 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all mb-6"
+            className="w-full py-3.5 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] disabled:bg-gray-300 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all mb-6"
           >
             <span>Send OTP</span>
             <span className="material-symbols-outlined text-base">arrow_forward</span>

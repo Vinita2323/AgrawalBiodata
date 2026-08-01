@@ -35,7 +35,7 @@ export default function AccountCreatedScreen({ onStartSetup }) {
         </p>
 
         {/* Feature Highlights */}
-        <div className="w-full bg-white rounded-3xl p-4 border border-amber-200/70 shadow-sm space-y-3 mb-8 text-left">
+        <div className="w-full bg-white rounded-lg p-4 border border-amber-200/70 shadow-sm space-y-3 mb-8 text-left">
           <div className="flex items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
               ✓
@@ -57,7 +57,7 @@ export default function AccountCreatedScreen({ onStartSetup }) {
         {/* Primary Action Button */}
         <button
           onClick={onStartSetup || (() => navigate('/profile-completion-dashboard'))}
-          className="w-full py-4 px-6 rounded-2xl bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+          className="w-full py-4 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <span>Start Profile Setup</span>
           <span className="material-symbols-outlined text-base">arrow_forward</span>
