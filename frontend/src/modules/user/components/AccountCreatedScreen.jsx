@@ -1,8 +1,9 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 export default function AccountCreatedScreen({ onStartSetup }) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   return (
     <div className="bg-[#fbf9f5] min-h-screen text-slate-800 font-body flex flex-col justify-between p-5 relative select-none">
@@ -11,14 +12,15 @@ export default function AccountCreatedScreen({ onStartSetup }) {
 
       {/* Main Success Container */}
       <main className="w-full max-w-sm mx-auto my-auto flex flex-col items-center text-center py-6">
-        {/* Animated Celebration Icon */}
+        {/* Animated Logo Circle Container */}
         <div className="relative mb-6">
-          <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-amber-100 to-amber-200/80 text-[#570013] flex items-center justify-center shadow-xl border-4 border-white animate-scale-fade">
-            <span className="material-symbols-outlined text-6xl text-[#570013]">workspace_premium</span>
+          <div className="w-28 h-28 rounded-full bg-white text-[#570013] flex items-center justify-center shadow-xl border-4 border-amber-200/80 animate-scale-fade overflow-hidden p-2">
+            <img
+              src="/Logo (2).png"
+              alt="Agarwal Biodata Logo"
+              className="w-full h-full object-contain scale-95"
+            />
           </div>
-          <span className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-lg border-2 border-white shadow-md">
-            ✓
-          </span>
         </div>
 
         {/* Success Message */}
@@ -56,7 +58,7 @@ export default function AccountCreatedScreen({ onStartSetup }) {
 
         {/* Primary Action Button */}
         <button
-          onClick={onStartSetup || (() => navigate('/profile-completion-dashboard'))}
+          onClick={onStartSetup || (() => navigate('/profile-completion-dashboard', { state: location.state }))}
           className="w-full py-4 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <span>Start Profile Setup</span>

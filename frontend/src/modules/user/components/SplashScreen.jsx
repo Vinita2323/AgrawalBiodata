@@ -98,7 +98,7 @@ export default function SplashScreen({ onComplete }) {
             Vows of Elegance
           </h1>
           <p className="font-body text-xs md:text-sm text-[#ffdea5]/90 uppercase tracking-[0.25em] font-semibold mb-8">
-            Agrawal Biodata
+            Agarwal Biodata
           </p>
 
           <div className="flex flex-col items-center gap-4">

@@ -58,7 +58,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
               <h1 className="font-display text-[22px] font-bold text-[#570013] flex items-center justify-start gap-1.5 mb-0.5 leading-tight tracking-tight">
                 <span className="truncate">{p.name}</span>
                 {p.verified && (
-                  <span className="material-symbols-outlined text-emerald-600 text-[18px]" title="Verified Agrawal Family">
+                  <span className="material-symbols-outlined text-emerald-600 text-[18px]" title="Verified Agarwal Family">
                     verified
                   </span>
                 )}
@@ -111,7 +111,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
           <div className="grid sm:grid-cols-2 gap-3 text-[11px]">
             <div>
               <span className="font-bold text-gray-700 block mb-0.5">Father's Profession:</span>
-              <p className="text-gray-600 leading-snug">Owner, Agrawal Textiles</p>
+              <p className="text-gray-600 leading-snug">Owner, Agarwal Textiles</p>
             </div>
             <div>
               <span className="font-bold text-gray-700 block mb-0.5">Mother's Background:</span>

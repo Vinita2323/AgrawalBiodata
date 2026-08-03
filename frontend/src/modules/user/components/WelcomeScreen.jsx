@@ -61,7 +61,7 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
               <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
                 verified
               </span>
-              <span>100% Verified Agrawal Biodata Sanctum</span>
+              <span>100% Verified Agarwal Biodata Sanctum</span>
             </div>
 
             <h1 className="font-display text-4xl md:text-6xl font-extrabold text-[#570013] tracking-tight leading-tight mb-6">
@@ -69,7 +69,7 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
             </h1>
 
             <p className="text-base md:text-lg text-gray-700 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-              Discover verified profiles rooted in Agrawal heritage, traditional Gotra matching, astrological compatibility, and noble family values.
+              Discover verified profiles rooted in Agarwal heritage, traditional Gotra matching, astrological compatibility, and noble family values.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -95,7 +95,7 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
         <section className="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-6">
           {[
             { icon: 'verified_user', title: 'Manual Verification', desc: 'Every profile and family detail is manually verified by our team.' },
-            { icon: 'auto_awesome', title: 'Gotra & Horoscope Match', desc: 'Filter matches seamlessly by 18 Agrawal Gotras and horoscope details.' },
+            { icon: 'auto_awesome', title: 'Gotra & Horoscope Match', desc: 'Filter matches seamlessly by 18 Agarwal Gotras and horoscope details.' },
             { icon: 'lock', title: 'Strict Privacy Controls', desc: 'Your photos and contact numbers are protected with strict multi-layer permissions.' },
           ].map((f, idx) => (
             <div key={idx} className="bg-white p-6 rounded-md border border-amber-200/60 shadow-sm hover:shadow-md transition">
@@ -111,7 +111,7 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
 
       {/* Footer */}
       <footer className="bg-[#570013] text-[#ffdea5]/80 text-center py-6 border-t border-amber-900/30 text-xs">
-        <p>© 2026 Vows of Elegance — Agrawal Biodata Matrimonial Portal</p>
+        <p>© 2026 Vows of Elegance — Agarwal Biodata Matrimonial Portal</p>
       </footer>
     </div>
   )

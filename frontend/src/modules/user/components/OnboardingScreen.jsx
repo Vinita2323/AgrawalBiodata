@@ -17,12 +17,12 @@ export default function OnboardingScreen({ onFinish, onBack }) {
 
   const steps = [
     {
-      title: 'Verified Agrawal Heritage',
-      subtitle: 'Connecting esteemed Agrawal families worldwide with privacy & dignity.',
+      title: 'Verified Agarwal Heritage',
+      subtitle: 'Connecting esteemed Agarwal families worldwide with privacy & dignity.',
       icon: 'verified',
     },
     {
-      title: '18 Agrawal Gotra Filter',
+      title: '18 Agarwal Gotra Filter',
       subtitle: 'Find exact Gotra and maternal Gotra matches for traditional alignment.',
       icon: 'diversity_2',
     },
@@ -130,7 +130,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Rahul Agrawal"
+                  placeholder="e.g. Rahul Agarwal"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   className="w-full p-3 rounded-md border border-gray-300 text-sm focus:border-[#570013]"
@@ -233,7 +233,7 @@ export default function OnboardingScreen({ onFinish, onBack }) {
       </main>
 
       <footer className="text-center py-4 text-xs text-gray-500">
-        Step {currentStep + 1} of {steps.length} — Agrawal Biodata Onboarding
+        Step {currentStep + 1} of {steps.length} — Agarwal Biodata Onboarding
       </footer>
     </div>
   )

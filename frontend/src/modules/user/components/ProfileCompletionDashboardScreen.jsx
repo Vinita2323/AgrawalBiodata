@@ -1,9 +1,11 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 export default function ProfileCompletionDashboardScreen({ onContinue, onSkip }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [step, setStep] = useState(1)
+  const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     fullName: '',
     gender: '',
@@ -25,21 +27,79 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
     fatherOccupation: '',
     fatherOccupationDetails: '',
     mother: '',
-    brothers: '',
-    sisters: '',
-    tauji: '',
-    chacha: '',
-    buaji: '',
+    motherGotra: '',
+    brotherList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
+    sisterList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
+    taujiList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
+    chachaList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
+    buajiList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
     // Step 3 fields
     mamaji: '',
+    mamajiList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
     residentialAddress: '',
     mobileNumber: '',
     // Step 4 fields
     profilePicture: null
   })
 
+  // Auto-fill from registration data (Create Account Screen)
+  useEffect(() => {
+    const regData = location.state?.formData || JSON.parse(localStorage.getItem('registrationData') || '{}')
+    if (regData && Object.keys(regData).length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        fullName: regData.fullName || prev.fullName,
+        gender: regData.gender || prev.gender,
+        dob: regData.dob || prev.dob,
+        mobileNumber: regData.mobile || prev.mobileNumber,
+      }))
+    }
+  }, [location.state])
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
+  const handleSaveProgress = () => {
+    localStorage.setItem('userProfile', JSON.stringify(formData))
+    alert('Details saved successfully!')
+  }
+
+  const handleRelativeChange = (listName, index, field, value) => {
+    setFormData((prev) => {
+      const updatedList = [...(prev[listName] || [])]
+      updatedList[index] = { ...updatedList[index], [field]: value }
+      return { ...prev, [listName]: updatedList }
+    })
+  }
+
+  const addRelativeItem = (listName) => {
+    setFormData((prev) => ({
+      ...prev,
+      [listName]: [...(prev[listName] || []), { name: '', status: 'Unmarried', spouseName: '', homePlace: '' }]
+    }))
+  }
+
+  const saveRelativeItem = (listName) => {
+    localStorage.setItem('userProfile', JSON.stringify(formData))
+    alert('Relative details saved successfully!')
+  }
+
+  const removeRelativeItem = (listName, index) => {
+    setFormData((prev) => {
+      const currentList = prev[listName] || []
+      if (currentList.length <= 1) {
+        // Keep at least one empty item
+        return {
+          ...prev,
+          [listName]: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }]
+        }
+      }
+      return {
+        ...prev,
+        [listName]: currentList.filter((_, i) => i !== index)
+      }
+    })
   }
 
   return (
@@ -62,10 +122,34 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           </button>
           
-          <div className="px-3 py-1 rounded-full bg-[#570013]/5 border border-[#570013]/10">
-            <span className="text-[10px] font-bold text-[#570013] uppercase tracking-widest">
-              Step {step} of 4
-            </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditing) {
+                  localStorage.setItem('userProfile', JSON.stringify(formData))
+                  alert('Details saved successfully!')
+                  setIsEditing(false)
+                } else {
+                  setIsEditing(true)
+                }
+              }}
+              className={`px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 border ${
+                isEditing
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                  : 'bg-amber-100 hover:bg-amber-200 text-[#570013] border-[#775a19]/30'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[15px]">
+                {isEditing ? 'save' : 'edit'}
+              </span>
+              <span>{isEditing ? 'Save Details' : 'Edit'}</span>
+            </button>
+            <div className="px-3 py-1 rounded-full bg-[#570013]/5 border border-[#570013]/10">
+              <span className="text-[10px] font-bold text-[#570013] uppercase tracking-widest">
+                Step {step} of 4
+              </span>
+            </div>
           </div>
         </div>
         
@@ -335,10 +419,19 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Mother */}
                 <div>
-                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mother</label>
+                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mother's Name</label>
                   <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
                     <span className="material-symbols-outlined text-[#775a19] text-[18px]">woman</span>
                     <input type="text" name="mother" placeholder="Mother's Name" value={formData.mother} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+                  </div>
+                </div>
+
+                {/* Mother Gotra */}
+                <div>
+                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mother's Gotra</label>
+                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
+                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">family_history</span>
+                    <input type="text" name="motherGotra" placeholder="Mother's Gotra (Maternal Gotra)" value={formData.motherGotra} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
                   </div>
                 </div>
               </div>
@@ -347,53 +440,91 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                 Siblings & Relatives
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Brothers */}
-                <div>
-                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Brother(s)</label>
-                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">boy</span>
-                    <input type="text" name="brothers" placeholder="Number of brothers & details" value={formData.brothers} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
-                  </div>
-                </div>
+              <div className="space-y-4">
+                {/* Helper Section Render Function */}
+                {[
+                  { title: 'Brother(s)', listName: 'brotherList', icon: 'boy', spouseLabel: "Wife's Name", homeLabel: "Wife's Home Place / Sasural" },
+                  { title: 'Sister(s)', listName: 'sisterList', icon: 'girl', spouseLabel: "Husband's Name", homeLabel: "Husband's Home Place / In-laws Place" },
+                  { title: 'Tauji (Elder Uncle)', listName: 'taujiList', icon: 'escalator_warning', spouseLabel: "Taiji's Name", homeLabel: "Taiji's Home Place" },
+                  { title: 'Chacha (Uncle)', listName: 'chachaList', icon: 'family_restroom', spouseLabel: "Chachi's Name", homeLabel: "Chachi's Home Place" },
+                  { title: 'Bua Ji (Paternal Aunt)', listName: 'buajiList', icon: 'diversity_1', spouseLabel: "Phupha Ji's Name", homeLabel: "Phupha Ji's Home Place" },
+                ].map((sec) => (
+                  <div key={sec.listName} className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#e6dfd1]/60 pb-2">
+                      <label className="text-[11px] font-bold text-[#570013] uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[#775a19] text-[18px]">{sec.icon}</span> {sec.title}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => addRelativeItem(sec.listName)}
+                        className="text-[11px] font-bold text-[#570013] hover:text-[#775a19] bg-white border border-[#e6dfd1] hover:border-[#775a19] px-2.5 py-1 rounded flex items-center gap-1 transition-all shadow-xs active:scale-95"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">add</span> Add Another
+                      </button>
+                    </div>
 
-                {/* Sisters */}
-                <div>
-                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Sister(s)</label>
-                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">girl</span>
-                    <input type="text" name="sisters" placeholder="Number of sisters & details" value={formData.sisters} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
-                  </div>
-                </div>
-              </div>
+                    {(formData[sec.listName] || []).map((item, idx) => (
+                      <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-2.5 space-y-2 relative shadow-2xs">
+                        <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                          <input
+                            type="text"
+                            placeholder={`${sec.title.split(' ')[0]} ${idx + 1} Name / Details`}
+                            value={item.name}
+                            onChange={(e) => handleRelativeChange(sec.listName, idx, 'name', e.target.value)}
+                            className="flex-1 min-w-[120px] bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                          />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <select
+                              value={item.status}
+                              onChange={(e) => handleRelativeChange(sec.listName, idx, 'status', e.target.value)}
+                              className="text-[11px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded px-1.5 py-1.5 text-slate-700 focus:outline-none focus:border-[#570013]"
+                            >
+                              <option value="Unmarried">Unmarried</option>
+                              <option value="Married">Married</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => saveRelativeItem(sec.listName)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-md flex items-center justify-center shadow-xs transition-all active:scale-95 shrink-0"
+                              title="Save this entry"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">check</span>
+                            </button>
+                            {(formData[sec.listName] || []).length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeRelativeItem(sec.listName, idx)}
+                                className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-all shrink-0"
+                                title="Delete entry"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Tauji */}
-                <div>
-                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Tauji (Elder Uncle)</label>
-                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">escalator_warning</span>
-                    <input type="text" name="tauji" placeholder="Name / Details" value={formData.tauji} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+                        {item.status === 'Married' && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                            <input
+                              type="text"
+                              placeholder={sec.spouseLabel}
+                              value={item.spouseName}
+                              onChange={(e) => handleRelativeChange(sec.listName, idx, 'spouseName', e.target.value)}
+                              className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                            />
+                            <input
+                              type="text"
+                              placeholder={sec.homeLabel}
+                              value={item.homePlace}
+                              onChange={(e) => handleRelativeChange(sec.listName, idx, 'homePlace', e.target.value)}
+                              className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                {/* Chacha */}
-                <div>
-                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Chacha (Uncle)</label>
-                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">family_restroom</span>
-                    <input type="text" name="chacha" placeholder="Name / Details" value={formData.chacha} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bua Ji */}
-              <div>
-                <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Bua Ji (Paternal Aunt)</label>
-                <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                  <span className="material-symbols-outlined text-[#775a19] text-[18px]">diversity_1</span>
-                  <input type="text" name="buaji" placeholder="Name / Details" value={formData.buaji} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
-                </div>
+                ))}
               </div>
 
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
@@ -416,13 +547,81 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                 Maternal Details
               </div>
 
-              {/* Mama Ji */}
-              <div>
-                <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mama Ji (Maternal Uncle)</label>
-                <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                  <span className="material-symbols-outlined text-[#775a19] text-[18px]">person_3</span>
-                  <input type="text" name="mamaji" placeholder="Maternal Uncle Name / Details" value={formData.mamaji} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+              {/* Mama Ji Dynamic Cards */}
+              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between border-b border-[#e6dfd1]/60 pb-2">
+                  <label className="text-[11px] font-bold text-[#570013] uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">person_3</span> Mama Ji (Maternal Uncle)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => addRelativeItem('mamajiList')}
+                    className="text-[11px] font-bold text-[#570013] hover:text-[#775a19] bg-white border border-[#e6dfd1] hover:border-[#775a19] px-2.5 py-1 rounded flex items-center gap-1 transition-all shadow-xs active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">add</span> Add Another
+                  </button>
                 </div>
+
+                {(formData.mamajiList || []).map((item, idx) => (
+                  <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-2.5 space-y-2 relative shadow-2xs">
+                    <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                      <input
+                        type="text"
+                        placeholder={`Mama Ji ${idx + 1} Name / Details`}
+                        value={item.name}
+                        onChange={(e) => handleRelativeChange('mamajiList', idx, 'name', e.target.value)}
+                        className="flex-1 min-w-[120px] bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <select
+                          value={item.status}
+                          onChange={(e) => handleRelativeChange('mamajiList', idx, 'status', e.target.value)}
+                          className="text-[11px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded px-1.5 py-1.5 text-slate-700 focus:outline-none focus:border-[#570013]"
+                        >
+                          <option value="Unmarried">Unmarried</option>
+                          <option value="Married">Married</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => saveRelativeItem('mamajiList')}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-md flex items-center justify-center shadow-xs transition-all active:scale-95 shrink-0"
+                          title="Save this entry"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">check</span>
+                        </button>
+                        {(formData.mamajiList || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeRelativeItem('mamajiList', idx)}
+                            className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-all shrink-0"
+                            title="Delete entry"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {item.status === 'Married' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                        <input
+                          type="text"
+                          placeholder="Mami Ji's Name"
+                          value={item.spouseName}
+                          onChange={(e) => handleRelativeChange('mamajiList', idx, 'spouseName', e.target.value)}
+                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Mami Ji's Home Place"
+                          value={item.homePlace}
+                          onChange={(e) => handleRelativeChange('mamajiList', idx, 'homePlace', e.target.value)}
+                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm mt-4 mb-2">

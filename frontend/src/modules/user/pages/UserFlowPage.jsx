@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom'
-import SplashScreen from '../components/SplashScreen'
 import AuthLandingScreen from '../components/AuthLandingScreen'
 import LoginScreen from '../components/LoginScreen'
 import CreateAccountScreen from '../components/CreateAccountScreen'
@@ -28,9 +27,9 @@ export default function UserFlowPage() {
     <div className="min-h-screen w-full bg-[#1b1b1b] flex justify-center items-center font-body selection:bg-[#775a19] selection:text-white">
       <div className="w-full max-w-[430px] min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl flex flex-col">
         <Routes>
-          {/* Splash Screen */}
-          <Route path="/" element={<SplashScreen onComplete={() => navigate('/auth-landing')} />} />
-          <Route path="/splash" element={<SplashScreen onComplete={() => navigate('/auth-landing')} />} />
+          {/* Redirect root and splash directly to auth landing */}
+          <Route path="/" element={<Navigate to="/auth-landing" replace />} />
+          <Route path="/splash" element={<Navigate to="/auth-landing" replace />} />
 
           {/* 1. Authentication Landing Page */}
           <Route

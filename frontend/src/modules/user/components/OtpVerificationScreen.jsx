@@ -74,9 +74,9 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
 
       setTimeout(() => {
         if (onVerifySuccess) {
-          onVerifySuccess()
+          onVerifySuccess(location.state?.formData)
         } else if (isNew) {
-          navigate('/account-created')
+          navigate('/account-created', { state: { formData: location.state?.formData } })
         } else {
           navigate('/home')
         }

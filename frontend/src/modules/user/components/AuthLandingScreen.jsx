@@ -38,7 +38,7 @@ export default function AuthLandingScreen({ onStartCreate, onStartLogin, onGuest
             <div className="absolute inset-0 rounded-full shadow-[inset_0_2px_10px_rgba(0,0,0,0.08)] z-20 pointer-events-none" />
             <img
               src="/Logo (2).png"
-              alt="Agrawal Biodata Logo"
+              alt="Agarwal Biodata Logo"
               className="w-full h-full object-contain rounded-full relative z-10 scale-95"
             />
           </div>
@@ -46,7 +46,7 @@ export default function AuthLandingScreen({ onStartCreate, onStartLogin, onGuest
 
         {/* Modern Typography */}
         <h1 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#570013] via-[#800020] to-[#570013] mb-3 drop-shadow-sm pb-1">
-          Agrawal Biodata
+          Agarwal Biodata
         </h1>
         
         {/* Sleek Tagline Pill */}

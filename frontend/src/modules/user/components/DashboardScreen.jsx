@@ -1,12 +1,128 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
 export default function DashboardScreen({ initialTab, onSelectProfile, onBack, isPremiumUser }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const biodataRef = useRef(null)
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const [toastMessage, setToastMessage] = useState(null)
+
+  const showToast = (msg, type = 'success') => {
+    setToastMessage({ text: msg, type })
+    setTimeout(() => setToastMessage(null), 3500)
+  }
+
+  const handleDownloadPDF = async () => {
+    if (isExportingPdf) return
+    const element = biodataRef.current
+    if (!element) {
+      showToast('Profile element not found for PDF export.', 'error')
+      return
+    }
+
+    setIsExportingPdf(true)
+
+    // Allow UI thread to repaint spinner & disabled button state before heavy canvas processing
+    setTimeout(async () => {
+      try {
+        const rawName = userProfile?.fullName ? userProfile.fullName.trim().replace(/\s+/g, '_') : 'Profile'
+        const formattedFilename = `Biodata_${rawName}.pdf`
+
+        // Clone element for rendering
+        const clone = element.cloneNode(true)
+        clone.style.width = '794px' // Standard A4 width in pixels at 96 DPI
+        clone.style.padding = '24px'
+        clone.style.backgroundColor = '#ffffff'
+
+        const nonPrintable = clone.querySelectorAll('.print\\:hidden, button')
+        nonPrintable.forEach(node => node.remove())
+
+        // Temporarily mount clone offscreen to resolve layout styles
+        clone.style.position = 'fixed'
+        clone.style.top = '-9999px'
+        clone.style.left = '-9999px'
+        document.body.appendChild(clone)
+
+        // Convert cloned element to canvas with optimized scale
+        const canvas = await html2canvas(clone, {
+          scale: 1.5,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          onclone: (clonedDoc) => {
+            const allEls = clonedDoc.querySelectorAll('*')
+            allEls.forEach(el => {
+              try {
+                const style = window.getComputedStyle(el)
+                if (style.color && (style.color.includes('oklch') || style.color.includes('oklab'))) {
+                  el.style.color = '#1b1c1a'
+                }
+                if (style.backgroundColor && (style.backgroundColor.includes('oklch') || style.backgroundColor.includes('oklab'))) {
+                  el.style.backgroundColor = '#ffffff'
+                }
+                if (style.borderColor && (style.borderColor.includes('oklab') || style.borderColor.includes('oklch'))) {
+                  el.style.borderColor = '#e6dfd1'
+                }
+              } catch (e) {}
+            })
+          }
+        })
+
+      // Clean up DOM clone
+      document.body.removeChild(clone)
+
+      // Create jsPDF document
+      const imgData = canvas.toDataURL('image/jpeg', 0.98)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pdfWidth
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pdfHeight
+
+      while (heightLeft > 5) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pdfHeight
+      }
+
+      // Convert PDF to Blob and trigger direct programmatic download
+      const pdfBlob = pdf.output('blob')
+      const blobUrl = URL.createObjectURL(pdfBlob)
+      const downloadLink = document.createElement('a')
+      downloadLink.href = blobUrl
+      downloadLink.download = formattedFilename
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      downloadLink.remove()
+      URL.revokeObjectURL(blobUrl)
+
+      showToast('PDF downloaded successfully.', 'success')
+    } catch (err) {
+      console.error('PDF export error:', err)
+      showToast('Failed to generate PDF. Please try again.', 'error')
+    } finally {
+      setIsExportingPdf(false)
+    }
+    }, 50)
+  }
 
   const [activeTab, setActiveTab] = useState(initialTab || 'Home') // 'Home' | 'Matches' | 'Search' | 'Interests' | 'Messages' | 'Notifications' | 'Profile'
-  const [matchesCategory, setMatchesCategory] = useState('Recommended')
+  const [matchesCategory, setMatchesCategory] = useState('All')
   const [interestsTab, setInterestsTab] = useState('Received')
   const [chatsTab, setChatsTab] = useState('Chats') // 'Chats' | 'Calls'
   const [selectedChat, setSelectedChat] = useState(null)
@@ -33,7 +149,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     else if (path === '/search') setActiveTab('Search')
     else if (path === '/interests') setActiveTab('Interests')
     else if (path === '/chat' || path === '/messages') setActiveTab('Messages')
-    else if (path === '/profile') setActiveTab('Profile')
+    else if (path === '/profile') {
+      // Keep MyProfile active if user clicked My Details, otherwise default to main Profile
+      setActiveTab(prev => prev === 'MyProfile' ? 'MyProfile' : 'Profile')
+    }
     else if (path === '/notifications') setActiveTab('Notifications')
     else if (path === '/home' || path === '/dashboard') setActiveTab('Home')
     else if (initialTab) setActiveTab(initialTab)
@@ -48,7 +167,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       setSelectedChat(null)
       navigate('/chat')
     } else if (tabId === 'Profile') {
-      navigate('/profile')
+      setActiveTab('Profile')
+      if (location.pathname !== '/profile') {
+        navigate('/profile')
+      }
     } else if (tabId === 'Notifications') {
       navigate('/notifications')
     } else if (tabId === 'Membership') {
@@ -238,6 +360,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       compatibility: 95,
       isPremium: true,
       verified: true,
+      isNearby: true,
       image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600',
     },
     {
@@ -251,6 +374,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       compatibility: 93,
       isPremium: true,
       verified: true,
+      isNearby: true,
       image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
     },
     {
@@ -264,6 +388,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       compatibility: 91,
       isPremium: false,
       verified: true,
+      isMockInterested: true,
       image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=600',
     },
     {
@@ -277,6 +402,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       compatibility: 90,
       isPremium: true,
       verified: true,
+      isNearby: false,
       image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600',
     },
   ]
@@ -1142,7 +1268,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           {/* Sub-navigation Tabs */}
           <div className="flex border-b border-gray-200/80 mb-5">
-            {['Recommended', 'New Members', 'Nearby'].map((cat) => {
+            {['All', 'Nearby', 'Interested'].map((cat) => {
               const isActive = matchesCategory === cat
               return (
                 <button
@@ -1162,7 +1288,36 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           {/* Matches List */}
           <div className="space-y-5">
-            {matchesList.map((match) => (
+            {(() => {
+              const filteredMatches = matchesList.filter((match) => {
+                const isItemInterested = !!interested[match.id] || match.isMockInterested
+                if (matchesCategory === 'Interested') {
+                  // Show explicitly interested profiles or mock interested profiles
+                  return isItemInterested
+                } else if (matchesCategory === 'Nearby') {
+                  // Show profiles in Nearby, excluding any interested profile
+                  return !isItemInterested && (match.isNearby || match.city.includes('Jaipur') || match.city.includes('Rajasthan'))
+                } else {
+                  // 'All' tab: Show all profiles, strictly excluding any interested profile
+                  return !isItemInterested
+                }
+              })
+
+              if (filteredMatches.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-white rounded-lg border border-gray-100 p-6">
+                    <span className="material-symbols-outlined text-4xl text-amber-300 mb-2 block">favorite_border</span>
+                    <h3 className="text-sm font-bold text-slate-800 mb-1">No profiles in {matchesCategory}</h3>
+                    <p className="text-xs text-slate-500 max-w-[240px] mx-auto">
+                      {matchesCategory === 'Interested' 
+                        ? 'Click "Interested" on candidate profiles to save them here.' 
+                        : 'No profiles match this filter right now.'}
+                    </p>
+                  </div>
+                )
+              }
+
+              return filteredMatches.map((match) => (
               <div
                 key={match.id}
                 onClick={() => onSelectProfile && onSelectProfile(match)}
@@ -1255,29 +1410,84 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </button>
                 </div>
               </div>
-            ))}
+            ))
+          })()}
           </div>
         </div>
       ) : activeTab === 'MyProfile' ? (
         /* MY PROFILE VIEW */
-        <div className="pb-6">
-          <div className="bg-[#f2ebd9] px-4 pt-5 pb-4 border-b border-[#e6dfd1]/80 flex items-center gap-3">
+        <div className="pb-6" ref={biodataRef}>
+          <div className="bg-[#f2ebd9] px-4 pt-4 pb-4 border-b border-[#e6dfd1]/80 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleTabNavigate('Profile')
+                }}
+                className="p-2 rounded-full bg-amber-100/50 hover:bg-amber-100 active:scale-90 transition text-[#570013] cursor-pointer print:hidden z-20 flex items-center justify-center"
+                title="Go Back"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-2xl block font-bold">arrow_back</span>
+              </button>
+              {/* Top Left Logo & Title */}
+              <div className="flex items-center gap-2">
+                <img
+                  src="/Logo (2).png"
+                  alt="Logo"
+                  className="w-10 h-10 object-contain drop-shadow-xs"
+                />
+                <div>
+                  <h1 className="text-xl font-extrabold text-[#570013] tracking-wider uppercase font-display">BIO DATA</h1>
+                  <p className="text-[10px] text-[#775a19] font-semibold print:block hidden">Agarwal Matrimony</p>
+                </div>
+              </div>
+            </div>
             <button
-              onClick={() => handleTabNavigate('Profile')}
-              className="p-1 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013]"
+              onClick={handleDownloadPDF}
+              disabled={isExportingPdf}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer print:hidden ${
+                isExportingPdf
+                  ? 'bg-gray-400 text-white cursor-not-allowed opacity-80'
+                  : 'bg-[#570013] hover:bg-[#72001a] text-white active:scale-95'
+              }`}
             >
-              <span className="material-symbols-outlined text-2xl block">arrow_back</span>
+              {isExportingPdf ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>Generating PDF...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+                  <span>Export PDF</span>
+                </>
+              )}
             </button>
-            <h1 className="text-lg font-extrabold text-[#570013]">My Details</h1>
           </div>
-          <div className="p-4 space-y-4">
+
+          {/* Toast Notification Banner */}
+          {toastMessage && (
+            <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 animate-bounce transition-all ${
+              toastMessage.type === 'error' 
+                ? 'bg-red-600 text-white' 
+                : 'bg-emerald-700 text-white'
+            }`}>
+              <span className="material-symbols-outlined text-base">
+                {toastMessage.type === 'error' ? 'error' : 'check_circle'}
+              </span>
+              <span>{toastMessage.text}</span>
+            </div>
+          )}
+          <div className="p-4 sm:p-6 space-y-6 bg-white print:p-2">
             {userProfile ? (
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3 relative">
-                  <button onClick={() => navigate('/profile-completion-dashboard')} className="absolute top-4 right-4 p-1.5 bg-amber-50 text-[#775a19] rounded-full hover:bg-amber-100 active:scale-95 transition border border-amber-200/60 shadow-sm" title="Edit Profile">
+              <div className="space-y-6">
+                {/* Personal Information */}
+                <div className="p-2 space-y-3 relative border-b border-amber-200/60 pb-5">
+                  <button onClick={() => navigate('/profile-completion-dashboard')} className="absolute top-0 right-0 p-1.5 bg-amber-50 text-[#775a19] rounded-full hover:bg-amber-100 active:scale-95 transition border border-amber-200/60 shadow-sm print:hidden" title="Edit Profile">
                     <span className="material-symbols-outlined text-[16px] block">edit</span>
                   </button>
-                  <h2 className="font-bold text-[#570013] border-b pb-2 pr-8">Personal Information</h2>
+                  <h2 className="font-bold text-[#570013] text-base border-b-2 border-[#570013]/20 pb-1.5 uppercase tracking-wide">Personal Information</h2>
                   <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
                     <div className="text-gray-500 text-[11px] leading-tight">Full Name</div><div className="font-semibold text-gray-800 text-xs">{userProfile.fullName || '-'}</div>
                     <div className="text-gray-500 text-[11px] leading-tight">Gender</div><div className="font-semibold text-gray-800 text-xs">{userProfile.gender || '-'}</div>
@@ -1292,32 +1502,76 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3">
-                  <h2 className="font-bold text-[#570013] border-b pb-2">Family Details</h2>
+                {/* Family Details */}
+                <div className="p-2 space-y-3 border-b border-amber-200/60 pb-5">
+                  <h2 className="font-bold text-[#570013] text-base border-b-2 border-[#570013]/20 pb-1.5 uppercase tracking-wide">Family Details</h2>
                   <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
                     <div className="text-gray-500 text-[11px] leading-tight">Grandfather</div><div className="font-semibold text-gray-800 text-xs">{userProfile.grandfather || '-'}</div>
                     <div className="text-gray-500 text-[11px] leading-tight">Grandmother</div><div className="font-semibold text-gray-800 text-xs">{userProfile.grandmother || '-'}</div>
                     <div className="text-gray-500 text-[11px] leading-tight">Father</div><div className="font-semibold text-gray-800 text-xs">{userProfile.father || '-'}</div>
                     <div className="text-gray-500 text-[11px] leading-tight">Mother</div><div className="font-semibold text-gray-800 text-xs">{userProfile.mother || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Brothers</div><div className="font-semibold text-gray-800 text-xs">{userProfile.brothers || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Sisters</div><div className="font-semibold text-gray-800 text-xs">{userProfile.sisters || '-'}</div>
+                    <div className="text-gray-500 text-[11px] leading-tight">Mother's Gotra</div><div className="font-semibold text-gray-800 text-xs">{userProfile.motherGotra || '-'}</div>
+                    {/* Helper to render list or string */}
+                    {[
+                      { key: 'brotherList', strKey: 'brothers', label: 'Brothers', spouseLabel: 'Wife' },
+                      { key: 'sisterList', strKey: 'sisters', label: 'Sisters', spouseLabel: 'Husband' },
+                      { key: 'taujiList', strKey: 'tauji', label: 'Tauji', spouseLabel: 'Taiji' },
+                      { key: 'chachaList', strKey: 'chacha', label: 'Chacha', spouseLabel: 'Chachi' },
+                      { key: 'buajiList', strKey: 'buaji', label: 'Bua Ji', spouseLabel: 'Phupha Ji' },
+                    ].map((rel) => {
+                      const list = userProfile[rel.key]
+                      const hasList = Array.isArray(list) && list.some(item => item.name || item.spouseName)
+                      return (
+                        <React.Fragment key={rel.key}>
+                          <div className="text-gray-500 text-[11px] leading-tight">{rel.label}</div>
+                          <div className="font-semibold text-gray-800 text-xs">
+                            {hasList ? (
+                              <div className="space-y-1">
+                                {list.filter(item => item.name || item.spouseName).map((item, idx) => (
+                                  <div key={idx} className="leading-tight">
+                                    <span>{item.name || `${rel.label} ${idx + 1}`} ({item.status || 'Unmarried'})</span>
+                                    {item.status === 'Married' && (item.spouseName || item.homePlace) && (
+                                      <div className="text-[10px] text-gray-600 font-normal">
+                                        {rel.spouseLabel}: {item.spouseName || '-'} {item.homePlace ? `(${item.homePlace})` : ''}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              userProfile[rel.strKey] || '-'
+                            )}
+                          </div>
+                        </React.Fragment>
+                      )
+                    })}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3">
-                  <h2 className="font-bold text-[#570013] border-b pb-2">Maternal & Contact</h2>
+                {/* Maternal Details */}
+                <div className="p-2 space-y-3 pb-2">
+                  <h2 className="font-bold text-[#570013] text-base border-b-2 border-[#570013]/20 pb-1.5 uppercase tracking-wide">Maternal Details</h2>
                   <div className="grid grid-cols-1 gap-y-2 text-sm">
                     <div>
                       <div className="text-gray-500 text-[11px] mb-0.5">Mama Ji</div>
-                      <div className="font-semibold text-gray-800 text-xs">{userProfile.mamaji || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500 text-[11px] mb-0.5">Residential Address</div>
-                      <div className="font-semibold text-gray-800 text-xs leading-snug bg-gray-50 p-2 rounded-md border border-gray-100">{userProfile.residentialAddress || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500 text-[11px] mb-0.5">Mobile Number</div>
-                      <div className="font-semibold text-gray-800 text-xs">{userProfile.mobileNumber || '-'}</div>
+                      <div className="font-semibold text-gray-800 text-xs">
+                        {Array.isArray(userProfile.mamajiList) && userProfile.mamajiList.some(item => item.name || item.spouseName) ? (
+                          <div className="space-y-1">
+                            {userProfile.mamajiList.filter(item => item.name || item.spouseName).map((item, idx) => (
+                              <div key={idx} className="leading-tight">
+                                <span>{item.name || `Mama Ji ${idx + 1}`} ({item.status || 'Unmarried'})</span>
+                                {item.status === 'Married' && (item.spouseName || item.homePlace) && (
+                                  <div className="text-[10px] text-gray-600 font-normal">
+                                    Mami Ji: {item.spouseName || '-'} {item.homePlace ? `(${item.homePlace})` : ''}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          userProfile.mamaji || '-'
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1505,7 +1759,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       )}
 
       {/* Sticky Bottom Navigation Bar */}
-      {!selectedChat && (
+      {!selectedChat && activeTab !== 'MyProfile' && (
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-200/80 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-2 flex items-center justify-around z-50">
           {[
             { id: 'Home', label: 'Home', icon: 'home' },
