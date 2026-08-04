@@ -1,16 +1,16 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 export default function SettingsScreen({ onBack, onLogout }) {
+  const navigate = useNavigate()
+
   const mainSettings = [
     { id: 'account', label: 'Account Settings', icon: 'person' },
-    { id: 'privacy', label: 'Privacy Settings', icon: 'security' },
     { id: 'notification', label: 'Notification Settings', icon: 'notifications' },
-    { id: 'password', label: 'Change Password', icon: 'lock' },
-    { id: 'blocked', label: 'Blocked Users', icon: 'block' },
   ]
 
   const secondarySettings = [
-    { id: 'help', label: 'Help & Support', icon: 'help' },
+    { id: 'help-support', label: 'Help & Support', icon: 'help' },
     { id: 'about', label: 'About Matrimony Hub', icon: 'info' },
   ]
 
@@ -21,12 +21,12 @@ export default function SettingsScreen({ onBack, onLogout }) {
         <div className="flex items-center gap-1 mb-4 pt-1">
           <button
             onClick={onBack}
-            className="p-0.5 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013] -ml-1"
+            className="flex items-center justify-center p-1.5 -ml-1.5 rounded-full hover:bg-amber-100 text-[#570013] transition active:scale-95 cursor-pointer"
             aria-label="Back"
           >
-            <span className="material-symbols-outlined text-2xl block">arrow_back</span>
+            <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
-          <h1 className="text-lg font-display font-extrabold text-[#570013] flex-1">Settings</h1>
+          <h1 className="font-display font-extrabold text-[22px] text-[#570013]">Settings</h1>
         </div>
 
         {/* Group 1 Settings Card */}
@@ -34,6 +34,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
           {mainSettings.map((item, idx) => (
             <button
               key={item.id}
+              onClick={() => navigate(`/${item.id}`)}
               className={`w-full px-4 py-3.5 flex items-center justify-between hover:bg-amber-50/30 transition text-left active:scale-[0.99] ${
                 idx !== mainSettings.length - 1 ? 'border-b border-gray-100/80' : ''
               }`}
@@ -52,6 +53,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
           {secondarySettings.map((item, idx) => (
             <button
               key={item.id}
+              onClick={() => navigate(`/${item.id}`)}
               className={`w-full px-4 py-3.5 flex items-center justify-between hover:bg-amber-50/30 transition text-left active:scale-[0.99] ${
                 idx !== secondarySettings.length - 1 ? 'border-b border-gray-100/80' : ''
               }`}

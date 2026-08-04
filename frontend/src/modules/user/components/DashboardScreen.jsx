@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import HeaderBar from './HeaderBar'
 
 export default function DashboardScreen({ initialTab, onSelectProfile, onBack, isPremiumUser }) {
   const navigate = useNavigate()
@@ -40,6 +41,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         const nonPrintable = clone.querySelectorAll('.print\\:hidden, button')
         nonPrintable.forEach(node => node.remove())
 
+        const pdfOnly = clone.querySelectorAll('.pdf-only')
+        pdfOnly.forEach(node => {
+          node.classList.remove('hidden')
+          node.style.display = 'block'
+        })
+
         // Temporarily mount clone offscreen to resolve layout styles
         clone.style.position = 'fixed'
         clone.style.top = '-9999px'
@@ -65,6 +72,16 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 }
                 if (style.borderColor && (style.borderColor.includes('oklab') || style.borderColor.includes('oklch'))) {
                   el.style.borderColor = '#e6dfd1'
+                }
+                if (style.backgroundImage && (style.backgroundImage.includes('oklch') || style.backgroundImage.includes('oklab'))) {
+                  el.style.backgroundImage = 'none'
+                  el.style.backgroundColor = '#fef3c7'
+                }
+                if (style.boxShadow && (style.boxShadow.includes('oklch') || style.boxShadow.includes('oklab'))) {
+                  el.style.boxShadow = 'none'
+                }
+                if (style.textShadow && (style.textShadow.includes('oklch') || style.textShadow.includes('oklab'))) {
+                  el.style.textShadow = 'none'
                 }
               } catch (e) {}
             })
@@ -1428,6 +1445,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       ) : activeTab === 'MyProfile' ? (
         /* MY PROFILE VIEW */
         <div className="pb-6" ref={biodataRef}>
+          <div className="hidden pdf-only mb-4">
+            <HeaderBar isExport={true} />
+          </div>
           <div className="bg-[#f2ebd9] px-3.5 py-2.5 border-b border-[#e6dfd1]/80 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
@@ -1492,17 +1512,30 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     <span className="material-symbols-outlined text-[15px] block">edit</span>
                   </button>
                   <h2 className="font-bold text-[#570013] text-sm border-b-2 border-[#570013]/20 pb-1 uppercase tracking-wide">Personal Information</h2>
-                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs">
-                    <div className="text-gray-500 text-[10px] leading-tight">Full Name</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.fullName || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Gender</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.gender || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Gotra</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.gotra || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Date of Birth</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.dob || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Height</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.height || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Complexion</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.complexion || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Manglik</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.manglik || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Qualification</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.qualification || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Income</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.income || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Working At</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.workingAt || '-'}</div>
+                  <div className="flex gap-4 mt-2">
+                    <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs flex-1">
+                      <div className="text-gray-500 text-[10px] leading-tight">Full Name</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.fullName || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Gender</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.gender || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Gotra</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.gotra || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Date of Birth</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.dob || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Height</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.height || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Complexion</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.complexion || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Manglik</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.manglik || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Qualification</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.qualification || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Income</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.income || '-'}</div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Working At</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.workingAt || '-'}</div>
+                    </div>
+                    
+                    <div className="w-[100px] h-[130px] bg-gray-100 rounded-md border-2 border-white shadow-sm overflow-hidden shrink-0 hidden pdf-only sm:block print:block">
+                      {userProfile.profilePicture ? (
+                        <img src={userProfile.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                          <span className="material-symbols-outlined text-4xl">person</span>
+                          <span className="text-[9px] mt-1 uppercase font-bold text-gray-300">Photo</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1514,7 +1547,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     <div className="text-gray-500 text-[10px] leading-tight">Grandmother</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.grandmother || '-'}</div>
                     <div className="text-gray-500 text-[10px] leading-tight">Father</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.father || '-'}</div>
                     <div className="text-gray-500 text-[10px] leading-tight">Mother</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.mother || '-'}</div>
-                    <div className="text-gray-500 text-[10px] leading-tight">Mother's Gotra</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.motherGotra || '-'}</div>
+
                     {/* Helper to render list or string */}
                     {[
                       { key: 'brotherList', strKey: 'brothers', label: 'Brothers', spouseLabel: 'Wife' },

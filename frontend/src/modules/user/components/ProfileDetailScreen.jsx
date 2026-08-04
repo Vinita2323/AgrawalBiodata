@@ -306,10 +306,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Mother</span>
               <span className="font-bold text-slate-800">{p.mother || 'Smt. Sunita Garg'}</span>
             </div>
-            <div>
-              <span className="text-gray-400 font-medium block text-[10px] uppercase">Mother's Gotra</span>
-              <span className="font-bold text-[#775a19]">{displayMotherGotra}</span>
-            </div>
+
           </div>
         </div>
 

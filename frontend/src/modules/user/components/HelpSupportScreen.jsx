@@ -82,21 +82,35 @@ export default function HelpSupportScreen({ onBack }) {
             Contact Support
           </h2>
           <div className="grid grid-cols-1 gap-3">
-            <a
-              href="tel:+919876543210"
-              className="flex items-center justify-between p-3.5 bg-white border border-amber-200/80 rounded-xl shadow-2xs hover:border-[#570013] hover:shadow-xs transition group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <div className="p-3.5 bg-white border border-amber-200/80 rounded-xl shadow-2xs">
+              <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
                   <span className="material-symbols-outlined text-xl">call</span>
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 group-hover:text-[#570013] transition">Call Helpline</h3>
-                  <p className="text-[11px] text-slate-500 font-semibold">+91 98765 43210</p>
+                  <h3 className="text-xs font-bold text-slate-900">Call Helplines</h3>
+                  <p className="text-[10px] text-slate-500 font-semibold">Reach out to our committee members</p>
                 </div>
               </div>
-              <span className="material-symbols-outlined text-gray-400 group-hover:translate-x-0.5 transition">chevron_right</span>
-            </a>
+              <div className="space-y-2.5 pl-1">
+                {[
+                  { name: 'Harish Agarwal', phone: '9828544863' },
+                  { name: 'Amit Nagori', phone: '9414112105' },
+                  { name: 'Sanjay Prahladka', phone: '9414111598' },
+                  { name: 'Ashish Lohiya', phone: '9414422222' },
+                  { name: 'Pankaj Agarwal', phone: '9001069115' },
+                  { name: 'Vijay Agarwal', phone: '9462989214' }
+                ].map((contact, idx) => (
+                  <a key={idx} href={`tel:${contact.phone}`} className="flex items-center justify-between group hover:bg-slate-50 p-1.5 -mx-1.5 rounded-lg transition">
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-800">{contact.name}</div>
+                      <div className="text-[10px] text-slate-500 font-semibold">+91 {contact.phone}</div>
+                    </div>
+                    <span className="material-symbols-outlined text-emerald-600/70 text-base group-hover:scale-110 transition-transform">call</span>
+                  </a>
+                ))}
+              </div>
+            </div>
 
             <a
               href="mailto:support@agarwalbiodata.com"

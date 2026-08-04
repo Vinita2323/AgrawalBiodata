@@ -12,7 +12,14 @@ import ProfileDetailScreen from '../components/ProfileDetailScreen'
 import MembershipScreen from '../components/MembershipScreen'
 import PaymentScreen from '../components/PaymentScreen'
 import SettingsScreen from '../components/SettingsScreen'
+import AccountSettingsScreen from '../components/AccountSettingsScreen'
+import NotificationSettingsScreen from '../components/NotificationSettingsScreen'
+import BlockedUsersScreen from '../components/BlockedUsersScreen'
+import AboutMatrimonyHubScreen from '../components/AboutMatrimonyHubScreen'
 import HelpSupportScreen from '../components/HelpSupportScreen'
+import TermsOfServiceScreen from '../components/TermsOfServiceScreen'
+import PrivacyPolicyScreen from '../components/PrivacyPolicyScreen'
+import CommunityGuidelinesScreen from '../components/CommunityGuidelinesScreen'
 import WelcomeScreen from '../components/WelcomeScreen'
 import HeaderBar from '../components/HeaderBar'
 
@@ -268,6 +275,35 @@ export default function UserFlowPage() {
                 onLogout={() => navigate('/login')}
               />
             }
+          />
+
+          <Route
+            path="/account"
+            element={<AccountSettingsScreen onBack={() => navigate('/settings')} />}
+          />
+          <Route
+            path="/notification"
+            element={<NotificationSettingsScreen onBack={() => navigate('/settings')} />}
+          />
+          <Route
+            path="/blocked"
+            element={<BlockedUsersScreen onBack={() => navigate('/settings')} />}
+          />
+          <Route
+            path="/about"
+            element={<AboutMatrimonyHubScreen onBack={() => navigate('/settings')} />}
+          />
+          <Route
+            path="/terms"
+            element={<TermsOfServiceScreen onBack={() => navigate('/about')} />}
+          />
+          <Route
+            path="/privacy"
+            element={<PrivacyPolicyScreen onBack={() => navigate('/about')} />}
+          />
+          <Route
+            path="/guidelines"
+            element={<CommunityGuidelinesScreen onBack={() => navigate('/about')} />}
           />
 
           {/* Candidate Profile Detail Route */}

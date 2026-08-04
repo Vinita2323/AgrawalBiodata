@@ -432,44 +432,13 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {/* Mother */}
                 <div>
                   <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mother's Name</label>
                   <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
                     <span className="material-symbols-outlined text-[#775a19] text-[18px]">woman</span>
                     <input type="text" name="mother" placeholder="Mother's Name" value={formData.mother} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
-                  </div>
-                </div>
-
-                {/* Mother Gotra */}
-                <div>
-                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mother's Gotra</label>
-                  <div className="relative">
-                    <select name="motherGotra" value={formData.motherGotra} onChange={handleChange} className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md pl-3 pr-8 py-2 text-[12px] font-semibold text-slate-800 focus:border-[#570013] focus:bg-white focus:ring-1 focus:ring-[#570013] focus:outline-none appearance-none shadow-sm transition-all">
-                      <option value="">Select Mother's Gotra</option>
-                      <option value="गर्ग (Garg)">गर्ग (Garg)</option>
-                      <option value="गोयल (Goyal)">गोयल (Goyal)</option>
-                      <option value="बंसल (Bansal)">बंसल (Bansal)</option>
-                      <option value="बिंदल (Bindal)">बिंदल (Bindal)</option>
-                      <option value="सिंघल (Singhal)">सिंघल (Singhal)</option>
-                      <option value="जिंदal (Jindal)">जिंदल (Jindal)</option>
-                      <option value="मित्तल (Mittal)">मित्तल (Mittal)</option>
-                      <option value="तायल (Tayal)">तायल (Tayal)</option>
-                      <option value="कंसल (Kansal)">कंसल (Kansal)</option>
-                      <option value="कुच्छल (Kuchhal)">कुच्छल (Kuchhal)</option>
-                      <option value="ऐरन (Airan)">ऐरन (Airan)</option>
-                      <option value="धारण (Dharan)">धारण (Dharan)</option>
-                      <option value="मंगल (Mangal)">मंगल (Mangal)</option>
-                      <option value="मधुकल (Madhukul)">मधुकल (Madhukul)</option>
-                      <option value="तिंगल (Tingal)">तिंगल (Tingal)</option>
-                      <option value="नागल (Nagal)">नागल (Nagal)</option>
-                      <option value="गोयन (Goyan)">गोयन (Goyan)</option>
-                      <option value="भंदल (Bhandal)">भंदल (Bhandal)</option>
-                    </select>
-                    <span className="material-symbols-outlined text-[#775a19] text-[18px] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      expand_more
-                    </span>
                   </div>
                 </div>
               </div>
