@@ -42,6 +42,18 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
     profilePicture: null
   })
 
+  // Scroll to top whenever step changes
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTo(0, 0)
+    document.body.scrollTo(0, 0)
+
+    const containers = document.querySelectorAll('.overflow-y-auto, .overflow-auto')
+    containers.forEach((el) => {
+      el.scrollTop = 0
+    })
+  }, [step])
+
   // Auto-fill from registration data (Create Account Screen)
   useEffect(() => {
     const regData = location.state?.formData || JSON.parse(localStorage.getItem('registrationData') || '{}')
@@ -109,20 +121,27 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
       <div className="absolute top-0 left-0 w-full z-50 h-1 bg-gradient-to-r from-transparent via-[#775a19]/50 to-transparent opacity-80" />
 
       {/* Header Area */}
-      <div className="px-4 pt-4 pb-2 max-w-3xl w-full mx-auto">
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => {
-              if (step > 1) setStep(step - 1)
-              else navigate(-1)
-            }}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#e6dfd1] hover:bg-amber-50 active:scale-95 transition text-[#570013] shadow-sm"
-            aria-label="Go Back"
-          >
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          </button>
+      <div className="px-4 pt-3 pb-1 max-w-3xl w-full mx-auto">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Back button + Page Title side-by-side */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={() => {
+                if (step > 1) setStep(step - 1)
+                else navigate(-1)
+              }}
+              className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-white border border-[#e6dfd1] hover:bg-amber-50 active:scale-95 transition text-[#570013] shadow-xs"
+              aria-label="Go Back"
+            >
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            </button>
+            <h1 className="text-lg sm:text-xl font-display font-extrabold text-[#570013] tracking-tight truncate">
+              {step === 1 ? 'Personal Details' : step === 2 ? 'Family Details' : step === 3 ? 'Maternal Family & Contact' : 'Upload Profile Picture'}
+            </h1>
+          </div>
           
-          <div className="flex items-center gap-2">
+          {/* Right: Icon-only Edit button & Compact Step Badge (1/4) */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -134,29 +153,26 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                   setIsEditing(true)
                 }
               }}
-              className={`px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 border ${
+              title={isEditing ? 'Save Details' : 'Edit Details'}
+              className={`w-8 h-8 rounded-full flex items-center justify-center shadow-xs transition-all active:scale-95 border ${
                 isEditing
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                  : 'bg-amber-100 hover:bg-amber-200 text-[#570013] border-[#775a19]/30'
+                  : 'bg-amber-100/80 hover:bg-amber-200 text-[#570013] border-[#775a19]/30'
               }`}
             >
-              <span className="material-symbols-outlined text-[15px]">
+              <span className="material-symbols-outlined text-[16px]">
                 {isEditing ? 'save' : 'edit'}
               </span>
-              <span>{isEditing ? 'Save Details' : 'Edit'}</span>
             </button>
-            <div className="px-3 py-1 rounded-full bg-[#570013]/5 border border-[#570013]/10">
-              <span className="text-[10px] font-bold text-[#570013] uppercase tracking-widest">
-                Step {step} of 4
+            <div className="px-2.5 py-1 rounded-full bg-[#570013]/10 border border-[#570013]/15">
+              <span className="text-[11px] font-extrabold text-[#570013] tracking-wider">
+                {step}/4
               </span>
             </div>
           </div>
         </div>
-        
-        <h1 className="text-2xl font-display font-extrabold text-[#570013] tracking-tight mb-0.5 mt-2">
-          {step === 1 ? 'Personal Details' : step === 2 ? 'Family Details' : step === 3 ? 'Maternal Family & Contact' : 'Upload Profile Picture'}
-        </h1>
-        <p className="text-[11px] text-[#775a19] font-medium mb-1">
+
+        <p className="text-[11px] text-[#775a19] font-medium mt-1 mb-1 pl-10">
           {step === 1 
             ? 'Tell us about yourself to find your perfect match.'
             : step === 2 
@@ -344,9 +360,9 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
 
               <div className="flex justify-end pt-1">
-                <button type="button" onClick={() => setStep(2)} className="bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all w-full sm:w-auto">
+                <button type="button" onClick={() => setStep(2)} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   <span>Next Step</span>
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
               </div>
             </form>
@@ -429,9 +445,31 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                 {/* Mother Gotra */}
                 <div>
                   <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mother's Gotra</label>
-                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
-                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">family_history</span>
-                    <input type="text" name="motherGotra" placeholder="Mother's Gotra (Maternal Gotra)" value={formData.motherGotra} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+                  <div className="relative">
+                    <select name="motherGotra" value={formData.motherGotra} onChange={handleChange} className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md pl-3 pr-8 py-2 text-[12px] font-semibold text-slate-800 focus:border-[#570013] focus:bg-white focus:ring-1 focus:ring-[#570013] focus:outline-none appearance-none shadow-sm transition-all">
+                      <option value="">Select Mother's Gotra</option>
+                      <option value="गर्ग (Garg)">गर्ग (Garg)</option>
+                      <option value="गोयल (Goyal)">गोयल (Goyal)</option>
+                      <option value="बंसल (Bansal)">बंसल (Bansal)</option>
+                      <option value="बिंदल (Bindal)">बिंदल (Bindal)</option>
+                      <option value="सिंघल (Singhal)">सिंघल (Singhal)</option>
+                      <option value="जिंदal (Jindal)">जिंदल (Jindal)</option>
+                      <option value="मित्तल (Mittal)">मित्तल (Mittal)</option>
+                      <option value="तायल (Tayal)">तायल (Tayal)</option>
+                      <option value="कंसल (Kansal)">कंसल (Kansal)</option>
+                      <option value="कुच्छल (Kuchhal)">कुच्छल (Kuchhal)</option>
+                      <option value="ऐरन (Airan)">ऐरन (Airan)</option>
+                      <option value="धारण (Dharan)">धारण (Dharan)</option>
+                      <option value="मंगल (Mangal)">मंगल (Mangal)</option>
+                      <option value="मधुकल (Madhukul)">मधुकल (Madhukul)</option>
+                      <option value="तिंगल (Tingal)">तिंगल (Tingal)</option>
+                      <option value="नागल (Nagal)">नागल (Nagal)</option>
+                      <option value="गोयन (Goyan)">गोयन (Goyan)</option>
+                      <option value="भंदल (Bhandal)">भंदल (Bhandal)</option>
+                    </select>
+                    <span className="material-symbols-outlined text-[#775a19] text-[18px] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      expand_more
+                    </span>
                   </div>
                 </div>
               </div>
@@ -464,20 +502,20 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                     </div>
 
                     {(formData[sec.listName] || []).map((item, idx) => (
-                      <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-2.5 space-y-2 relative shadow-2xs">
-                        <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                      <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-3 space-y-2.5 relative shadow-xs">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <input
                             type="text"
                             placeholder={`${sec.title.split(' ')[0]} ${idx + 1} Name / Details`}
                             value={item.name}
                             onChange={(e) => handleRelativeChange(sec.listName, idx, 'name', e.target.value)}
-                            className="flex-1 min-w-[120px] bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                            className="flex-1 min-w-0 bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                           />
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             <select
                               value={item.status}
                               onChange={(e) => handleRelativeChange(sec.listName, idx, 'status', e.target.value)}
-                              className="text-[11px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded px-1.5 py-1.5 text-slate-700 focus:outline-none focus:border-[#570013]"
+                              className="flex-1 sm:flex-none text-[12px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-2 text-slate-700 focus:outline-none focus:border-[#570013]"
                             >
                               <option value="Unmarried">Unmarried</option>
                               <option value="Married">Married</option>
@@ -485,16 +523,17 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                             <button
                               type="button"
                               onClick={() => saveRelativeItem(sec.listName)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-md flex items-center justify-center shadow-xs transition-all active:scale-95 shrink-0"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-md flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 shrink-0 text-[11px] font-bold"
                               title="Save this entry"
                             >
                               <span className="material-symbols-outlined text-[16px]">check</span>
+                              <span className="hidden sm:inline">Save</span>
                             </button>
                             {(formData[sec.listName] || []).length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => removeRelativeItem(sec.listName, idx)}
-                                className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-all shrink-0"
+                                className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 border border-transparent hover:border-red-200 transition-all shrink-0"
                                 title="Delete entry"
                               >
                                 <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -504,20 +543,20 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                         </div>
 
                         {item.status === 'Married' && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                             <input
                               type="text"
                               placeholder={sec.spouseLabel}
                               value={item.spouseName}
                               onChange={(e) => handleRelativeChange(sec.listName, idx, 'spouseName', e.target.value)}
-                              className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                              className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                             />
                             <input
                               type="text"
                               placeholder={sec.homeLabel}
                               value={item.homePlace}
                               onChange={(e) => handleRelativeChange(sec.listName, idx, 'homePlace', e.target.value)}
-                              className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                              className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                             />
                           </div>
                         )}
@@ -530,12 +569,12 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
 
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(1)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center shadow-sm active:scale-95 transition-all w-full sm:w-auto">
+                <button type="button" onClick={() => setStep(1)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   Back
                 </button>
-                <button type="button" onClick={() => setStep(3)} className="bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all w-full sm:w-auto">
+                <button type="button" onClick={() => setStep(3)} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   <span>Next Step</span>
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
               </div>
             </form>
@@ -563,20 +602,20 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                 </div>
 
                 {(formData.mamajiList || []).map((item, idx) => (
-                  <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-2.5 space-y-2 relative shadow-2xs">
-                    <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                  <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-3 space-y-2.5 relative shadow-xs">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <input
                         type="text"
                         placeholder={`Mama Ji ${idx + 1} Name / Details`}
                         value={item.name}
                         onChange={(e) => handleRelativeChange('mamajiList', idx, 'name', e.target.value)}
-                        className="flex-1 min-w-[120px] bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                        className="flex-1 min-w-0 bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                       />
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <select
                           value={item.status}
                           onChange={(e) => handleRelativeChange('mamajiList', idx, 'status', e.target.value)}
-                          className="text-[11px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded px-1.5 py-1.5 text-slate-700 focus:outline-none focus:border-[#570013]"
+                          className="flex-1 sm:flex-none text-[12px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-2 text-slate-700 focus:outline-none focus:border-[#570013]"
                         >
                           <option value="Unmarried">Unmarried</option>
                           <option value="Married">Married</option>
@@ -584,16 +623,17 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                         <button
                           type="button"
                           onClick={() => saveRelativeItem('mamajiList')}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-md flex items-center justify-center shadow-xs transition-all active:scale-95 shrink-0"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-md flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 shrink-0 text-[11px] font-bold"
                           title="Save this entry"
                         >
                           <span className="material-symbols-outlined text-[16px]">check</span>
+                          <span className="hidden sm:inline">Save</span>
                         </button>
                         {(formData.mamajiList || []).length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeRelativeItem('mamajiList', idx)}
-                            className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-all shrink-0"
+                            className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 border border-transparent hover:border-red-200 transition-all shrink-0"
                             title="Delete entry"
                           >
                             <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -603,20 +643,20 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                     </div>
 
                     {item.status === 'Married' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                         <input
                           type="text"
                           placeholder="Mami Ji's Name"
                           value={item.spouseName}
                           onChange={(e) => handleRelativeChange('mamajiList', idx, 'spouseName', e.target.value)}
-                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                         />
                         <input
                           type="text"
                           placeholder="Mami Ji's Home Place"
                           value={item.homePlace}
                           onChange={(e) => handleRelativeChange('mamajiList', idx, 'homePlace', e.target.value)}
-                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-1.5 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                         />
                       </div>
                     )}
@@ -649,12 +689,12 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
 
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(2)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center shadow-sm active:scale-95 transition-all w-full sm:w-auto">
+                <button type="button" onClick={() => setStep(2)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   Back
                 </button>
-                <button type="button" onClick={() => setStep(4)} className="bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all w-full sm:w-auto">
+                <button type="button" onClick={() => setStep(4)} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   <span>Next Step</span>
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
               </div>
             </form>
@@ -715,12 +755,12 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
 
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(3)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center shadow-sm active:scale-95 transition-all w-full sm:w-auto">
+                <button type="button" onClick={() => setStep(3)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   Back
                 </button>
-                <button type="submit" className="bg-[#570013] hover:bg-[#72001a] text-white font-bold text-sm px-6 py-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all w-full sm:w-auto">
+                <button type="submit" className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
                   <span>Complete Profile</span>
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
                 </button>
               </div>
             </form>

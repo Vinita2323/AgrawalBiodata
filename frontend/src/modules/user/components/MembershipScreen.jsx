@@ -103,29 +103,29 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
         </div>
       </div>
 
-      {/* Horizontal Cards Scroll / Grid */}
-      <div className="flex gap-4 overflow-x-auto pb-6 pt-2 scrollbar-none snap-x snap-mandatory px-4">
+      {/* Vertical Cards Stacked Layout (One Below Another in Rows) */}
+      <div className="w-full flex flex-col gap-6 px-4 pb-6 pt-2">
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className={`w-[260px] flex-shrink-0 snap-center rounded-lg p-5 border shadow-xl flex flex-col justify-between ${plan.cardStyle} relative transition-transform hover:scale-[1.02]`}
+            className={`w-full rounded-xl p-5 border shadow-md flex flex-col justify-between ${plan.cardStyle} relative transition-all hover:shadow-lg`}
           >
             {plan.headerBadge && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#570013] text-amber-300 text-[10px] font-extrabold uppercase tracking-wider px-3 py-0.5 rounded-full border border-amber-400 shadow-sm">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#570013] text-amber-300 text-[10px] font-extrabold uppercase tracking-wider px-3 py-0.5 rounded-full border border-amber-400 shadow-xs">
                 {plan.headerBadge}
               </span>
             )}
 
             <div>
               <h3 className="font-display font-extrabold text-lg mb-1 text-slate-900">{plan.name}</h3>
-              <div className="flex items-baseline gap-1 mb-5">
+              <div className="flex items-baseline gap-1 mb-4">
                 <span className="text-[26px] font-black text-[#570013]">
                   ₹{billingCycle === 'Yearly' ? plan.priceYearly : plan.priceMonthly}
                 </span>
                 <span className="text-xs font-semibold text-slate-600">/ Month</span>
               </div>
 
-              <ul className="space-y-3 text-[11px] font-medium text-slate-800 mb-6">
+              <ul className="space-y-2.5 text-[11px] font-medium text-slate-800 mb-5">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full bg-[#570013]/10 text-[#570013] font-bold text-[10px] flex items-center justify-center flex-shrink-0">
@@ -148,7 +148,7 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
       </div>
 
       {/* Trust Badges Footer */}
-      <div className="pt-6 mt-auto pb-4 flex items-center justify-center gap-4 text-[11px] font-semibold text-slate-500 text-center">
+      <div className="pt-4 mt-auto pb-4 flex items-center justify-center gap-4 text-[11px] font-semibold text-slate-500 text-center">
         <div className="flex items-center gap-1">
           <span className="material-symbols-outlined text-[15px] text-emerald-600">verified_user</span>
           <span>Secure Payment</span>

@@ -1,169 +1,440 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 export default function ProfileDetailScreen({ profile, onBack }) {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+
   const p = profile || {
-    name: 'Aditi Garg',
+    fullName: 'Priya Garg',
+    name: 'Priya Garg',
+    gender: 'Female',
     age: 26,
-    height: "5'5\"",
+    height: "5'4\"",
     gotra: 'Garg',
-    subGotra: 'Bansal',
-    education: 'M.Tech, Software Architect',
-    city: 'Indore, MP',
+    motherGotra: 'Bansal',
+    dob: '1998-05-14',
+    tob: '08:30 AM',
+    pob: 'Jaipur, Rajasthan',
+    complexion: 'Fair',
     manglik: 'Non-Manglik',
-    matchScore: 96,
+    qualification: 'M.Tech, Software Engineer',
+    workingAt: 'TCS Digital',
+    income: '15-20 LPA',
+    hobbies: 'Classical Dance, Reading, Travelling',
+    // Family
+    grandfather: 'Late Sh. Ramcharan Garg',
+    grandmother: 'Smt. Shanti Devi',
+    father: 'Sh. Rameshwar Garg',
+    fatherOccupation: 'Business',
+    fatherOccupationDetails: 'Owner, Garg Textile Mills',
+    mother: 'Smt. Sunita Garg',
+    // Relatives
+    brotherList: [{ name: 'Aman Garg', status: 'Married', spouseName: 'Pooja Garg', homePlace: 'Delhi' }],
+    sisterList: [{ name: 'Neha Garg', status: 'Married', spouseName: 'Rahul Agrawal', homePlace: 'Indore' }],
+    taujiList: [{ name: 'Sh. Suresh Garg', status: 'Married', spouseName: 'Smt. Anita Garg', homePlace: 'Jaipur' }],
+    chachaList: [{ name: 'Sh. Dinesh Garg', status: 'Married', spouseName: 'Smt. Meena Garg', homePlace: 'Ahmedabad' }],
+    buajiList: [{ name: 'Smt. Rekha Agrawal', status: 'Married', spouseName: 'Sh. Mohan Agrawal', homePlace: 'Udaipur' }],
+    mamajiList: [{ name: 'Sh. Vijay Bansal', status: 'Married', spouseName: 'Smt. Geeta Bansal', homePlace: 'Kota' }],
+    // Contact
+    residentialAddress: '104, Agrasen Nagar, Gopalpura Bypass, Jaipur, Rajasthan',
+    mobileNumber: '+91 98290 XXXXX',
+    city: 'Jaipur, Rajasthan',
+    matchScore: 95,
     verified: true,
     image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
   }
 
-  return (
-    <div className="bg-[#fbf9f5] text-[#1b1c1a] font-body min-h-screen pb-20">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[#fbf9f5]/90 backdrop-blur-md border-b border-amber-200/60 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1 text-xs font-bold text-[#570013] hover:opacity-80 transition"
-          >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
-            <span>Back</span>
-          </button>
-          <span className="font-display font-bold text-[15px] text-[#570013]">
-            Biodata Profile
-          </span>
-          <button
-            onClick={() => alert(`Share profile link for ${p.name}`)}
-            className="text-[#570013]"
-            title="Share Biodata"
-          >
-            <span className="material-symbols-outlined text-[18px]">share</span>
-          </button>
-        </div>
-      </header>
+  const displayName = p.fullName || p.name || 'Candidate Profile'
+  const displayGotra = p.gotra || 'Agarwal'
+  const displayMotherGotra = p.motherGotra || p.subGotra || 'Bansal'
+  const displayHeight = p.height || "5'4\""
+  const displayCity = p.city || p.pob || 'Rajasthan'
+  const profileImgSrc = p.image || p.profilePicture
 
-      {/* Profile Main Container */}
-      <main className="max-w-3xl mx-auto px-4 pt-4 space-y-3.5">
+  const handleShare = async () => {
+    const shareData = {
+      title: `${displayName} - Agrawal Biodata Profile`,
+      text: `Check out the biodata profile of ${displayName} (${displayGotra} Gotra, ${displayCity}) on Agrawal Biodata!`,
+      url: window.location.href,
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err)
+        }
+      }
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(window.location.href)
+      alert('Profile link copied to clipboard!')
+    } else {
+      alert(`Share link for ${displayName}: ${window.location.href}`)
+    }
+  }
+
+  return (
+    <div className="bg-[#fbf9f5] text-[#1b1c1a] font-body min-h-screen pb-24 select-none">
+      {/* Navigation Sub-Header */}
+      <div className="bg-[#fdfcf9] border-b border-amber-200/60 px-4 py-2 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-xs font-bold text-[#570013] hover:opacity-80 transition"
+        >
+          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <span>Back</span>
+        </button>
+        <span className="font-display font-bold text-sm text-[#570013]">
+          Complete Biodata Profile
+        </span>
+        <button
+          onClick={handleShare}
+          className="text-[#570013] p-1.5 rounded-full hover:bg-amber-100/60 active:scale-95 transition flex items-center justify-center"
+          title="Share Biodata Profile"
+        >
+          <span className="material-symbols-outlined text-[20px]">share</span>
+        </button>
+      </div>
+
+      {/* Fullscreen Image Preview Modal */}
+      {isPreviewOpen && (
+        <div 
+          onClick={() => setIsPreviewOpen(false)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200 cursor-pointer"
+        >
+          {/* Modal Close Button */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 text-white z-10">
+            <button
+              onClick={() => setIsPreviewOpen(false)}
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition flex items-center justify-center shadow-md"
+              title="Close"
+            >
+              <span className="material-symbols-outlined text-[24px]">close</span>
+            </button>
+          </div>
+
+          {/* Full Image Display */}
+          <div className="w-full h-full flex items-center justify-center p-2">
+            {profileImgSrc ? (
+              <img
+                src={profileImgSrc}
+                alt={displayName}
+                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+              />
+            ) : (
+              <div className="w-48 h-48 rounded-full bg-white/10 flex items-center justify-center text-white">
+                <span className="material-symbols-outlined text-6xl">person</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Container */}
+      <main className="max-w-3xl mx-auto px-3.5 pt-3.5 space-y-3.5">
         {/* Candidate Hero Card */}
-        <div className="bg-white rounded-[20px] border border-amber-200/80 p-4 shadow-xl relative overflow-hidden">
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-md relative overflow-hidden">
           <div className="flex flex-row items-center gap-4">
-            <div className="w-[88px] h-[88px] sm:w-28 sm:h-28 rounded-full overflow-hidden border-[3px] border-amber-300 shadow-md flex-shrink-0 bg-gray-100">
-              <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+            {/* Clickable Profile Picture */}
+            <div
+              onClick={() => {
+                if (profileImgSrc) {
+                  setIsPreviewOpen(true)
+                  setZoomScale(1)
+                }
+              }}
+              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-[3px] border-amber-300 shadow-md flex-shrink-0 bg-amber-50 flex items-center justify-center cursor-pointer hover:opacity-90 hover:scale-[1.02] transition-all group relative"
+              title="Click to view & zoom image"
+            >
+              {profileImgSrc ? (
+                <>
+                  <img src={profileImgSrc} alt={displayName} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="material-symbols-outlined text-white text-[22px]">zoom_in</span>
+                  </div>
+                </>
+              ) : (
+                <span className="material-symbols-outlined text-[#775a19] text-5xl">person</span>
+              )}
             </div>
 
-            <div className="text-left flex-grow">
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#570013] text-[#ffdea5] text-[10px] font-bold rounded-full mb-1.5 shadow-sm">
+            <div className="text-left flex-grow min-w-0">
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#570013] text-[#ffdea5] text-[10px] font-bold rounded-full mb-1 shadow-2xs">
                 <span className="material-symbols-outlined text-[12px]">star</span>
-                <span>{p.matchScore}% Match Score</span>
+                <span>{p.matchScore || 95}% Match Score</span>
               </div>
 
-              <h1 className="font-display text-[22px] font-bold text-[#570013] flex items-center justify-start gap-1.5 mb-0.5 leading-tight tracking-tight">
-                <span className="truncate">{p.name}</span>
+              <h1 className="font-display text-xl sm:text-2xl font-bold text-[#570013] flex items-center justify-start gap-1.5 mb-0.5 leading-tight tracking-tight">
+                <span className="truncate">{displayName}</span>
                 {p.verified && (
-                  <span className="material-symbols-outlined text-emerald-600 text-[18px]" title="Verified Agarwal Family">
+                  <span className="material-symbols-outlined text-emerald-600 text-[18px]" title="Verified Agarwal Profile">
                     verified
                   </span>
                 )}
               </h1>
 
-              <p className="text-[11px] font-semibold text-gray-700 mb-1 leading-snug">
-                {p.gotra} Gotra • {p.age} yrs • {p.height}
+              <p className="text-[11px] font-semibold text-slate-700 mb-1 leading-snug">
+                {displayGotra} Gotra • {p.age ? `${p.age} yrs` : ''} • {displayHeight}
               </p>
 
-              <p className="text-[10px] text-gray-500 flex items-center justify-start gap-0.5">
-                <span className="material-symbols-outlined text-[12px] text-[#775a19]">location_on</span>
-                <span>{p.city}</span>
+              <p className="text-[10px] text-slate-500 flex items-center justify-start gap-0.5 font-medium">
+                <span className="material-symbols-outlined text-[13px] text-[#775a19]">location_on</span>
+                <span>{displayCity}</span>
               </p>
             </div>
           </div>
         </div>
 
-        {/* Kundali & Horoscope Card */}
-        <div className="bg-white rounded-md border border-amber-200/80 p-4 shadow-sm">
-          <h2 className="font-display text-[15px] font-bold text-[#570013] mb-3 flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+        {/* SECTION 1: Personal Details */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+            <span className="material-symbols-outlined text-[#775a19] text-[18px]">person</span>
+            <span>Personal Details</span>
+          </h2>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[11px]">
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Full Name</span>
+              <span className="font-bold text-slate-800">{displayName}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Gender</span>
+              <span className="font-bold text-slate-800">{p.gender || 'Female'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Paternal Gotra</span>
+              <span className="font-bold text-[#570013]">{displayGotra}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Height</span>
+              <span className="font-bold text-slate-800">{displayHeight}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Complexion</span>
+              <span className="font-bold text-slate-800">{p.complexion || 'Fair'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Hobbies</span>
+              <span className="font-bold text-slate-800">{p.hobbies || 'Music, Reading'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: Kundali & Horoscope Details */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
             <span className="material-symbols-outlined text-[#775a19] text-[18px]">auto_awesome</span>
-            <span>Horoscope & Kundali</span>
+            <span>Kundali & Birth Details</span>
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
-            <div className="bg-amber-50/80 p-2.5 rounded-[10px] border border-amber-200">
-              <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-tight">Guna Milan</span>
-              <span className="text-[15px] font-bold text-[#570013] leading-tight">32 / 36</span>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[11px]">
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Date of Birth</span>
+              <span className="font-bold text-slate-800">{p.dob || '14 May 1998'}</span>
             </div>
-            <div className="bg-amber-50/80 p-2.5 rounded-[10px] border border-amber-200">
-              <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-tight">Manglik</span>
-              <span className="text-xs font-bold text-[#570013] leading-tight">{p.manglik}</span>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Time of Birth</span>
+              <span className="font-bold text-slate-800">{p.tob || '08:30 AM'}</span>
             </div>
-            <div className="bg-amber-50/80 p-2.5 rounded-[10px] border border-amber-200">
-              <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-tight">Paternal Gotra</span>
-              <span className="text-xs font-bold text-[#570013] leading-tight">{p.gotra}</span>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Place of Birth</span>
+              <span className="font-bold text-slate-800">{p.pob || 'Jaipur, Rajasthan'}</span>
             </div>
-            <div className="bg-amber-50/80 p-2.5 rounded-[10px] border border-amber-200">
-              <span className="block text-[9px] text-gray-500 uppercase font-bold tracking-tight">Maternal Gotra</span>
-              <span className="text-xs font-bold text-[#570013] leading-tight">{p.subGotra}</span>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Manglik Status</span>
+              <span className="font-bold text-[#570013]">{p.manglik || 'Non-Manglik'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Paternal Gotra</span>
+              <span className="font-bold text-slate-800">{displayGotra}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Maternal Gotra</span>
+              <span className="font-bold text-[#775a19]">{displayMotherGotra}</span>
             </div>
           </div>
         </div>
 
-        {/* Ancestral & Family Background */}
-        <div className="bg-white rounded-md border border-amber-200/80 p-4 shadow-sm">
-          <h2 className="font-display text-[15px] font-bold text-[#570013] mb-3 flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
-            <span className="material-symbols-outlined text-[#775a19] text-[18px]">family_history</span>
-            <span>Family Background</span>
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-3 text-[11px]">
-            <div>
-              <span className="font-bold text-gray-700 block mb-0.5">Father's Profession:</span>
-              <p className="text-gray-600 leading-snug">Owner, Agarwal Textiles</p>
-            </div>
-            <div>
-              <span className="font-bold text-gray-700 block mb-0.5">Mother's Background:</span>
-              <p className="text-gray-600 leading-snug">Homemaker (Bansal Gotra)</p>
-            </div>
-            <div>
-              <span className="font-bold text-gray-700 block mb-0.5">Siblings:</span>
-              <p className="text-gray-600 leading-snug">1 Younger Brother (CA)</p>
-            </div>
-            <div>
-              <span className="font-bold text-gray-700 block mb-0.5">Ancestral Roots:</span>
-              <p className="text-gray-600 leading-snug">Agroha / Hisar</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Education & Profession */}
-        <div className="bg-white rounded-md border border-amber-200/80 p-4 shadow-sm">
-          <h2 className="font-display text-[15px] font-bold text-[#570013] mb-3 flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+        {/* SECTION 3: Education & Profession */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
             <span className="material-symbols-outlined text-[#775a19] text-[18px]">work</span>
             <span>Education & Profession</span>
           </h2>
-          <div className="space-y-2.5 text-[11px]">
-            <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined text-[15px] text-[#570013] mt-0.5">school</span>
-              <div>
-                <span className="font-bold text-gray-800 block leading-tight">Highest Qualification</span>
-                <p className="text-gray-600 leading-snug">{p.education}</p>
-              </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Highest Qualification</span>
+              <span className="font-bold text-slate-800">{p.qualification || 'M.Tech'}</span>
             </div>
-            <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined text-[15px] text-[#570013] mt-0.5">business_center</span>
-              <div>
-                <span className="font-bold text-gray-800 block leading-tight">Current Profession</span>
-                <p className="text-gray-600 leading-snug">Senior Product Manager (28+ LPA)</p>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Working At</span>
+              <span className="font-bold text-slate-800">{p.workingAt || 'TCS'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Annual Income</span>
+              <span className="font-bold text-emerald-700">{p.income || '12-15 LPA'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 4: Family Details & Background */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+            <span className="material-symbols-outlined text-[#775a19] text-[18px]">family_history</span>
+            <span>Family Background</span>
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Grandfather</span>
+              <span className="font-bold text-slate-800">{p.grandfather || 'Late Sh. Ramcharan Garg'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Grandmother</span>
+              <span className="font-bold text-slate-800">{p.grandmother || 'Smt. Shanti Devi'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Father</span>
+              <span className="font-bold text-slate-800">{p.father || 'Sh. Rameshwar Garg'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Father's Occupation</span>
+              <span className="font-bold text-slate-800">{p.fatherOccupation || 'Business'} {p.fatherOccupationDetails ? `(${p.fatherOccupationDetails})` : ''}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Mother</span>
+              <span className="font-bold text-slate-800">{p.mother || 'Smt. Sunita Garg'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Mother's Gotra</span>
+              <span className="font-bold text-[#775a19]">{displayMotherGotra}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 5: Siblings & Relatives (Tauji, Chacha, Buaji, Brother, Sister) */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+            <span className="material-symbols-outlined text-[#775a19] text-[18px]">group</span>
+            <span>Siblings & Paternal Relatives</span>
+          </h2>
+
+          <div className="space-y-2.5 text-[11px]">
+            {/* Brothers */}
+            {p.brotherList && p.brotherList.length > 0 && (
+              <div className="bg-[#fbf9f5] border border-amber-100 rounded-md p-2.5">
+                <span className="font-bold text-[#570013] block mb-1 uppercase text-[10px]">Brother(s)</span>
+                {p.brotherList.map((b, i) => (
+                  <p key={i} className="text-slate-700">
+                    <span className="font-semibold">{b.name || `Brother ${i+1}`}</span> ({b.status}) {b.status === 'Married' ? `- Wife: ${b.spouseName} (${b.homePlace})` : ''}
+                  </p>
+                ))}
               </div>
+            )}
+
+            {/* Sisters */}
+            {p.sisterList && p.sisterList.length > 0 && (
+              <div className="bg-[#fbf9f5] border border-amber-100 rounded-md p-2.5">
+                <span className="font-bold text-[#570013] block mb-1 uppercase text-[10px]">Sister(s)</span>
+                {p.sisterList.map((s, i) => (
+                  <p key={i} className="text-slate-700">
+                    <span className="font-semibold">{s.name || `Sister ${i+1}`}</span> ({s.status}) {s.status === 'Married' ? `- Husband: ${s.spouseName} (${s.homePlace})` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Tauji */}
+            {p.taujiList && p.taujiList.length > 0 && (
+              <div className="bg-[#fbf9f5] border border-amber-100 rounded-md p-2.5">
+                <span className="font-bold text-[#570013] block mb-1 uppercase text-[10px]">Tauji (Elder Uncle)</span>
+                {p.taujiList.map((t, i) => (
+                  <p key={i} className="text-slate-700">
+                    <span className="font-semibold">{t.name || `Tauji ${i+1}`}</span> ({t.status}) {t.status === 'Married' ? `- Taiji: ${t.spouseName} (${t.homePlace})` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Chacha */}
+            {p.chachaList && p.chachaList.length > 0 && (
+              <div className="bg-[#fbf9f5] border border-amber-100 rounded-md p-2.5">
+                <span className="font-bold text-[#570013] block mb-1 uppercase text-[10px]">Chacha (Uncle)</span>
+                {p.chachaList.map((c, i) => (
+                  <p key={i} className="text-slate-700">
+                    <span className="font-semibold">{c.name || `Chacha ${i+1}`}</span> ({c.status}) {c.status === 'Married' ? `- Chachi: ${c.spouseName} (${c.homePlace})` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Buaji */}
+            {p.buajiList && p.buajiList.length > 0 && (
+              <div className="bg-[#fbf9f5] border border-amber-100 rounded-md p-2.5">
+                <span className="font-bold text-[#570013] block mb-1 uppercase text-[10px]">Bua Ji (Paternal Aunt)</span>
+                {p.buajiList.map((bu, i) => (
+                  <p key={i} className="text-slate-700">
+                    <span className="font-semibold">{bu.name || `Buaji ${i+1}`}</span> ({bu.status}) {bu.status === 'Married' ? `- Phupha Ji: ${bu.spouseName} (${bu.homePlace})` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SECTION 6: Maternal Family (Mama Ji) */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+            <span className="material-symbols-outlined text-[#775a19] text-[18px]">person_3</span>
+            <span>Maternal Family (Mama Ji Details)</span>
+          </h2>
+
+          <div className="space-y-2 text-[11px]">
+            {p.mamajiList && p.mamajiList.length > 0 ? (
+              p.mamajiList.map((m, i) => (
+                <div key={i} className="bg-[#fbf9f5] border border-amber-100 rounded-md p-2.5">
+                  <p className="font-semibold text-slate-800">{m.name || `Mama Ji ${i+1}`} ({m.status})</p>
+                  {m.status === 'Married' && (
+                    <p className="text-slate-600 mt-0.5">
+                      Mami Ji: <span className="font-medium text-slate-800">{m.spouseName}</span> • Home Place: <span className="font-medium text-slate-800">{m.homePlace}</span>
+                    </p>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-500 italic">No maternal uncle details provided</p>
+            )}
+          </div>
+        </div>
+
+        {/* SECTION 7: Residential Information */}
+        <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs space-y-3">
+          <h2 className="font-display text-sm font-bold text-[#570013] flex items-center gap-1.5 border-b border-amber-100 pb-1.5">
+            <span className="material-symbols-outlined text-[#775a19] text-[18px]">home</span>
+            <span>Residential Information</span>
+          </h2>
+
+          <div className="text-[11px]">
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Residential Address</span>
+              <span className="font-bold text-slate-800 leading-snug block mt-0.5">{p.residentialAddress || 'Jaipur, Rajasthan'}</span>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Fixed Bottom CTA Bar */}
+      {/* Fixed Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-amber-200 py-2.5 px-4 shadow-2xl">
         <div className="max-w-xl mx-auto flex items-center gap-2.5">
           <button
-            onClick={() => alert(`Shortlisted ${p.name}`)}
-            className="px-3.5 py-2.5 rounded-md border border-amber-300 text-[#775a19] font-bold text-[11px] hover:bg-amber-50 transition flex items-center justify-center shadow-sm"
+            onClick={() => alert(`Shortlisted ${displayName}`)}
+            className="px-3.5 py-2.5 rounded-md border border-amber-300 text-[#775a19] font-bold text-[11px] hover:bg-amber-50 transition flex items-center justify-center shadow-xs active:scale-95"
           >
             <span className="material-symbols-outlined text-[18px]">bookmark</span>
           </button>
           <button
-            onClick={() => alert(`Express Interest sent to ${p.name}'s family!`)}
+            onClick={() => alert(`Express Interest sent to ${displayName}'s family!`)}
             className="flex-1 py-2.5 rounded-md bg-[#570013] text-[#ffdea5] font-bold text-[12px] hover:bg-[#800020] transition shadow text-center flex items-center justify-center gap-1.5 active:scale-95"
           >
             <span className="material-symbols-outlined text-[16px]">favorite</span>

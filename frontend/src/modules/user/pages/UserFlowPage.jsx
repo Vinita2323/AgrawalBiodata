@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom'
+import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom'
+import ScrollToTop from '../components/ScrollToTop'
 import AuthLandingScreen from '../components/AuthLandingScreen'
 import LoginScreen from '../components/LoginScreen'
 import CreateAccountScreen from '../components/CreateAccountScreen'
@@ -11,10 +12,13 @@ import ProfileDetailScreen from '../components/ProfileDetailScreen'
 import MembershipScreen from '../components/MembershipScreen'
 import PaymentScreen from '../components/PaymentScreen'
 import SettingsScreen from '../components/SettingsScreen'
+import HelpSupportScreen from '../components/HelpSupportScreen'
 import WelcomeScreen from '../components/WelcomeScreen'
+import HeaderBar from '../components/HeaderBar'
 
 export default function UserFlowPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [selectedProfile, setSelectedProfile] = useState(null)
   const [hasPremium, setHasPremium] = useState(false)
 
@@ -25,7 +29,11 @@ export default function UserFlowPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#1b1b1b] flex justify-center items-center font-body selection:bg-[#775a19] selection:text-white">
-      <div className="w-full max-w-[430px] min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl flex flex-col">
+      <ScrollToTop />
+      <div className="w-full max-w-[480px] min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl flex flex-col">
+        {location.pathname !== '/welcome' && location.pathname !== '/auth-landing' && location.pathname !== '/' && location.pathname !== '/splash' && (
+          <HeaderBar />
+        )}
         <Routes>
           {/* Redirect root and splash directly to auth landing */}
           <Route path="/" element={<Navigate to="/auth-landing" replace />} />
@@ -242,6 +250,14 @@ export default function UserFlowPage() {
               />
             }
           />
+
+          {/* Help & Support Route */}
+          <Route
+            path="/help-support"
+            element={<HelpSupportScreen onBack={() => navigate('/profile')} />}
+          />
+          <Route path="/support" element={<Navigate to="/help-support" replace />} />
+          <Route path="/help" element={<Navigate to="/help-support" replace />} />
 
           {/* Settings Route */}
           <Route

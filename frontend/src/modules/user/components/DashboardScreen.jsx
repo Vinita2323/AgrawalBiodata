@@ -133,6 +133,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [favorites, setFavorites] = useState({})
   const [interested, setInterested] = useState({})
 
+  const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Blocked' | 'Help & Support'
   const [notificationsTab, setNotificationsTab] = useState('All')
   const [userProfile, setUserProfile] = useState(null)
 
@@ -184,7 +185,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [chatsList, setChatsList] = useState([
     {
       id: 'c1',
-      name: 'Priya Sharma',
+      name: 'Priya Garg',
       lastMessage: 'Typing...',
       isTyping: true,
       time: '11:30 AM',
@@ -194,7 +195,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'c2',
-      name: 'Anjali Verma',
+      name: 'Anjali Bansal',
       lastMessage: 'Hello 👋',
       time: '10:15 AM',
       unreadCount: 1,
@@ -203,7 +204,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'c3',
-      name: 'Riya Singh',
+      name: 'Riya Goyal',
       lastMessage: 'Sent a photo',
       time: 'Yesterday',
       unreadCount: 0,
@@ -212,7 +213,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'c4',
-      name: 'Kavya Agarwal',
+      name: 'Kavya Singhal',
       lastMessage: 'Thank you 😊',
       time: 'Yesterday',
       unreadCount: 0,
@@ -221,7 +222,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'c5',
-      name: 'Neha Jain',
+      name: 'Neha Mittal',
       lastMessage: 'Hi, How are you?',
       time: '2 May',
       unreadCount: 0,
@@ -271,7 +272,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [interestsData, setInterestsData] = useState([
     {
       id: 'int-1',
-      name: 'Priya Sharma',
+      name: 'Priya Garg',
       age: 26,
       city: 'Jaipur',
       date: '12 May 2024',
@@ -281,7 +282,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'int-2',
-      name: 'Anjali Verma',
+      name: 'Anjali Bansal',
       age: 28,
       city: 'Jodhpur',
       date: '10 May 2024',
@@ -291,7 +292,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'int-3',
-      name: 'Neha Agarwal',
+      name: 'Neha Goyal',
       age: 27,
       city: 'Ajmer',
       date: '08 May 2024',
@@ -321,7 +322,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [recentSearches, setRecentSearches] = useState([
     {
       id: 'r1',
-      title: 'Priya Sharma, 26',
+      title: 'Priya Garg, 26',
       subtitle: 'Jaipur, Rajasthan',
       image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
     },
@@ -351,7 +352,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const matchesList = [
     {
       id: 'P101',
-      name: 'Riya Sharma',
+      name: 'Riya Garg',
       age: 26,
       height: "5'4\"",
       city: 'Jaipur, Rajasthan',
@@ -365,7 +366,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'P102',
-      name: 'Anjali Verma',
+      name: 'Anjali Bansal',
       age: 28,
       height: "5'5\"",
       city: 'Jodhpur, Rajasthan',
@@ -379,7 +380,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'P103',
-      name: 'Kavya Singh',
+      name: 'Kavya Goyal',
       age: 27,
       height: "5'3\"",
       city: 'Ajmer, Rajasthan',
@@ -410,7 +411,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const todayMatches = [
     {
       id: 'P101',
-      name: 'Priya Sharma',
+      name: 'Priya Garg',
       age: 26,
       height: "5'4\"",
       city: 'Jaipur',
@@ -421,7 +422,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'P102',
-      name: 'Anjali Verma',
+      name: 'Anjali Bansal',
       age: 28,
       height: "5'5\"",
       city: 'Jodhpur',
@@ -432,7 +433,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     },
     {
       id: 'P103',
-      name: 'Kavya Singh',
+      name: 'Kavya Goyal',
       age: 27,
       height: "5'3\"",
       city: 'Ajmer',
@@ -483,7 +484,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     {
       id: 'n1',
       category: 'Interests',
-      title: 'Priya Sharma accepted your interest.',
+      title: 'Priya Garg accepted your interest.',
       time: '2 min ago',
       unread: true,
       image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
@@ -491,7 +492,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     {
       id: 'n2',
       category: 'Messages',
-      title: 'You have a new message from Anjali Verma',
+      title: 'You have a new message from Anjali Bansal',
       time: '10 min ago',
       unread: true,
       image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
@@ -618,18 +619,24 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
             <div className="flex items-center gap-4">
               {/* Profile Picture */}
-              <div className="relative w-20 h-20 rounded-full border-4 border-amber-300/80 shadow-lg overflow-hidden flex-shrink-0">
-                <img
-                  src={userProfile?.profilePicture || "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=300"}
-                  alt={userProfile?.fullName || "Rahul Sharma"}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-20 h-20 rounded-full border-4 border-amber-300/80 shadow-lg overflow-hidden flex-shrink-0 bg-amber-100/20 flex items-center justify-center">
+                {userProfile?.profilePicture ? (
+                  <img
+                    src={userProfile.profilePicture}
+                    alt={userProfile?.fullName || 'User Profile'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="material-symbols-outlined text-amber-200/80 text-4xl">
+                    person
+                  </span>
+                )}
               </div>
 
               {/* User Details & Edit Profile Button */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <h1 className="text-xl font-bold truncate">{userProfile?.fullName || 'Rahul Sharma'}</h1>
+                  <h1 className="text-xl font-bold truncate">{userProfile?.fullName || 'Rahul Garg'}</h1>
                   <span className="w-4.5 h-4.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs" title="Verified Member">
                     ✓
                   </span>
@@ -709,10 +716,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.id === 'interests') handleTabNavigate('Interests')
+                    if (item.id === 'my-profile') handleTabNavigate('MyProfile')
                     else if (item.id === 'premium') navigate('/membership')
+                    else if (item.id === 'interests') handleTabNavigate('Interests')
+                    else if (item.id === 'visitors') setActiveModal('Visitors')
+                    else if (item.id === 'saved') setActiveModal('Saved')
+                    else if (item.id === 'blocked') setActiveModal('Blocked')
                     else if (item.id === 'settings') navigate('/settings')
-                    else if (item.id === 'my-profile') handleTabNavigate('MyProfile')
+                    else if (item.id === 'help') navigate('/help-support')
                   }}
                   className="flex flex-col items-center justify-center p-2.5 py-3.5 bg-white rounded-md border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/30 active:scale-95 transition min-h-[85px]"
                 >
@@ -1417,36 +1428,29 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       ) : activeTab === 'MyProfile' ? (
         /* MY PROFILE VIEW */
         <div className="pb-6" ref={biodataRef}>
-          <div className="bg-[#f2ebd9] px-4 pt-4 pb-4 border-b border-[#e6dfd1]/80 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="bg-[#f2ebd9] px-3.5 py-2.5 border-b border-[#e6dfd1]/80 flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   handleTabNavigate('Profile')
                 }}
-                className="p-2 rounded-full bg-amber-100/50 hover:bg-amber-100 active:scale-90 transition text-[#570013] cursor-pointer print:hidden z-20 flex items-center justify-center"
+                className="p-1.5 rounded-full bg-amber-100/50 hover:bg-amber-100 active:scale-90 transition text-[#570013] cursor-pointer print:hidden z-20 flex items-center justify-center"
                 title="Go Back"
                 type="button"
               >
-                <span className="material-symbols-outlined text-2xl block font-bold">arrow_back</span>
+                <span className="material-symbols-outlined text-lg block font-bold">arrow_back</span>
               </button>
-              {/* Top Left Logo & Title */}
-              <div className="flex items-center gap-2">
-                <img
-                  src="/Logo (2).png"
-                  alt="Logo"
-                  className="w-10 h-10 object-contain drop-shadow-xs"
-                />
-                <div>
-                  <h1 className="text-xl font-extrabold text-[#570013] tracking-wider uppercase font-display">BIO DATA</h1>
-                  <p className="text-[10px] text-[#775a19] font-semibold print:block hidden">Agarwal Matrimony</p>
-                </div>
+              {/* Top Left Title */}
+              <div>
+                <h1 className="text-base font-extrabold text-[#570013] tracking-wide uppercase font-display leading-none">BIO DATA</h1>
+                <p className="text-[9px] text-[#775a19] font-semibold print:block hidden">Agarwal Matrimony</p>
               </div>
             </div>
             <button
               onClick={handleDownloadPDF}
               disabled={isExportingPdf}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer print:hidden ${
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1 shadow-xs transition cursor-pointer print:hidden ${
                 isExportingPdf
                   ? 'bg-gray-400 text-white cursor-not-allowed opacity-80'
                   : 'bg-[#570013] hover:bg-[#72001a] text-white active:scale-95'
@@ -1454,12 +1458,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             >
               {isExportingPdf ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  <span>Generating PDF...</span>
+                  <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>Generating...</span>
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+                  <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
                   <span>Export PDF</span>
                 </>
               )}
@@ -1468,49 +1472,49 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           {/* Toast Notification Banner */}
           {toastMessage && (
-            <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 animate-bounce transition-all ${
+            <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-full shadow-lg text-[11px] font-bold flex items-center gap-2 animate-bounce transition-all ${
               toastMessage.type === 'error' 
                 ? 'bg-red-600 text-white' 
                 : 'bg-emerald-700 text-white'
             }`}>
-              <span className="material-symbols-outlined text-base">
+              <span className="material-symbols-outlined text-sm">
                 {toastMessage.type === 'error' ? 'error' : 'check_circle'}
               </span>
               <span>{toastMessage.text}</span>
             </div>
           )}
-          <div className="p-4 sm:p-6 space-y-6 bg-white print:p-2">
+          <div className="p-3.5 sm:p-5 space-y-4 bg-white print:p-2">
             {userProfile ? (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Personal Information */}
-                <div className="p-2 space-y-3 relative border-b border-amber-200/60 pb-5">
-                  <button onClick={() => navigate('/profile-completion-dashboard')} className="absolute top-0 right-0 p-1.5 bg-amber-50 text-[#775a19] rounded-full hover:bg-amber-100 active:scale-95 transition border border-amber-200/60 shadow-sm print:hidden" title="Edit Profile">
-                    <span className="material-symbols-outlined text-[16px] block">edit</span>
+                <div className="p-1.5 space-y-2.5 relative border-b border-amber-200/60 pb-4">
+                  <button onClick={() => navigate('/profile-completion-dashboard')} className="absolute top-0 right-0 p-1.5 bg-amber-50 text-[#775a19] rounded-full hover:bg-amber-100 active:scale-95 transition border border-amber-200/60 shadow-xs print:hidden" title="Edit Profile">
+                    <span className="material-symbols-outlined text-[15px] block">edit</span>
                   </button>
-                  <h2 className="font-bold text-[#570013] text-base border-b-2 border-[#570013]/20 pb-1.5 uppercase tracking-wide">Personal Information</h2>
-                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                    <div className="text-gray-500 text-[11px] leading-tight">Full Name</div><div className="font-semibold text-gray-800 text-xs">{userProfile.fullName || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Gender</div><div className="font-semibold text-gray-800 text-xs">{userProfile.gender || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Gotra</div><div className="font-semibold text-gray-800 text-xs">{userProfile.gotra || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Date of Birth</div><div className="font-semibold text-gray-800 text-xs">{userProfile.dob || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Height</div><div className="font-semibold text-gray-800 text-xs">{userProfile.height || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Complexion</div><div className="font-semibold text-gray-800 text-xs">{userProfile.complexion || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Manglik</div><div className="font-semibold text-gray-800 text-xs">{userProfile.manglik || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Qualification</div><div className="font-semibold text-gray-800 text-xs">{userProfile.qualification || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Income</div><div className="font-semibold text-gray-800 text-xs">{userProfile.income || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Working At</div><div className="font-semibold text-gray-800 text-xs">{userProfile.workingAt || '-'}</div>
+                  <h2 className="font-bold text-[#570013] text-sm border-b-2 border-[#570013]/20 pb-1 uppercase tracking-wide">Personal Information</h2>
+                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs">
+                    <div className="text-gray-500 text-[10px] leading-tight">Full Name</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.fullName || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Gender</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.gender || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Gotra</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.gotra || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Date of Birth</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.dob || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Height</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.height || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Complexion</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.complexion || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Manglik</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.manglik || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Qualification</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.qualification || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Income</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.income || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Working At</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.workingAt || '-'}</div>
                   </div>
                 </div>
 
                 {/* Family Details */}
-                <div className="p-2 space-y-3 border-b border-amber-200/60 pb-5">
-                  <h2 className="font-bold text-[#570013] text-base border-b-2 border-[#570013]/20 pb-1.5 uppercase tracking-wide">Family Details</h2>
-                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                    <div className="text-gray-500 text-[11px] leading-tight">Grandfather</div><div className="font-semibold text-gray-800 text-xs">{userProfile.grandfather || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Grandmother</div><div className="font-semibold text-gray-800 text-xs">{userProfile.grandmother || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Father</div><div className="font-semibold text-gray-800 text-xs">{userProfile.father || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Mother</div><div className="font-semibold text-gray-800 text-xs">{userProfile.mother || '-'}</div>
-                    <div className="text-gray-500 text-[11px] leading-tight">Mother's Gotra</div><div className="font-semibold text-gray-800 text-xs">{userProfile.motherGotra || '-'}</div>
+                <div className="p-1.5 space-y-2.5 border-b border-amber-200/60 pb-4">
+                  <h2 className="font-bold text-[#570013] text-sm border-b-2 border-[#570013]/20 pb-1 uppercase tracking-wide">Family Details</h2>
+                  <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs">
+                    <div className="text-gray-500 text-[10px] leading-tight">Grandfather</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.grandfather || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Grandmother</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.grandmother || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Father</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.father || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Mother</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.mother || '-'}</div>
+                    <div className="text-gray-500 text-[10px] leading-tight">Mother's Gotra</div><div className="font-semibold text-gray-800 text-[11px]">{userProfile.motherGotra || '-'}</div>
                     {/* Helper to render list or string */}
                     {[
                       { key: 'brotherList', strKey: 'brothers', label: 'Brothers', spouseLabel: 'Wife' },
@@ -1590,17 +1594,23 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           <div className="-mx-5 -mt-4 px-5 pt-5 pb-4 bg-[#f2ebd9] border-b border-[#e6dfd1]/80 flex items-center justify-between mb-6 shadow-sm">
             {/* Left side: Avatar + Greeting */}
             <div className="flex items-center gap-3">
-              <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] to-amber-300 shadow-sm">
-                <img
-                  src={userProfile?.profilePicture || "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200"}
-                  alt={userProfile?.fullName ? `${userProfile.fullName} Profile` : "Rahul Sharma Profile"}
-                  className="w-full h-full rounded-full object-cover border-2 border-white"
-                />
+              <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] to-amber-300 shadow-sm flex items-center justify-center overflow-hidden bg-amber-50">
+                {userProfile?.profilePicture ? (
+                  <img
+                    src={userProfile.profilePicture}
+                    alt={userProfile?.fullName ? `${userProfile.fullName} Profile` : "User Profile"}
+                    className="w-full h-full rounded-full object-cover border-2 border-white"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#775a19]">
+                    <span className="material-symbols-outlined text-[22px]">person</span>
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-[10px] text-[#775a19] font-bold uppercase tracking-wider mb-0.5">Welcome back,</p>
                 <h1 className="text-lg font-extrabold text-[#570013] leading-tight truncate max-w-[150px]">
-                  {userProfile?.fullName || 'Rahul Sharma'}
+                  {userProfile?.fullName || 'Rahul Garg'}
                 </h1>
               </div>
             </div>
@@ -1612,6 +1622,54 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             >
               <span className="material-symbols-outlined text-[#570013] text-xl block">notifications</span>
               <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full" />
+            </div>
+          </div>
+
+          {/* Bio Data Action Card */}
+          <div className="bg-gradient-to-r from-amber-500/15 via-amber-100/60 to-amber-500/15 border border-amber-300/80 rounded-xl p-3.5 mb-3 shadow-xs relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Icon & Visible Title */}
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-full bg-[#570013] text-amber-300 flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="material-symbols-outlined text-[22px]">badge</span>
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold text-[#570013] tracking-wide uppercase leading-tight">
+                    Your Bio Data
+                  </h2>
+                  <p className="text-[10px] text-[#775a19] font-semibold leading-tight mt-0.5">
+                    View profile preview or download PDF
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => handleTabNavigate('MyProfile')}
+                  className="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-[#570013] font-bold text-xs hover:bg-amber-50 active:scale-95 transition-all shadow-xs flex items-center gap-1.5"
+                  title="View Bio Data"
+                >
+                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                  <span>View</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleTabNavigate('MyProfile')
+                    setTimeout(() => {
+                      handleDownloadPDF()
+                    }, 300)
+                  }}
+                  disabled={isExportingPdf}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs active:scale-95 transition-all shadow-xs flex items-center gap-1.5"
+                  title="Download PDF Resume"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span>Download</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1634,7 +1692,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </p>
                 </div>
 
-                <button className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-[11px] shadow hover:brightness-105 active:scale-95 transition-all">
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-[11px] shadow hover:brightness-105 active:scale-95 transition-all"
+                >
                   Complete Now
                 </button>
               </div>
@@ -1806,6 +1867,114 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             )
           })}
         </nav>
+      )}
+
+      {/* Full Modal Overlay Views (Visitors, Saved, Blocked, Help & Support) */}
+      {activeModal && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
+            {/* Modal Header */}
+            <div className="bg-[#570013] text-white px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-300 text-xl">
+                  {activeModal === 'Visitors' ? 'group' : activeModal === 'Saved' ? 'bookmark' : activeModal === 'Blocked' ? 'block' : 'support_agent'}
+                </span>
+                <h3 className="font-extrabold text-sm uppercase tracking-wide font-display">{activeModal}</h3>
+              </div>
+              <button
+                onClick={() => setActiveModal(null)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition flex items-center justify-center text-white"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content Body */}
+            <div className="p-4 overflow-y-auto space-y-4">
+              {activeModal === 'Visitors' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 font-medium">12 members visited your profile recently:</p>
+                  {[
+                    { name: 'Riya Garg', time: '10 min ago', city: 'Jaipur', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
+                    { name: 'Anjali Bansal', time: '1 hour ago', city: 'Jodhpur', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200' },
+                    { name: 'Kavya Goyal', time: 'Yesterday', city: 'Ajmer', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200' },
+                  ].map((v, i) => (
+                    <div key={i} className="flex items-center justify-between p-2.5 bg-amber-50/40 rounded-xl border border-amber-100">
+                      <div className="flex items-center gap-3">
+                        <img src={v.image} alt={v.name} className="w-10 h-10 rounded-full object-cover border border-amber-200" />
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800">{v.name}</h4>
+                          <p className="text-[10px] text-slate-500">{v.city} • {v.time}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => { setActiveModal(null); navigate('/profile-detail'); }}
+                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition"
+                      >
+                        View Profile
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeModal === 'Saved' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 font-medium">Your bookmarked & saved profiles:</p>
+                  {[
+                    { name: 'Riya Garg', age: 26, city: 'Jaipur', profession: 'Software Engineer', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
+                    { name: 'Aman Singhal', age: 29, city: 'Delhi', profession: 'Doctor', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
+                  ].map((s, i) => (
+                    <div key={i} className="flex items-center justify-between p-2.5 bg-amber-50/40 rounded-xl border border-amber-100">
+                      <div className="flex items-center gap-3">
+                        <img src={s.image} alt={s.name} className="w-10 h-10 rounded-full object-cover border border-amber-200" />
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800">{s.name}, {s.age}</h4>
+                          <p className="text-[10px] text-slate-500">{s.profession} • {s.city}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => { setActiveModal(null); navigate('/profile-detail'); }}
+                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition"
+                      >
+                        Open Profile
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeModal === 'Blocked' && (
+                <div className="text-center py-6 space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                    <span className="material-symbols-outlined text-2xl">block</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-700">No Blocked Members</h4>
+                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">You have not blocked any profiles yet. Blocked profiles will appear here.</p>
+                </div>
+              )}
+
+              {activeModal === 'Help & Support' && (
+                <div className="space-y-3 text-xs">
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/80 space-y-1">
+                    <h4 className="font-bold text-[#570013]">Need Assistance?</h4>
+                    <p className="text-[11px] text-slate-600">Our Agarwal Samaj Matrimony support team is available 24/7 to help you.</p>
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <a href="tel:+919876543210" className="flex items-center gap-3 p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 font-semibold text-slate-800">
+                      <span className="material-symbols-outlined text-emerald-600 text-lg">call</span>
+                      <span>Call Support: +91 98765 43210</span>
+                    </a>
+                    <a href="mailto:support@agarwalbiodata.com" className="flex items-center gap-3 p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 font-semibold text-slate-800">
+                      <span className="material-symbols-outlined text-blue-600 text-lg">mail</span>
+                      <span>Email: support@agarwalbiodata.com</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
