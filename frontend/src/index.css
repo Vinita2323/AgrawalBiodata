@@ -95,7 +95,7 @@ html, body {
     margin: 0 !important;
     padding: 0 !important;
   }
-  nav, button, .print\:hidden {
+  aside, header, nav, button, .print\:hidden {
     display: none !important;
   }
   .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl {
@@ -104,7 +104,7 @@ html, body {
   .border {
     border-color: #e5e7eb !important;
   }
-  /* Remove mobile container max-width constraints during print */
+  /* Remove container max-width constraints during print */
   div[class*="max-w-"] {
     max-width: 100% !important;
   }
