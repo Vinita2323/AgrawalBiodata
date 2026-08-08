@@ -25,7 +25,10 @@ export default function AdminRoutes() {
         <Route path="login" element={<AdminLoginPage />} />
 
         {/* Root Admin Redirect */}
-        <Route path="" element={<Navigate to="dashboard" replace />} />
+        <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+
+        {/* Admin Auth Alias Redirect */}
+        <Route path="auth/*" element={<Navigate to="/admin/login" replace />} />
 
         {/* 1. Dashboard Module */}
         <Route
@@ -144,7 +147,7 @@ export default function AdminRoutes() {
         />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </AdminAuthProvider>
   )
