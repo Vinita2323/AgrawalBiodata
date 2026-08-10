@@ -21,6 +21,9 @@ export default function UserManagementPage() {
   const [activeModalUser, setActiveModalUser] = useState(null)
   const [modalAction, setModalAction] = useState(null) // 'suspend' | 'activate' | 'delete'
 
+  // Toast notification state
+  const [exportToast, setExportToast] = useState('')
+
   useEffect(() => {
     loadUsers()
   }, [])
@@ -74,8 +77,101 @@ export default function UserManagementPage() {
     currentPage * pageSize
   )
 
+  // Direct CSV Export Users Report Logic
+  const handleExportUsersReport = () => {
+    const dataToExport = filteredUsers.length > 0 ? filteredUsers : users
+    if (!dataToExport || dataToExport.length === 0) {
+      alert('No user records available to export.')
+      return
+    }
+
+    const dateStr = new Date().toISOString().split('T')[0]
+    const headers = [
+      'User ID',
+      'User Name',
+      'Contact Mobile',
+      'Contact Email',
+      'Biodata Profile Name',
+      'Gender',
+      'Verification Status',
+      'Subscription Plan',
+      'Subscription Status',
+      'Account Status',
+      'Registration Date',
+      'Last Active',
+      'Gotra',
+      'Mother Gotra',
+      'Qualification',
+      'Occupation',
+      'Income',
+      'Location'
+    ]
+
+    const escapeCsv = (field) => {
+      if (field === null || field === undefined) return '""'
+      const val = String(field).replace(/"/g, '""')
+      return `"${val}"`
+    }
+
+    const rows = dataToExport.map((user) => {
+      const primaryProf = user.profiles && user.profiles[0] ? user.profiles[0] : {}
+      return [
+        escapeCsv(user.id),
+        escapeCsv(user.name),
+        escapeCsv(user.mobile),
+        escapeCsv(user.email),
+        escapeCsv(primaryProf.fullName || user.name || ''),
+        escapeCsv(primaryProf.gender || 'General'),
+        escapeCsv(user.verificationStatus),
+        escapeCsv(user.subscriptionPlan),
+        escapeCsv(user.subscriptionStatus),
+        escapeCsv(user.accountStatus),
+        escapeCsv(user.createdDate || ''),
+        escapeCsv(user.lastActive || ''),
+        escapeCsv(primaryProf.gotra || ''),
+        escapeCsv(primaryProf.motherGotra || ''),
+        escapeCsv(primaryProf.qualification || ''),
+        escapeCsv(primaryProf.workingAt || ''),
+        escapeCsv(primaryProf.income || ''),
+        escapeCsv(primaryProf.pob || '')
+      ].join(',')
+    })
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `Users_Report_${dateStr}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    setExportToast(`Users report downloaded successfully (${dataToExport.length} user records).`)
+    setTimeout(() => {
+      setExportToast('')
+    }, 4000)
+  }
+
   return (
     <AdminLayout title="User Management">
+      {/* Toast Notification Banner */}
+      {exportToast && (
+        <div className="mb-4 bg-emerald-900/90 text-emerald-100 border border-emerald-500/40 px-4 py-3 rounded-lg text-sm font-semibold flex items-center justify-between shadow-lg animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+            <span>{exportToast}</span>
+          </div>
+          <button
+            onClick={() => setExportToast('')}
+            className="text-emerald-300 hover:text-white font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -87,13 +183,24 @@ export default function UserManagementPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadUsers}
-          className="px-4 py-2 bg-[#570013] hover:bg-[#42000e] text-amber-100 font-bold rounded-lg text-sm flex items-center gap-2 shadow-xs border border-amber-500/30 transition-colors self-start sm:self-auto"
-        >
-          <span className="material-symbols-outlined text-lg">refresh</span>
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={handleExportUsersReport}
+            className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-emerald-50 font-bold rounded-lg text-sm flex items-center gap-2 shadow-xs border border-emerald-600/40 transition-colors cursor-pointer"
+            title="Download Users Report"
+          >
+            <span className="material-symbols-outlined text-lg">download</span>
+            <span>Export Report</span>
+          </button>
+
+          <button
+            onClick={loadUsers}
+            className="px-4 py-2 bg-[#570013] hover:bg-[#42000e] text-amber-100 font-bold rounded-lg text-sm flex items-center gap-2 shadow-xs border border-amber-500/30 transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-lg">refresh</span>
+            <span>Refresh Data</span>
+          </button>
+        </div>
       </div>
 
       {/* FILTERS & SEARCH BAR */}
@@ -422,3 +529,5 @@ export default function UserManagementPage() {
     </AdminLayout>
   )
 }
+
+

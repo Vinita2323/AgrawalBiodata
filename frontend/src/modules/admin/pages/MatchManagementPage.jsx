@@ -3,6 +3,7 @@ import AdminLayout from '../components/AdminLayout'
 
 export default function MatchManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [exportToast, setExportToast] = useState('')
 
   // Seed Data: Simple Clean Matched User Pairs
   const pairings = [
@@ -108,9 +109,93 @@ export default function MatchManagementPage() {
       p.user2.gotra.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Direct CSV Export Matches Report
+  const handleExportMatchesReport = () => {
+    const dataToExport = filtered.length > 0 ? filtered : pairings
+    if (!dataToExport || dataToExport.length === 0) {
+      alert('No match records available to export.')
+      return
+    }
+
+    const dateStr = new Date().toISOString().split('T')[0]
+    const headers = [
+      'Match Pair ID',
+      'Match Compatibility Score',
+      'Matched Date',
+      'Candidate 1 Profile ID',
+      'Candidate 1 Name',
+      'Candidate 1 Gender',
+      'Candidate 1 Age',
+      'Candidate 1 Gotra',
+      'Candidate 1 Account Name',
+      'Candidate 2 Profile ID',
+      'Candidate 2 Name',
+      'Candidate 2 Gender',
+      'Candidate 2 Age',
+      'Candidate 2 Gotra',
+      'Candidate 2 Account Name'
+    ]
+
+    const escapeCsv = (field) => {
+      if (field === null || field === undefined) return '""'
+      const val = String(field).replace(/"/g, '""')
+      return `"${val}"`
+    }
+
+    const rows = dataToExport.map((pair) => [
+      escapeCsv(pair.id),
+      escapeCsv(`${pair.matchScore}%`),
+      escapeCsv(pair.date),
+      escapeCsv(pair.user1.id),
+      escapeCsv(pair.user1.name),
+      escapeCsv(pair.user1.gender),
+      escapeCsv(pair.user1.age),
+      escapeCsv(pair.user1.gotra),
+      escapeCsv(pair.user1.accountName),
+      escapeCsv(pair.user2.id),
+      escapeCsv(pair.user2.name),
+      escapeCsv(pair.user2.gender),
+      escapeCsv(pair.user2.age),
+      escapeCsv(pair.user2.gotra),
+      escapeCsv(pair.user2.accountName)
+    ].join(','))
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `Matched_Users_Report_${dateStr}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    setExportToast(`Matches report downloaded successfully (${dataToExport.length} match pair records).`)
+    setTimeout(() => {
+      setExportToast('')
+    }, 4000)
+  }
+
   return (
     <AdminLayout title="Match Data">
-      {/* Page Header */}
+      {/* Toast Notification Banner */}
+      {exportToast && (
+        <div className="mb-4 bg-emerald-900/90 text-emerald-100 border border-emerald-500/40 px-4 py-3 rounded-lg text-sm font-semibold flex items-center justify-between shadow-lg animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+            <span>{exportToast}</span>
+          </div>
+          <button
+            onClick={() => setExportToast('')}
+            className="text-emerald-300 hover:text-white font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Page Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl font-extrabold text-[#570013]">
@@ -121,18 +206,29 @@ export default function MatchManagementPage() {
           </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full sm:w-72">
-          <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#775a19] text-base">
-            search
-          </span>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search candidate or gotra..."
-            className="w-full pl-9 pr-3 py-2 bg-white border border-amber-900/20 rounded-md text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#775a19]/40 placeholder:text-stone-400"
-          />
+        {/* Controls: Search Bar + Export Button */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#775a19] text-base">
+              search
+            </span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search candidate or gotra..."
+              className="w-full pl-9 pr-3 py-2 bg-white border border-amber-900/20 rounded-md text-xs font-medium text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#775a19]/40 placeholder:text-stone-400"
+            />
+          </div>
+
+          <button
+            onClick={handleExportMatchesReport}
+            className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-emerald-50 font-bold rounded-lg text-xs sm:text-sm flex items-center gap-2 shadow-xs border border-emerald-600/40 transition-colors cursor-pointer shrink-0"
+            title="Download Matched Users Report"
+          >
+            <span className="material-symbols-outlined text-base sm:text-lg">download</span>
+            <span>Export Report</span>
+          </button>
         </div>
       </div>
 
@@ -214,3 +310,4 @@ export default function MatchManagementPage() {
     </AdminLayout>
   )
 }
+

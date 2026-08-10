@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { adminDataService } from '../services/adminDataService'
+import HeaderSearchModal from './HeaderSearchModal'
 
 const NAV_ITEMS = [
   {
@@ -58,6 +59,7 @@ export default function AdminLayout({ children, title = 'Admin Portal' }) {
   const [metrics, setMetrics] = useState({ pendingVerifications: 0, pendingComplaints: 0 })
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
 
   useEffect(() => {
     const data = adminDataService.getDashboardMetrics()
@@ -248,6 +250,15 @@ export default function AdminLayout({ children, title = 'Admin Portal' }) {
           {/* Right Header Controls */}
           <div className="flex items-center gap-3">
 
+            {/* Search Icon Trigger */}
+            <button
+              onClick={() => setShowSearchModal(true)}
+              className="relative p-2 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-[#570013] transition-colors cursor-pointer"
+              title="Search Profiles & Professions"
+            >
+              <span className="material-symbols-outlined text-xl">search</span>
+            </button>
+
             {/* Notifications Bell */}
             <Link
               to="/admin/notifications"
@@ -316,6 +327,12 @@ export default function AdminLayout({ children, title = 'Admin Portal' }) {
           {children}
         </main>
       </div>
+
+      {/* Header Quick Search Modal */}
+      <HeaderSearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+      />
     </div>
   )
 }
