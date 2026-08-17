@@ -1,18 +1,31 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { sendOtp } from '../../../services/authService'
 
 export default function LoginScreen({ onBack, onSendOtp }) {
   const navigate = useNavigate()
   const [mobile, setMobile] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (mobile.length >= 10) {
+    if (mobile.length < 10) return
+
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      await sendOtp(mobile)
       if (onSendOtp) {
         onSendOtp(mobile)
       } else {
         navigate('/otp-verification', { state: { mobile, isNewUser: false } })
       }
+    } catch (err) {
+      console.error('Login send OTP error:', err)
+      setErrorMsg(err.message || 'Failed to send OTP. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -71,13 +84,20 @@ export default function LoginScreen({ onBack, onSendOtp }) {
             </div>
           </div>
 
+          {errorMsg && (
+            <div className="mb-4 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px] text-rose-500 shrink-0">error</span>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={mobile.length < 10}
-            className="w-full py-3.5 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] disabled:bg-gray-300 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all mb-6"
+            disabled={isLoading || mobile.length < 10}
+            className="w-full py-3.5 px-6 rounded-md bg-[#570013] hover:bg-[#72001a] disabled:bg-gray-300 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 active:scale-98 transition-all mb-6 cursor-pointer disabled:cursor-not-allowed"
           >
-            <span>Send OTP</span>
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <span>{isLoading ? 'Sending OTP...' : 'Send OTP'}</span>
+            <span className="material-symbols-outlined text-base">{isLoading ? 'sync' : 'arrow_forward'}</span>
           </button>
         </form>
 

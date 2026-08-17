@@ -61,8 +61,17 @@ export default function HeaderSearchModal({ isOpen, onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  const loadData = () => {
-    const users = adminDataService.getUsers()
+  const loadData = async () => {
+    let users = []
+    try {
+      users = await adminDataService.getUsers()
+    } catch {
+      // Search falls back to an empty result set rather than breaking the header.
+      setAllProfiles([])
+      setFilteredProfiles([])
+      return
+    }
+
     const profilesList = []
 
     users.forEach((user) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { verifyOtp, sendOtp, register } from '../../../services/authService'
 
 export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerifySuccess, onChangeNumber }) {
   const navigate = useNavigate()
@@ -8,7 +9,7 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
   const targetMobile = mobileNumber || location.state?.mobile || '9876543210'
   const isNew = isNewUser ?? location.state?.isNewUser ?? true
 
-  const [otp, setOtp] = useState(['1', '2', '3', '4', '5', '6']) // Pre-filled simulation
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [timer, setTimer] = useState(30)
   const [canResend, setCanResend] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -52,15 +53,22 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
     }
   }
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return
-    setTimer(30)
-    setCanResend(false)
-    setOtp(['1', '2', '3', '4', '5', '6'])
     setErrorMsg('')
+    try {
+      await sendOtp(targetMobile)
+      setTimer(30)
+      setCanResend(false)
+      setOtp(['', '', '', '', '', ''])
+      inputRefs[0].current?.focus()
+    } catch (err) {
+      console.error('Resend OTP error:', err)
+      setErrorMsg(err.message || 'Failed to resend OTP.')
+    }
   }
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const fullOtp = otp.join('')
     if (fullOtp.length < 6) {
       setErrorMsg('Please enter all 6 digits of the OTP')
@@ -68,20 +76,36 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
     }
 
     setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
+    setErrorMsg('')
+    try {
+      const verifyRes = await verifyOtp(targetMobile, fullOtp)
+      
+      // If user had filled registration details on the previous step, persist them now
+      if (location.state?.formData) {
+        try {
+          await register(location.state.formData)
+        } catch (regErr) {
+          console.warn('Registration profile update note:', regErr)
+        }
+      }
+
       setIsSuccess(true)
 
       setTimeout(() => {
         if (onVerifySuccess) {
           onVerifySuccess(location.state?.formData)
-        } else if (isNew) {
+        } else if (isNew || verifyRes?.isNewUser) {
           navigate('/account-created', { state: { formData: location.state?.formData } })
         } else {
           navigate('/home')
         }
       }, 1000)
-    }, 1200)
+    } catch (err) {
+      console.error('Verify OTP error:', err)
+      setErrorMsg(err.message || 'Invalid or expired OTP. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (

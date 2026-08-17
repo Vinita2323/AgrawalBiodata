@@ -62,13 +62,25 @@ export default function AdminLayout({ children, title = 'Admin Portal' }) {
   const [showSearchModal, setShowSearchModal] = useState(false)
 
   useEffect(() => {
-    const data = adminDataService.getDashboardMetrics()
-    const complaints = adminDataService.getComplaints()
-    const pendingComp = complaints.filter(c => c.status === 'Under Review' || c.status === 'Pending').length
-    setMetrics({
-      pendingVerifications: data.pendingVerifications,
-      pendingComplaints: pendingComp,
-    })
+    let cancelled = false
+
+    async function loadBadgeCounts() {
+      try {
+        const data = await adminDataService.getDashboardMetrics()
+        if (cancelled) return
+        setMetrics({
+          pendingVerifications: data.pendingVerifications,
+          pendingComplaints: data.pendingComplaints,
+        })
+      } catch {
+        // Sidebar badges are decorative; a failure here must not block the page.
+      }
+    }
+
+    loadBadgeCounts()
+    return () => {
+      cancelled = true
+    }
   }, [location.pathname])
 
   const handleLogout = () => {

@@ -15,6 +15,8 @@ import SettingsScreen from '../components/SettingsScreen'
 import AccountSettingsScreen from '../components/AccountSettingsScreen'
 import NotificationSettingsScreen from '../components/NotificationSettingsScreen'
 import BlockedUsersScreen from '../components/BlockedUsersScreen'
+import VerificationScreen from '../components/VerificationScreen'
+import PartnerPreferencesScreen from '../components/PartnerPreferencesScreen'
 import AboutMatrimonyHubScreen from '../components/AboutMatrimonyHubScreen'
 import HelpSupportScreen from '../components/HelpSupportScreen'
 import TermsOfServiceScreen from '../components/TermsOfServiceScreen'
@@ -28,6 +30,7 @@ export default function UserFlowPage() {
   const location = useLocation()
   const [selectedProfile, setSelectedProfile] = useState(null)
   const [hasPremium, setHasPremium] = useState(false)
+  const [checkout, setCheckout] = useState({ planId: null, billingCycle: 'monthly' })
 
   const handleSelectProfile = (profile) => {
     setSelectedProfile(profile)
@@ -238,7 +241,13 @@ export default function UserFlowPage() {
             element={
               <MembershipScreen
                 onBack={() => navigate('/profile')}
-                onSelectPlan={() => navigate('/payment')}
+                onSelectPlan={(plan, billingCycle) => {
+                  setCheckout({
+                    planId: plan?.id || plan?._id || plan?.planId || null,
+                    billingCycle: billingCycle || 'monthly',
+                  })
+                  navigate('/payment')
+                }}
               />
             }
           />
@@ -249,6 +258,8 @@ export default function UserFlowPage() {
             path="/payment"
             element={
               <PaymentScreen
+                planId={checkout.planId}
+                billingCycle={checkout.billingCycle}
                 onBack={() => navigate('/membership')}
                 onPaymentComplete={() => {
                   setHasPremium(true)
@@ -289,6 +300,20 @@ export default function UserFlowPage() {
             path="/blocked"
             element={<BlockedUsersScreen onBack={() => navigate('/settings')} />}
           />
+
+          {/* KYC Verification Submission */}
+          <Route
+            path="/verification"
+            element={<VerificationScreen onBack={() => navigate('/profile')} />}
+          />
+          <Route path="/get-verified" element={<Navigate to="/verification" replace />} />
+
+          {/* Partner Preferences (drives match filtering) */}
+          <Route
+            path="/preferences"
+            element={<PartnerPreferencesScreen onBack={() => navigate('/settings')} />}
+          />
+          <Route path="/partner-preferences" element={<Navigate to="/preferences" replace />} />
           <Route
             path="/about"
             element={<AboutMatrimonyHubScreen onBack={() => navigate('/settings')} />}

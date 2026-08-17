@@ -1,7 +1,28 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { sendInterest } from '../../../services/interestService'
+import { addToShortlist, recordVisitor } from '../../../services/socialService'
+import { getMatchScore } from '../../../services/matchService'
+import { isAuthenticated } from '../../../services/authService'
+import {
+  unlockContact,
+  getContactQuota,
+  getContactUnlockStatus,
+} from '../../../services/accountService'
 
 export default function ProfileDetailScreen({ profile, onBack }) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isShortlisted, setIsShortlisted] = useState(false)
+  const [isInterestSent, setIsInterestSent] = useState(false)
+  const [liveScore, setLiveScore] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [revealedContact, setRevealedContact] = useState(null)
+  const [contactQuota, setContactQuota] = useState(null)
+  const [isUnlocking, setIsUnlocking] = useState(false)
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   const p = profile || {
     fullName: 'Priya Garg',
@@ -41,6 +62,96 @@ export default function ProfileDetailScreen({ profile, onBack }) {
     matchScore: 95,
     verified: true,
     image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
+  }
+
+  const targetId = p.profileId || p._id || p.id
+
+  useEffect(() => {
+    async function initProfileDetail() {
+      if (!targetId || !isAuthenticated()) return
+
+      try {
+        recordVisitor(targetId).catch(() => {})
+        const scoreRes = await getMatchScore(targetId)
+        if (scoreRes?.totalScore) {
+          setLiveScore(scoreRes)
+        }
+      } catch (err) {
+        console.warn('Profile detail live score note:', err)
+      }
+
+      // A previously unlocked profile must not ask the user to pay again.
+      try {
+        const [statusRes, quotaRes] = await Promise.all([
+          getContactUnlockStatus(targetId),
+          getContactQuota(),
+        ])
+        setContactQuota(quotaRes || null)
+        if (statusRes?.isUnlocked) {
+          const res = await unlockContact(targetId)
+          setRevealedContact(res?.contact || null)
+        }
+      } catch {
+        // Contact gating is additive; failing to read it leaves the masked view.
+      }
+    }
+    initProfileDetail()
+  }, [targetId])
+
+  const handleUnlockContact = async () => {
+    if (!targetId) return
+
+    if (!isAuthenticated()) {
+      showToast('Please log in to view contact details.', 'info')
+      return
+    }
+
+    setIsUnlocking(true)
+    try {
+      const res = await unlockContact(targetId)
+      setRevealedContact(res?.contact || null)
+      setContactQuota((prev) =>
+        prev && !prev.unlimited ? { ...prev, remaining: res?.remainingUnlocks ?? prev.remaining } : prev
+      )
+      showToast(
+        res?.viaConnection
+          ? 'Contact details unlocked through your accepted interest.'
+          : 'Contact details unlocked.',
+        'success'
+      )
+    } catch (err) {
+      showToast(err?.message || 'Could not unlock contact details.', 'info')
+    } finally {
+      setIsUnlocking(false)
+    }
+  }
+
+  const handleShortlist = async () => {
+    setIsShortlisted(prev => !prev)
+    if (isAuthenticated() && targetId) {
+      try {
+        await addToShortlist(targetId)
+        showToast('Profile added to shortlist', 'success')
+      } catch (err) {
+        showToast(err.message || 'Shortlisted', 'info')
+      }
+    } else {
+      showToast(`Shortlisted ${displayName}`, 'success')
+    }
+  }
+
+  const handleExpressInterest = async () => {
+    setIsInterestSent(true)
+    if (isAuthenticated() && targetId) {
+      try {
+        await sendInterest(targetId, 'Hello, I liked your profile and would like to connect.')
+        showToast(`Express Interest sent to ${displayName}!`, 'success')
+      } catch (err) {
+        showToast(err.message || 'Interest already expressed', 'info')
+      }
+    } else {
+      showToast(`Express Interest sent to ${displayName}'s family!`, 'success')
+    }
   }
 
   const displayName = p.fullName || p.name || 'Candidate Profile'
@@ -412,11 +523,50 @@ export default function ProfileDetailScreen({ profile, onBack }) {
             <span>Residential Information</span>
           </h2>
 
-          <div className="text-[11px]">
+          <div className="text-[11px] space-y-2">
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Residential Address</span>
-              <span className="font-bold text-slate-800 leading-snug block mt-0.5">{p.residentialAddress || 'Jaipur, Rajasthan'}</span>
+              <span className="font-bold text-slate-800 leading-snug block mt-0.5">
+                {revealedContact?.residentialAddress || p.residentialAddress || 'Protected'}
+              </span>
             </div>
+
+            <div>
+              <span className="text-gray-400 font-medium block text-[10px] uppercase">Mobile Number</span>
+              <span className="font-bold text-slate-800 leading-snug block mt-0.5">
+                {revealedContact?.mobileNumber || p.mobileNumber || 'Protected'}
+              </span>
+            </div>
+
+            {(revealedContact?.email || p.email) && (
+              <div>
+                <span className="text-gray-400 font-medium block text-[10px] uppercase">Email Address</span>
+                <span className="font-bold text-slate-800 leading-snug block mt-0.5">
+                  {revealedContact?.email || p.email}
+                </span>
+              </div>
+            )}
+
+            {/* Contact details are masked until unlocked. An unlock is spent
+                once per profile, or granted free by an accepted interest. */}
+            {!revealedContact && (p.phoneMasked || p.addressMasked) && (
+              <div className="pt-2 border-t border-amber-100 mt-2">
+                <button
+                  onClick={handleUnlockContact}
+                  disabled={isUnlocking}
+                  className="w-full py-2.5 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-[11px] shadow transition active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined text-[15px]">lock_open</span>
+                  <span>{isUnlocking ? 'Unlocking...' : 'View Contact Details'}</span>
+                </button>
+                {contactQuota && !contactQuota.unlimited && (
+                  <p className="text-[10px] text-slate-400 font-semibold text-center mt-1.5">
+                    {contactQuota.remaining} contact view
+                    {contactQuota.remaining === 1 ? '' : 's'} remaining on your plan
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -425,20 +575,50 @@ export default function ProfileDetailScreen({ profile, onBack }) {
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-amber-200 py-2.5 px-4 shadow-2xl">
         <div className="max-w-xl mx-auto flex items-center gap-2.5">
           <button
-            onClick={() => alert(`Shortlisted ${displayName}`)}
-            className="px-3.5 py-2.5 rounded-md border border-amber-300 text-[#775a19] font-bold text-[11px] hover:bg-amber-50 transition flex items-center justify-center shadow-xs active:scale-95"
+            onClick={handleShortlist}
+            className={`px-3.5 py-2.5 rounded-md border text-[11px] font-bold transition flex items-center justify-center shadow-xs active:scale-95 cursor-pointer ${
+              isShortlisted 
+                ? 'bg-amber-100 border-[#775a19] text-[#570013]' 
+                : 'border-amber-300 text-[#775a19] hover:bg-amber-50'
+            }`}
+            title="Shortlist Profile"
           >
-            <span className="material-symbols-outlined text-[18px]">bookmark</span>
+            <span className="material-symbols-outlined text-[18px]">
+              {isShortlisted ? 'bookmark_added' : 'bookmark'}
+            </span>
           </button>
           <button
-            onClick={() => alert(`Express Interest sent to ${displayName}'s family!`)}
-            className="flex-1 py-2.5 rounded-md bg-[#570013] text-[#ffdea5] font-bold text-[12px] hover:bg-[#800020] transition shadow text-center flex items-center justify-center gap-1.5 active:scale-95"
+            onClick={handleExpressInterest}
+            disabled={isInterestSent}
+            className={`flex-1 py-2.5 rounded-md font-bold text-[12px] transition shadow text-center flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer ${
+              isInterestSent 
+                ? 'bg-emerald-700 text-white cursor-default' 
+                : 'bg-[#570013] text-[#ffdea5] hover:bg-[#800020]'
+            }`}
           >
-            <span className="material-symbols-outlined text-[16px]">favorite</span>
-            <span>Express Interest</span>
+            <span className="material-symbols-outlined text-[16px]">
+              {isInterestSent ? 'check_circle' : 'favorite'}
+            </span>
+            <span>{isInterestSent ? 'Interest Expressed' : 'Express Interest'}</span>
           </button>
         </div>
       </div>
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-16 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2.5 text-xs font-semibold animate-fade-in ${
+          toast.type === 'error'
+            ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : toast.type === 'info'
+            ? 'bg-blue-50 border-blue-200 text-blue-800'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <span className="material-symbols-outlined text-lg">
+            {toast.type === 'error' ? 'error' : toast.type === 'info' ? 'info' : 'check_circle'}
+          </span>
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   )
 }

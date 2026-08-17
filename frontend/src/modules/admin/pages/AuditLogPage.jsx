@@ -5,22 +5,32 @@ import { adminDataService } from '../services/adminDataService'
 export default function AuditLogPage() {
   const [logs, setLogs] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     loadLogs()
   }, [])
 
-  const loadLogs = () => {
-    const data = adminDataService.getAuditLogs()
-    setLogs(data)
+  const loadLogs = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      setLogs(await adminDataService.getAuditLogs())
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load audit logs.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  const q = searchTerm.toLowerCase()
   const filtered = logs.filter((log) => {
     return (
-      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.target.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.adminName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.id.toLowerCase().includes(searchTerm.toLowerCase())
+      String(log.action).toLowerCase().includes(q) ||
+      String(log.target).toLowerCase().includes(q) ||
+      String(log.adminName).toLowerCase().includes(q) ||
+      String(log.id).toLowerCase().includes(q)
     )
   })
 
@@ -45,6 +55,14 @@ export default function AuditLogPage() {
           <span>Refresh Audit Stream</span>
         </button>
       </div>
+
+      {/* ERROR */}
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">error</span>
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       {/* SEARCH */}
       <div className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs">
@@ -77,7 +95,13 @@ export default function AuditLogPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan="6" className="text-center py-12 text-stone-400">
+                    Loading audit trail...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center py-12 text-stone-400">
                     No audit records match search query.

@@ -11,10 +11,21 @@ export default function NotificationsPage() {
     loadNotifications()
   }, [])
 
-  const loadNotifications = () => {
-    const verifications = adminDataService.getVerifications()
-    const complaints = adminDataService.getComplaints()
-    const payments = adminDataService.getPayments()
+  const loadNotifications = async () => {
+    let verifications = []
+    let complaints = []
+    let payments = []
+
+    try {
+      ;[verifications, complaints, payments] = await Promise.all([
+        adminDataService.getVerifications({ status: 'Pending' }),
+        adminDataService.getComplaints(),
+        adminDataService.getPayments(),
+      ])
+    } catch {
+      setNotifications([])
+      return
+    }
 
     const list = []
 
@@ -23,8 +34,8 @@ export default function NotificationsPage() {
       list.push({
         id: `NOTIF-VER-${v.id}`,
         title: `Profile Verification Request (${v.userName})`,
-        message: `${v.userName} (${v.userId}) submitted ${v.documentType} proof for verification.`,
-        date: v.submittedDate || 'Recent',
+        message: `${v.userName} submitted ${v.documentType || 'identity'} proof for verification.`,
+        date: v.submittedAt || 'Recent',
         icon: 'verified_user',
         iconBg: 'bg-amber-100 text-[#570013]',
         link: `/admin/profile-verification/${v.id}`,
@@ -50,7 +61,7 @@ export default function NotificationsPage() {
     payments.forEach((p) => {
       list.push({
         id: `NOTIF-PAY-${p.id}`,
-        title: `Payment Received (₹${p.amount.toLocaleString('en-IN')})`,
+        title: `Payment Received (₹${(p.amount || 0).toLocaleString('en-IN')})`,
         message: `Transaction ${p.transactionId} for ${p.planName} by ${p.userName}.`,
         date: p.createdDate || 'Recent',
         icon: 'payments',

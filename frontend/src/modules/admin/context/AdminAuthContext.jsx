@@ -7,52 +7,68 @@ export function AdminAuthProvider({ children }) {
   const [adminUser, setAdminUser] = useState(() => {
     try {
       const saved = localStorage.getItem('admin_session')
-      return saved ? JSON.parse(saved) : null
-    } catch (e) {
+      const parsed = saved ? JSON.parse(saved) : null
+      // A session without a token cannot authenticate any request, so treat it
+      // as logged out rather than rendering a shell that 401s on every call.
+      return parsed?.token ? parsed : null
+    } catch {
       return null
     }
   })
 
-  const login = (email, password) => {
-    // Validates admin credentials
-    if (email === 'admin@matrimonyhub.com' && password === 'admin123') {
+  /**
+   * Authenticates against the backend only. There is deliberately no local
+   * credential fallback: one would hand out a Super Admin session to anyone
+   * who can make the API request fail.
+   */
+  const login = async (email, password) => {
+    try {
+      const { adminLogin } = await import('../../../services/adminService')
+      const res = await adminLogin(email, password)
+
+      if (!res?.token || !res?.admin) {
+        return { success: false, error: 'Invalid admin credentials.' }
+      }
+
       const userObj = {
-        id: 'ADM-001',
-        name: 'Super Administrator',
-        email,
-        role: 'Super Admin',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+        id: res.admin.id || res.admin._id,
+        name: res.admin.name || 'Administrator',
+        email: res.admin.email || email,
+        role: res.admin.role || 'Moderator',
+        token: res.token,
+        avatar: res.admin.avatar || '',
         loginTime: new Date().toISOString(),
       }
+
       setAdminUser(userObj)
       localStorage.setItem('admin_session', JSON.stringify(userObj))
       return { success: true }
-    } else if (email === 'moderator@matrimonyhub.com' && password === 'admin123') {
-      const userObj = {
-        id: 'ADM-002',
-        name: 'Community Moderator',
-        email,
-        role: 'Moderator',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-        loginTime: new Date().toISOString(),
+    } catch (err) {
+      if (err?.status === 0) {
+        return {
+          success: false,
+          error: 'Cannot reach the server. Check your connection and try again.',
+        }
       }
-      setAdminUser(userObj)
-      localStorage.setItem('admin_session', JSON.stringify(userObj))
-      return { success: true }
+      return {
+        success: false,
+        error: err?.message || 'Invalid admin credentials.',
+      }
     }
-    return { success: false, error: 'Invalid admin credentials.' }
   }
 
   const logout = () => {
     setAdminUser(null)
     localStorage.removeItem('admin_session')
+    localStorage.removeItem('adminToken')
+    localStorage.removeItem('admin_token')
   }
 
   return (
     <AdminAuthContext.Provider
       value={{
         adminUser,
-        isAuthenticated: !!adminUser,
+        isAuthenticated: !!adminUser?.token,
         role: adminUser?.role || 'Guest',
         login,
         logout,

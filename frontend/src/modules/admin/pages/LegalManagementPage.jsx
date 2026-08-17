@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { adminDataService } from '../services/adminDataService'
 
@@ -11,12 +11,26 @@ export default function LegalManagementPage() {
   const [termsPoints, setTermsPoints] = useState([])
   const [faqs, setFaqs] = useState([])
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
   useEffect(() => {
     loadContent()
   }, [])
 
-  const loadContent = () => {
-    const data = adminDataService.getStaticContent()
+  const loadContent = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+
+    let data = null
+    try {
+      data = await adminDataService.getStaticContent()
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load legal page content.')
+    } finally {
+      setIsLoading(false)
+    }
 
     // Privacy Points Init
     if (data?.privacyPoints && Array.isArray(data.privacyPoints) && data.privacyPoints.length > 0) {
@@ -105,20 +119,24 @@ export default function LegalManagementPage() {
     setPrivacyPoints(updated)
   }
 
-  const handleSavePrivacy = (e) => {
+  // Each save writes only its own CMS page; the numbered-line format is what
+  // loadContent splits back into editable points.
+  const handleSavePrivacy = async (e) => {
     e.preventDefault()
     const cleaned = privacyPoints.map((p) => p.trim()).filter(Boolean)
     const formattedString = cleaned.map((p, i) => `${i + 1}. ${p}`).join('\n')
 
-    const currentData = adminDataService.getStaticContent()
-    const updated = {
-      ...currentData,
-      privacyPoints: cleaned,
-      privacyPolicy: formattedString
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.saveStaticContent({ privacyPolicy: formattedString })
+      setToastMsg('Privacy Policy points saved successfully! Updated live on user portal.')
+      setTimeout(() => setToastMsg(''), 3500)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save the Privacy Policy.')
+    } finally {
+      setIsSaving(false)
     }
-    adminDataService.saveStaticContent(updated)
-    setToastMsg('Privacy Policy points saved successfully! Updated live on user portal.')
-    setTimeout(() => setToastMsg(''), 3500)
   }
 
   // --- TERMS HANDLERS ---
@@ -138,20 +156,22 @@ export default function LegalManagementPage() {
     setTermsPoints(updated)
   }
 
-  const handleSaveTerms = (e) => {
+  const handleSaveTerms = async (e) => {
     e.preventDefault()
     const cleaned = termsPoints.map((p) => p.trim()).filter(Boolean)
     const formattedString = cleaned.map((p, i) => `${i + 1}. ${p}`).join('\n')
 
-    const currentData = adminDataService.getStaticContent()
-    const updated = {
-      ...currentData,
-      termsPoints: cleaned,
-      termsOfService: formattedString
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.saveStaticContent({ termsOfService: formattedString })
+      setToastMsg('Terms & Conditions points saved successfully! Updated live on user portal.')
+      setTimeout(() => setToastMsg(''), 3500)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save the Terms & Conditions.')
+    } finally {
+      setIsSaving(false)
     }
-    adminDataService.saveStaticContent(updated)
-    setToastMsg('Terms & Conditions points saved successfully! Updated live on user portal.')
-    setTimeout(() => setToastMsg(''), 3500)
   }
 
   // --- FAQ HANDLERS ---
@@ -172,18 +192,43 @@ export default function LegalManagementPage() {
     setFaqs(updated)
   }
 
-  const handleSaveFaqs = (e) => {
+  const handleSaveFaqs = async (e) => {
     e.preventDefault()
     const cleanedFaqs = faqs.filter((f) => f.question.trim() && f.answer.trim())
-    const currentData = adminDataService.getStaticContent()
-    const updated = { ...currentData, faqs: cleanedFaqs }
-    adminDataService.saveStaticContent(updated)
-    setToastMsg('FAQ questions list updated successfully!')
-    setTimeout(() => setToastMsg(''), 3500)
+
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.saveStaticContent({ faqs: cleanedFaqs })
+      setToastMsg('FAQ questions list updated successfully!')
+      setTimeout(() => setToastMsg(''), 3500)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save the FAQ list.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
     <AdminLayout title="Legal & Policy Pages">
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+            âœ•
+          </button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 font-bold">
+          Loading legal page content...
+        </div>
+      )}
+
       {/* Toast Alert */}
       {toastMsg && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-md text-xs text-emerald-900 font-bold flex items-center gap-2 shadow-2xs">
@@ -276,7 +321,8 @@ export default function LegalManagementPage() {
 
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all"
+                disabled={isSaving}
+                className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save Privacy Policy
               </button>
@@ -340,7 +386,8 @@ export default function LegalManagementPage() {
 
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all"
+                disabled={isSaving}
+                className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save Terms & Conditions
               </button>
@@ -404,7 +451,8 @@ export default function LegalManagementPage() {
 
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all"
+                disabled={isSaving}
+                className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save All FAQs
               </button>

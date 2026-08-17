@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { adminDataService } from '../services/adminDataService'
+import { useAdminAuth } from '../context/AdminAuthContext'
 
 export default function SubscriptionManagementPage() {
+  // Plan pricing is a Super Admin responsibility; the API rejects writes from
+  // other roles, so the edit controls are hidden rather than left to 403.
+  const { role } = useAdminAuth()
+  const canManagePlans = role === 'Super Admin'
+
   const [plans, setPlans] = useState([])
   const [showPlanModal, setShowPlanModal] = useState(false)
   const [editingPlan, setEditingPlan] = useState(null)
   const [toastMsg, setToastMsg] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   // Form State
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const [yearlyPrice, setYearlyPrice] = useState('')
   const [durationDays, setDurationDays] = useState('30')
   const [durationType, setDurationType] = useState('1 Month')
   const [badge, setBadge] = useState('Popular')
@@ -21,15 +31,23 @@ export default function SubscriptionManagementPage() {
     loadPlans()
   }, [])
 
-  const loadPlans = () => {
-    const data = adminDataService.getSubscriptions()
-    setPlans(data)
+  const loadPlans = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      setPlans(await adminDataService.getSubscriptions())
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load subscription plans.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleOpenCreate = () => {
     setEditingPlan(null)
     setName('')
     setPrice('999')
+    setYearlyPrice('9999')
     setDurationDays('30')
     setDurationType('1 Month')
     setBadge('Popular')
@@ -47,6 +65,7 @@ export default function SubscriptionManagementPage() {
     setEditingPlan(plan)
     setName(plan.name)
     setPrice(plan.price)
+    setYearlyPrice(plan.yearlyPrice || plan.price * 12)
     setDurationDays(plan.durationDays)
     setDurationType(plan.durationType)
     setBadge(plan.badge || 'Popular')
@@ -71,7 +90,7 @@ export default function SubscriptionManagementPage() {
     setBenefitsList(updated)
   }
 
-  const handleSavePlan = (e) => {
+  const handleSavePlan = async (e) => {
     e.preventDefault()
     const cleanedBenefits = benefitsList.map((b) => b.trim()).filter(Boolean)
 
@@ -79,34 +98,71 @@ export default function SubscriptionManagementPage() {
       id: editingPlan?.id,
       name,
       price: Number(price),
+      yearlyPrice: Number(yearlyPrice) || Number(price) * 12,
       currency: 'INR',
       durationDays: Number(durationDays),
       durationType,
       status,
       badge,
       benefits: cleanedBenefits.length > 0 ? cleanedBenefits : ['Standard Membership Benefits'],
-      activeSubscribers: editingPlan?.activeSubscribers || 0,
-      createdDate: editingPlan?.createdDate || new Date().toISOString().slice(0, 10),
+      contactViewLimit: editingPlan?.contactViewLimit ?? 0,
+      interestSendLimit: editingPlan?.interestSendLimit ?? 0,
+      chatAccess: editingPlan?.chatAccess ?? false,
     }
 
-    adminDataService.saveSubscriptionPlan(planObj)
-    loadPlans()
-    setShowPlanModal(false)
-    setToastMsg('Subscription plan saved successfully! Updated configuration live on customer portal.')
-    setTimeout(() => setToastMsg(''), 4000)
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.saveSubscriptionPlan(planObj)
+      await loadPlans()
+      setShowPlanModal(false)
+      setToastMsg('Subscription plan saved successfully! Updated configuration live on customer portal.')
+      setTimeout(() => setToastMsg(''), 4000)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save this subscription plan.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleDeletePlan = (planId) => {
-    if (window.confirm('Are you sure you want to delete this subscription plan?')) {
-      adminDataService.deleteSubscriptionPlan(planId)
-      loadPlans()
+  const handleDeletePlan = async (planId) => {
+    if (!window.confirm('Are you sure you want to delete this subscription plan?')) return
+
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.deleteSubscriptionPlan(planId)
+      await loadPlans()
       setToastMsg('Subscription plan removed.')
       setTimeout(() => setToastMsg(''), 3000)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not delete this subscription plan.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
   return (
     <AdminLayout title="Subscription Management">
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {!canManagePlans && (
+        <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-md text-xs text-amber-900 font-bold flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">lock</span>
+          <span>Plan pricing is read-only for your role. Only a Super Admin can create or edit plans.</span>
+        </div>
+      )}
+
       {/* Toast Alert */}
       {toastMsg && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-md text-xs text-emerald-900 font-bold flex items-center gap-2 shadow-2xs">
@@ -128,7 +184,8 @@ export default function SubscriptionManagementPage() {
 
         <button
           onClick={handleOpenCreate}
-          className="px-4 py-2.5 bg-[#570013] hover:bg-[#42000e] text-amber-100 font-extrabold rounded-md text-xs flex items-center gap-2 shadow-md transition-all self-start sm:self-auto active:scale-95"
+          disabled={!canManagePlans}
+          className="px-4 py-2.5 bg-[#570013] hover:bg-[#42000e] text-amber-100 font-extrabold rounded-md text-xs flex items-center gap-2 shadow-md transition-all self-start sm:self-auto active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="material-symbols-outlined text-base">add</span>
           <span>Create New Plan</span>
@@ -136,6 +193,19 @@ export default function SubscriptionManagementPage() {
       </div>
 
       {/* PLANS CARDS GRID */}
+      {isLoading && (
+        <div className="text-center py-12 text-[#775a19] font-semibold text-sm">
+          Loading subscription plans...
+        </div>
+      )}
+
+      {!isLoading && plans.length === 0 && (
+        <div className="text-center py-12 text-[#775a19] font-semibold text-sm">
+          <span className="material-symbols-outlined text-4xl text-stone-300 block mb-2">workspace_premium</span>
+          No subscription plans configured yet.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {plans.map((plan) => (
           <div
@@ -198,14 +268,16 @@ export default function SubscriptionManagementPage() {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleOpenEdit(plan)}
-                  className="p-1.5 text-[#570013] hover:bg-amber-100/70 border border-amber-200 rounded-md transition-all active:scale-95"
+                  disabled={!canManagePlans || isSaving}
+                  className="p-1.5 text-[#570013] hover:bg-amber-100/70 border border-amber-200 rounded-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Edit Plan"
                 >
                   <span className="material-symbols-outlined text-base">edit</span>
                 </button>
                 <button
                   onClick={() => handleDeletePlan(plan.id)}
-                  className="p-1.5 text-red-700 hover:bg-red-50 border border-red-200 rounded-md transition-all active:scale-95"
+                  disabled={!canManagePlans || isSaving}
+                  className="p-1.5 text-red-700 hover:bg-red-50 border border-red-200 rounded-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Delete Plan"
                 >
                   <span className="material-symbols-outlined text-base">delete</span>
@@ -247,13 +319,27 @@ export default function SubscriptionManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-800 mb-1">Price (INR)</label>
+                  <label className="block font-bold text-stone-800 mb-1">Monthly Price (INR)</label>
                   <input
                     type="number"
                     required
+                    min="0"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="2499"
+                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-800 mb-1">Yearly Price (INR)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={yearlyPrice}
+                    onChange={(e) => setYearlyPrice(e.target.value)}
+                    placeholder="19999"
                     className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
                   />
                 </div>
@@ -371,9 +457,10 @@ export default function SubscriptionManagementPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold rounded-md shadow-md hover:bg-[#42000e] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Subscription Plan
+                  {isSaving ? 'Saving...' : 'Save Subscription Plan'}
                 </button>
               </div>
             </form>

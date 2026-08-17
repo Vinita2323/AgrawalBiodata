@@ -13,13 +13,43 @@ export default function VerificationDetailPage() {
   const [rejectionReasonSelect, setRejectionReasonSelect] = useState('Blurred / Unreadable Document')
   const [customNotes, setCustomNotes] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMutating, setIsMutating] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (verificationId) {
-      const found = adminDataService.getVerificationById(verificationId)
-      setReq(found)
+    let cancelled = false
+
+    async function load() {
+      if (!verificationId) return
+      setIsLoading(true)
+      setErrorMsg('')
+      try {
+        const found = await adminDataService.getVerificationById(verificationId)
+        if (!cancelled) setReq(found)
+      } catch (err) {
+        if (!cancelled) setErrorMsg(err?.message || 'Could not load the verification record.')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
     }
   }, [verificationId])
+
+  if (isLoading) {
+    return (
+      <AdminLayout title="Verification Details">
+        <div className="bg-white rounded-2xl p-12 text-center max-w-md mx-auto my-12 border border-stone-200">
+          <div className="w-8 h-8 border-4 border-amber-100 border-t-amber-500 rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs text-stone-500 font-semibold">Loading verification record...</p>
+        </div>
+      </AdminLayout>
+    )
+  }
 
   if (!req) {
     return (
@@ -27,7 +57,9 @@ export default function VerificationDetailPage() {
         <div className="bg-white rounded-2xl p-12 text-center space-y-4 max-w-md mx-auto my-12 border border-stone-200">
           <span className="material-symbols-outlined text-4xl text-stone-300">find_in_page</span>
           <h3 className="font-display font-bold text-lg text-stone-800">Verification Request Not Found</h3>
-          <p className="text-xs text-stone-500">The requested verification record does not exist.</p>
+          <p className="text-xs text-stone-500">
+            {errorMsg || 'The requested verification record does not exist.'}
+          </p>
           <Link
             to="/admin/profile-verification"
             className="inline-block px-4 py-2 bg-[#570013] text-white font-semibold text-xs rounded-xl"
@@ -39,22 +71,50 @@ export default function VerificationDetailPage() {
     )
   }
 
-  const handleApprove = () => {
-    const updated = adminDataService.approveVerification(req.id)
-    setReq(updated)
-    setActionSuccess('Verification Approved! Verified Badge is now active on customer profile.')
+  const handleApprove = async () => {
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      const updated = await adminDataService.approveVerification(req.id)
+      setReq(updated)
+      setActionSuccess('Verification Approved! Verified Badge is now active on customer profile.')
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not approve this verification.')
+    } finally {
+      setIsMutating(false)
+    }
   }
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     const fullReason = `${rejectionReasonSelect}${customNotes ? `: ${customNotes}` : ''}`
-    const updated = adminDataService.rejectVerification(req.id, fullReason)
-    setReq(updated)
-    setShowRejectModal(false)
-    setActionSuccess('Verification request rejected and notification recorded.')
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      const updated = await adminDataService.rejectVerification(req.id, fullReason)
+      setReq(updated)
+      setShowRejectModal(false)
+      setActionSuccess('Verification request rejected and notification recorded.')
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not reject this verification.')
+    } finally {
+      setIsMutating(false)
+    }
   }
 
   return (
     <AdminLayout title={`Verification: ${req.id}`}>
+      {errorMsg && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 flex items-center justify-between font-medium">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="p-1 text-red-600 hover:bg-red-100 rounded-lg">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
+      )}
+
       {/* SUCCESS TOAST ALERT */}
       {actionSuccess && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center justify-between font-medium">
@@ -118,10 +178,11 @@ export default function VerificationDetailPage() {
 
             <button
               onClick={handleApprove}
-              className="px-4 py-2 bg-[#570013] hover:bg-[#42000e] text-amber-100 font-extrabold rounded-md text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+              disabled={isMutating}
+              className="px-4 py-2 bg-[#570013] hover:bg-[#42000e] text-amber-100 font-extrabold rounded-md text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-sm">check_circle</span>
-              <span>Approve & Grant Verified Badge</span>
+              <span>{isMutating ? 'Approving...' : 'Approve & Grant Verified Badge'}</span>
             </button>
           </div>
         )}
@@ -331,9 +392,10 @@ export default function VerificationDetailPage() {
               </button>
               <button
                 onClick={handleConfirmReject}
-                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl text-xs shadow-md"
+                disabled={isMutating}
+                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl text-xs shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Confirm Rejection
+                {isMutating ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
           </div>

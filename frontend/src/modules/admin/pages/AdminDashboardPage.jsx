@@ -9,30 +9,49 @@ export default function AdminDashboardPage() {
   const [recentUsers, setRecentUsers] = useState([])
   const [pendingVerifications, setPendingVerifications] = useState([])
   const [recentAuditLogs, setRecentAuditLogs] = useState([])
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     loadDashboardData()
   }, [])
 
-  const loadDashboardData = () => {
-    const data = adminDataService.getDashboardMetrics()
-    setMetrics(data)
+  const loadDashboardData = async () => {
+    setErrorMsg('')
+    try {
+      const [kpis, users, verifications, logs] = await Promise.all([
+        adminDataService.getDashboardMetrics(),
+        adminDataService.getUsers({ limit: 5 }),
+        adminDataService.getVerifications({ status: 'Pending', limit: 10 }),
+        adminDataService.getAuditLogs({ limit: 4 }),
+      ])
 
-    const allUsers = adminDataService.getUsers()
-    setRecentUsers(allUsers.slice(0, 5))
-
-    const verifications = adminDataService.getVerifications()
-    setPendingVerifications(verifications.filter((v) => v.status === 'Pending'))
-
-    const logs = adminDataService.getAuditLogs()
-    setRecentAuditLogs(logs.slice(0, 4))
+      setMetrics(kpis)
+      setRecentUsers(users.slice(0, 5))
+      setPendingVerifications(verifications.filter((v) => v.status === 'Pending'))
+      setRecentAuditLogs(logs.slice(0, 4))
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load dashboard data.')
+    }
   }
 
   if (!metrics) {
     return (
       <AdminLayout title="Dashboard">
-        <div className="flex items-center justify-center h-64 text-stone-500 text-sm">
-          Loading operational dashboard data...
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-sm">
+          {errorMsg ? (
+            <>
+              <span className="material-symbols-outlined text-3xl text-red-400">error</span>
+              <p className="text-red-700 font-bold">{errorMsg}</p>
+              <button
+                onClick={loadDashboardData}
+                className="px-4 py-2 bg-[#570013] text-amber-100 font-bold rounded-md text-xs"
+              >
+                Retry
+              </button>
+            </>
+          ) : (
+            <span className="text-stone-500">Loading operational dashboard data...</span>
+          )}
         </div>
       </AdminLayout>
     )
@@ -41,6 +60,18 @@ export default function AdminDashboardPage() {
   return (
     <AdminLayout title="Dashboard Overview">
       {/* Welcome Banner */}
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={loadDashboardData} className="text-red-700 underline font-bold shrink-0">
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="bg-gradient-to-r from-[#570013] via-[#800020] to-[#775a19] rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
         <div className="relative z-10">
           <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-semibold text-amber-200 uppercase tracking-wider">

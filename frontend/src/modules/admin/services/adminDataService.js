@@ -1,788 +1,589 @@
-// Admin Data Service - Central Persistent Data & Operations Store for Matrimony Hub
-const STORAGE_KEYS = {
-  USERS: 'admin_users_db',
-  VERIFICATIONS: 'admin_verifications_db',
-  MATCHES: 'admin_matches_db',
-  SUBSCRIPTIONS: 'admin_subscriptions_db',
-  PAYMENTS: 'admin_payments_db',
-  BANNERS: 'admin_banners_db',
-  STATIC_CONTENT: 'admin_static_content_db',
-  COMPLAINTS: 'admin_complaints_db',
-  BLOCK_HISTORY: 'admin_block_history_db',
-  AUDIT_LOGS: 'admin_audit_logs_db',
+/**
+ * Admin Data Service
+ * Agrawal Matrimony Platform
+ *
+ * Async adapter over the REST API in `src/services/adminService.js`.
+ *
+ * This module used to be a localStorage fake database. It now talks to MongoDB
+ * through the backend. The method names are preserved so the admin pages keep
+ * their existing call sites, but every method is now async and must be awaited.
+ *
+ * Its second job is shape translation: the admin UI was built against a flat
+ * denormalized record (`user.profiles[].fullName`, `verification.govtIdStatus`,
+ * `staticContent.privacyPolicy`) while the API returns normalized documents.
+ * The normalize* helpers below are the single place that mapping lives.
+ */
+
+import * as api from '../../../services/adminService'
+import { resolveAssetUrl } from '../../../services/api'
+
+/* ------------------------------------------------------------------ *
+ * Normalizers: API document -> shape the admin pages already render
+ * ------------------------------------------------------------------ */
+
+const asArray = (value) => (Array.isArray(value) ? value : [])
+
+/** Backend `paginate()` responds with { items, pagination }. */
+const itemsOf = (res) => asArray(res?.items || res?.users || res?.data)
+
+function formatDate(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toISOString().slice(0, 10)
 }
 
-// Initial Seed Data
-const INITIAL_USERS = [
-  {
-    id: 'USR-101',
-    name: 'Rajesh Agrawal',
-    mobile: '+91 98290 12345',
-    email: 'rajesh.agrawal@example.com',
-    accountStatus: 'Active',
-    verificationStatus: 'Approved',
-    subscriptionPlan: 'Gold Annual',
-    subscriptionStatus: 'Active',
-    createdDate: '2025-11-10',
-    lastActive: '10 mins ago',
-    profiles: [
-      {
-        profileId: 'PRF-501',
-        fullName: 'Priya Garg',
-        gender: 'Female',
-        age: 26,
-        height: "5'4\"",
-        gotra: 'Garg',
-        motherGotra: 'Bansal',
-        dob: '1998-05-14',
-        tob: '08:30 AM',
-        pob: 'Jaipur, Rajasthan',
-        complexion: 'Fair',
-        manglik: 'Non-Manglik',
-        qualification: 'M.Tech, Software Engineer',
-        workingAt: 'TCS Digital',
-        income: '15-20 LPA',
-        hobbies: 'Classical Dance, Reading, Travelling',
-        residentialAddress: '104, Agrasen Nagar, Gopalpura Bypass, Jaipur, Rajasthan',
-        verified: true,
-        isFeatured: true,
-        image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
-        matchScore: 95,
-      },
-      {
-        profileId: 'PRF-502',
-        fullName: 'Rohan Agrawal',
-        gender: 'Male',
-        age: 28,
-        height: "5'10\"",
-        gotra: 'Garg',
-        motherGotra: 'Goyal',
-        dob: '1996-08-20',
-        tob: '11:15 AM',
-        pob: 'Delhi',
-        complexion: 'Wheatish',
-        manglik: 'Anshik Manglik',
-        qualification: 'MBA, Finance Manager',
-        workingAt: 'HDFC Bank',
-        income: '18-22 LPA',
-        hobbies: 'Cricket, Swimming',
-        residentialAddress: 'B-42, South Extension, New Delhi',
-        verified: true,
-        isFeatured: false,
-        image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
-        matchScore: 88,
-      }
-    ]
-  },
-  {
-    id: 'USR-102',
-    name: 'Sunita Goyal',
-    mobile: '+91 94140 67890',
-    email: 'sunita.goyal@example.com',
-    accountStatus: 'Active',
-    verificationStatus: 'Pending',
-    subscriptionPlan: 'Free Tier',
-    subscriptionStatus: 'Active',
-    createdDate: '2026-01-05',
-    lastActive: '1 hour ago',
-    profiles: [
-      {
-        profileId: 'PRF-503',
-        fullName: 'Anjali Bansal',
-        gender: 'Female',
-        age: 24,
-        height: "5'3\"",
-        gotra: 'Bansal',
-        motherGotra: 'Singhal',
-        dob: '2000-02-18',
-        tob: '04:45 PM',
-        pob: 'Indore, MP',
-        complexion: 'Very Fair',
-        manglik: 'Non-Manglik',
-        qualification: 'B.Arch, Architect',
-        workingAt: 'Design Studio',
-        income: '8-10 LPA',
-        hobbies: 'Painting, Interior Design',
-        residentialAddress: '12, Vijay Nagar, Indore',
-        verified: false,
-        isFeatured: true,
-        image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-        matchScore: 91,
-      }
-    ]
-  },
-  {
-    id: 'USR-103',
-    name: 'Vikram Singhal',
-    mobile: '+91 97110 54321',
-    email: 'vikram.singhal@example.com',
-    accountStatus: 'Active',
-    verificationStatus: 'Approved',
-    subscriptionPlan: 'Gold Monthly',
-    subscriptionStatus: 'Active',
-    createdDate: '2026-01-15',
-    lastActive: '3 hours ago',
-    profiles: [
-      {
-        profileId: 'PRF-504',
-        fullName: 'Aarav Singhal',
-        gender: 'Male',
-        age: 29,
-        height: "5'11\"",
-        gotra: 'Singhal',
-        motherGotra: 'Kansal',
-        dob: '1995-11-04',
-        tob: '06:20 AM',
-        pob: 'Chandigarh',
-        complexion: 'Fair',
-        manglik: 'Non-Manglik',
-        qualification: 'MS, Data Scientist',
-        workingAt: 'Microsoft',
-        income: '30+ LPA',
-        hobbies: 'AI Research, Cycling',
-        residentialAddress: 'Sector 17, Chandigarh',
-        verified: true,
-        isFeatured: false,
-        image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
-        matchScore: 94,
-      }
-    ]
-  },
-  {
-    id: 'USR-104',
-    name: 'Mahesh Mittal',
-    mobile: '+91 98100 99887',
-    email: 'mahesh.mittal@example.com',
-    accountStatus: 'Suspended',
-    verificationStatus: 'Rejected',
-    subscriptionPlan: 'Free Tier',
-    subscriptionStatus: 'Expired',
-    createdDate: '2025-12-01',
-    lastActive: '3 days ago',
-    profiles: [
-      {
-        profileId: 'PRF-505',
-        fullName: 'Neha Mittal',
-        gender: 'Female',
-        age: 27,
-        height: "5'5\"",
-        gotra: 'Mittal',
-        motherGotra: 'Tayal',
-        dob: '1997-04-12',
-        tob: '09:00 PM',
-        pob: 'Surat, Gujarat',
-        complexion: 'Fair',
-        manglik: 'Manglik',
-        qualification: 'B.Com, Accountant',
-        workingAt: 'Self Employed',
-        income: '6-8 LPA',
-        hobbies: 'Cooking, Music',
-        residentialAddress: 'Ring Road, Surat',
-        verified: false,
-        isFeatured: false,
-        image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=400',
-        matchScore: 78,
-      }
-    ]
-  },
-  {
-    id: 'USR-105',
-    name: 'Pankaj Goyal',
-    mobile: '+91 99280 33445',
-    email: 'pankaj.goyal@example.com',
-    accountStatus: 'Active',
-    verificationStatus: 'Pending',
-    subscriptionPlan: 'Gold Quarterly',
-    subscriptionStatus: 'Active',
-    createdDate: '2026-02-01',
-    lastActive: 'Just now',
-    profiles: [
-      {
-        profileId: 'PRF-506',
-        fullName: 'Riya Goyal',
-        gender: 'Female',
-        age: 25,
-        height: "5'2\"",
-        gotra: 'Goyal',
-        motherGotra: 'Tingal',
-        dob: '1999-09-25',
-        tob: '02:10 PM',
-        pob: 'Kota, Rajasthan',
-        complexion: 'Fair',
-        manglik: 'Non-Manglik',
-        qualification: 'B.Tech, UI/UX Designer',
-        workingAt: 'Startup Inc',
-        income: '12-15 LPA',
-        hobbies: 'Sketching, Photography',
-        residentialAddress: 'Talwandi, Kota',
-        verified: false,
-        isFeatured: true,
-        image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=400',
-        matchScore: 89,
-      }
-    ]
-  }
-]
+function formatDateTime(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toISOString().replace('T', ' ').slice(0, 16)
+}
 
-const INITIAL_VERIFICATIONS = [
-  {
-    id: 'VRF-201',
-    userId: 'USR-102',
-    userName: 'Sunita Goyal',
-    profileId: 'PRF-503',
-    profileName: 'Anjali Bansal',
-    mobile: '+91 94140 67890',
-    email: 'sunita.goyal@example.com',
-    mobileVerified: true,
-    emailVerified: true,
-    govtIdStatus: 'Pending',
-    govtIdType: 'Aadhaar Card',
-    govtIdDocUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=600',
-    profDocStatus: 'Pending',
-    profDocType: 'B.Arch Degree & Council Registration',
-    profDocUrl: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=600',
-    status: 'Pending',
-    submittedAt: '2026-02-06 14:30',
-    rejectionReason: '',
-  },
-  {
-    id: 'VRF-202',
-    userId: 'USR-105',
-    userName: 'Pankaj Goyal',
-    profileId: 'PRF-506',
-    profileName: 'Riya Goyal',
-    mobile: '+91 99280 33445',
-    email: 'pankaj.goyal@example.com',
-    mobileVerified: true,
-    emailVerified: true,
-    govtIdStatus: 'Pending',
-    govtIdType: 'PAN Card',
-    govtIdDocUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=600',
-    profDocStatus: 'Approved',
-    profDocType: 'Design Certificate',
-    profDocUrl: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=600',
-    status: 'Pending',
-    submittedAt: '2026-02-07 09:15',
-    rejectionReason: '',
-  },
-  {
-    id: 'VRF-200',
-    userId: 'USR-101',
-    userName: 'Rajesh Agrawal',
-    profileId: 'PRF-501',
-    profileName: 'Priya Garg',
-    mobile: '+91 98290 12345',
-    email: 'rajesh.agrawal@example.com',
-    mobileVerified: true,
-    emailVerified: true,
-    govtIdStatus: 'Approved',
-    govtIdType: 'Passport',
-    govtIdDocUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=600',
-    profDocStatus: 'Approved',
-    profDocType: 'TCS Offer Letter',
-    profDocUrl: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=600',
-    status: 'Approved',
-    submittedAt: '2025-11-12 11:00',
-    approvedAt: '2025-11-12 16:45',
-    rejectionReason: '',
-  },
-  {
-    id: 'VRF-199',
-    userId: 'USR-104',
-    userName: 'Mahesh Mittal',
-    profileId: 'PRF-505',
-    profileName: 'Neha Mittal',
-    mobile: '+91 98100 99887',
-    email: 'mahesh.mittal@example.com',
-    mobileVerified: true,
-    emailVerified: false,
-    govtIdStatus: 'Rejected',
-    govtIdType: 'Aadhaar Card',
-    govtIdDocUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=600',
-    profDocStatus: 'Rejected',
-    profDocType: 'N/A',
-    profDocUrl: '',
-    status: 'Rejected',
-    submittedAt: '2025-12-02 10:20',
-    rejectedAt: '2025-12-03 12:10',
-    rejectionReason: 'Blurred ID document & name mismatch on government record.',
-  }
-]
+function relativeTime(value) {
+  if (!value) return 'Unknown'
+  const then = new Date(value).getTime()
+  if (Number.isNaN(then)) return 'Unknown'
 
-const INITIAL_SUBSCRIPTIONS = [
-  {
-    id: 'SUB-PLAN-1',
-    name: 'Free Tier',
-    price: 0,
-    currency: 'INR',
-    durationDays: 365,
-    durationType: 'Free Forever',
-    status: 'Active',
-    badge: 'Basic',
-    benefits: [
-      'Create 1 Matrimonial Profile',
-      'View up to 5 Profiles per day',
-      'Send up to 3 Interests per month',
-      'Standard Search Filters',
-      'Basic Biodata Export'
-    ],
-    activeSubscribers: 1240,
-    createdDate: '2025-01-01',
-  },
-  {
-    id: 'SUB-PLAN-2',
-    name: 'Gold Monthly',
-    price: 999,
+  const seconds = Math.floor((Date.now() - then) / 1000)
+  if (seconds < 60) return 'Just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} mins ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+  return `${Math.floor(seconds / 86400)} days ago`
+}
+
+function ageFromDob(dob) {
+  if (!dob) return null
+  const born = new Date(dob)
+  if (Number.isNaN(born.getTime())) return null
+  return Math.floor((Date.now() - born.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+}
+
+function normalizeProfile(profile) {
+  if (!profile) return null
+  return {
+    profileId: profile.profileId || profile.id || profile._id,
+    _id: profile._id || profile.id,
+    fullName: profile.fullName || '',
+    gender: profile.gender || '',
+    age: ageFromDob(profile.dob),
+    height: profile.height || '',
+    gotra: profile.gotra || '',
+    motherGotra: profile.motherGotra || '',
+    dob: formatDate(profile.dob),
+    tob: profile.tob || '',
+    pob: profile.pob || '',
+    complexion: profile.complexion || '',
+    manglik: profile.manglik || '',
+    qualification: profile.qualification || '',
+    workingAt: profile.workingAt || profile.occupation || '',
+    income: profile.income || '',
+    hobbies: profile.hobbies || '',
+    residentialAddress: profile.residentialAddress || '',
+    city: profile.city || '',
+    state: profile.state || '',
+    verified: Boolean(profile.verified),
+    isFeatured: Boolean(profile.isFeatured),
+    image: resolveAssetUrl(profile.profilePicture),
+    matchScore: profile.matchScore || profile.completionPercentage || 0,
+  }
+}
+
+function normalizeUser(user) {
+  if (!user) return null
+  const profiles = asArray(user.profiles).map(normalizeProfile).filter(Boolean)
+  const active = normalizeProfile(user.activeProfileId)
+
+  // The active profile is populated separately; keep it in the list exactly once.
+  if (active && !profiles.some((p) => String(p._id) === String(active._id))) {
+    profiles.unshift(active)
+  }
+
+  return {
+    id: user.id || user._id,
+    name: user.name || '',
+    mobile: user.mobile || '',
+    email: user.email || '',
+    gender: user.gender || '',
+    accountStatus: user.accountStatus || 'Active',
+    verificationStatus: user.verificationStatus || 'Unverified',
+    subscriptionPlan: user.subscriptionPlan || 'Free',
+    subscriptionStatus: user.subscriptionStatus || 'Free',
+    subscriptionExpiresAt: formatDate(user.subscriptionExpiresAt),
+    createdDate: formatDate(user.createdAt),
+    lastActive: relativeTime(user.lastLoginAt || user.updatedAt),
+    profiles,
+  }
+}
+
+/**
+ * The verification UI shows two document columns (government ID and profession
+ * proof) with independent statuses. The API stores one status per submission,
+ * so both columns mirror it.
+ */
+function normalizeVerification(v) {
+  if (!v) return null
+  const user = typeof v.userId === 'object' && v.userId !== null ? v.userId : null
+  const profile = typeof v.profileId === 'object' && v.profileId !== null ? v.profileId : null
+
+  return {
+    id: v.id || v._id,
+    userId: user?.id || user?._id || v.userId || '',
+    userName: user?.name || '',
+    profileId: profile?.id || profile?._id || v.profileId || '',
+    profileName: profile?.fullName || '',
+    mobile: user?.mobile || '',
+    email: user?.email || '',
+    mobileVerified: Boolean(user?.mobile),
+    emailVerified: Boolean(user?.email),
+    documentType: v.documentType || '',
+    documentNumber: v.documentNumber || '',
+    govtIdStatus: v.status || 'Pending',
+    govtIdType: v.documentType || '',
+    govtIdDocUrl: resolveAssetUrl(v.idProofUrl),
+    profDocStatus: v.professionProofUrl ? v.status || 'Pending' : 'Not Submitted',
+    profDocType: v.professionProofUrl ? 'Profession Proof' : 'N/A',
+    profDocUrl: resolveAssetUrl(v.professionProofUrl),
+    addressProofUrl: resolveAssetUrl(v.addressProofUrl),
+    status: v.status || 'Pending',
+    submittedAt: formatDateTime(v.submittedAt || v.createdAt),
+    approvedAt: v.status === 'Approved' ? formatDateTime(v.reviewedAt) : undefined,
+    rejectedAt: v.status === 'Rejected' ? formatDateTime(v.reviewedAt) : undefined,
+    rejectionReason: v.rejectionReason || '',
+    reviewedByName: v.reviewedByName || '',
+    adminNotes: v.adminNotes || '',
+  }
+}
+
+function normalizePayment(p) {
+  if (!p) return null
+  const user = typeof p.userId === 'object' && p.userId !== null ? p.userId : null
+  const plan = typeof p.planId === 'object' && p.planId !== null ? p.planId : null
+
+  return {
+    id: p.id || p._id,
+    transactionId: p.paymentId || p.orderId || '',
+    userId: user?.id || user?._id || p.userId || '',
+    userName: user?.name || '',
+    userEmail: user?.email || '',
+    planName: plan?.name || p.planName || '',
+    amount: p.amount || 0,
+    paymentMethod: p.method || p.paymentMethod || 'Razorpay',
+    paymentStatus: p.status || 'Created',
+    gatewayRef: p.paymentId || '',
+    billingCycle: p.billingCycle || '',
+    createdDate: formatDateTime(p.createdAt),
+  }
+}
+
+function normalizeComplaint(c) {
+  if (!c) return null
+  const reporter = typeof c.reporterUserId === 'object' && c.reporterUserId !== null ? c.reporterUserId : null
+  const reported = typeof c.reportedUserId === 'object' && c.reportedUserId !== null ? c.reportedUserId : null
+  const reportedProfile =
+    typeof c.reportedProfileId === 'object' && c.reportedProfileId !== null ? c.reportedProfileId : null
+
+  // The UI labels an open complaint "Under Review"; the API uses Pending/In Review.
+  const status = c.status === 'Pending' || c.status === 'In Review' ? 'Under Review' : c.status
+
+  return {
+    id: c.id || c._id,
+    complaintId: c.complaintId || '',
+    category: c.category || 'Other',
+    reportedProfileId: reportedProfile?.id || reportedProfile?._id || c.reportedProfileId || '',
+    reportedProfileName: reportedProfile?.fullName || '',
+    reportedUserId: reported?.id || reported?._id || c.reportedUserId || '',
+    reporterUserId: reporter?.id || reporter?._id || c.reporterUserId || '',
+    reporterUserName: reporter?.name || '',
+    reason: c.reason || '',
+    description: c.description || '',
+    status,
+    rawStatus: c.status,
+    createdDate: formatDateTime(c.createdAt),
+    assignedTo: c.resolvedByName || 'Admin Team',
+    actionTaken: c.resolutionAction || '',
+    adminNotes: c.adminNotes || '',
+  }
+}
+
+function normalizeAuditLog(log) {
+  if (!log) return null
+  return {
+    id: log.id || log._id,
+    adminName: log.adminName || 'System',
+    adminRole: log.adminRole || '',
+    action: log.action || '',
+    target: log.target || '',
+    timestamp: formatDateTime(log.createdAt),
+    details: log.details || '',
+    ipAddress: log.ipAddress || '',
+  }
+}
+
+function normalizePlan(plan) {
+  if (!plan) return null
+  return {
+    id: plan.id || plan._id,
+    planId: plan.planId || '',
+    name: plan.name || '',
+    price: plan.monthlyPrice || 0,
+    monthlyPrice: plan.monthlyPrice || 0,
+    quarterlyPrice: plan.quarterlyPrice || 0,
+    yearlyPrice: plan.yearlyPrice || 0,
     currency: 'INR',
     durationDays: 30,
     durationType: '1 Month',
-    status: 'Active',
-    badge: 'Popular',
-    benefits: [
-      'Manage Multiple Profiles',
-      'Unlimited Profile Views',
-      'Unlimited Expressed Interests',
-      'Unlimited Direct Chat with Connected Members',
-      'Advanced Gotra & Kundali Filters',
-      'PDF Biodata Download',
-      'Verified Badge Priority'
-    ],
-    activeSubscribers: 430,
-    createdDate: '2025-01-01',
-  },
-  {
-    id: 'SUB-PLAN-3',
-    name: 'Gold Quarterly',
-    price: 2499,
-    currency: 'INR',
-    durationDays: 90,
-    durationType: '3 Months',
-    status: 'Active',
-    badge: 'Best Value',
-    benefits: [
-      'All Gold Monthly Benefits',
-      'Featured Profile Placement for 14 Days',
-      'Direct Phone & Contact Unlocks (15/mo)',
-      'Dedicated Matchmaker Support'
-    ],
-    activeSubscribers: 310,
-    createdDate: '2025-01-01',
-  },
-  {
-    id: 'SUB-PLAN-4',
-    name: 'Gold Annual Premium',
-    price: 6999,
-    currency: 'INR',
-    durationDays: 365,
-    durationType: '12 Months',
-    status: 'Active',
-    badge: 'VIP',
-    benefits: [
-      'All Gold Quarterly Benefits',
-      'Unlimited Contact Number Unlocks',
-      'Permanent Featured Profile Badge',
-      'Priority Horoscope Verification',
-      'VIP Concierge Matchmaking'
-    ],
-    activeSubscribers: 185,
-    createdDate: '2025-01-01',
-  }
-]
-
-const INITIAL_PAYMENTS = [
-  {
-    id: 'PAY-8801',
-    transactionId: 'rzp_live_9812471201',
-    userId: 'USR-101',
-    userName: 'Rajesh Agrawal',
-    userEmail: 'rajesh.agrawal@example.com',
-    planName: 'Gold Annual Premium',
-    amount: 6999,
-    paymentMethod: 'Razorpay / UPI',
-    paymentStatus: 'Success',
-    gatewayRef: 'pay_Nkx78129381',
-    createdDate: '2025-11-10 10:45',
-  },
-  {
-    id: 'PAY-8802',
-    transactionId: 'rzp_live_9812471202',
-    userId: 'USR-103',
-    userName: 'Vikram Singhal',
-    userEmail: 'vikram.singhal@example.com',
-    planName: 'Gold Monthly',
-    amount: 999,
-    paymentMethod: 'Credit Card',
-    paymentStatus: 'Success',
-    gatewayRef: 'pay_Nkx78129382',
-    createdDate: '2026-01-15 14:20',
-  },
-  {
-    id: 'PAY-8803',
-    transactionId: 'rzp_live_9812471203',
-    userId: 'USR-105',
-    userName: 'Pankaj Goyal',
-    userEmail: 'pankaj.goyal@example.com',
-    planName: 'Gold Quarterly',
-    amount: 2499,
-    paymentMethod: 'UPI (GPay)',
-    paymentStatus: 'Success',
-    gatewayRef: 'pay_Nkx78129383',
-    createdDate: '2026-02-01 18:10',
-  },
-  {
-    id: 'PAY-8804',
-    transactionId: 'rzp_live_9812471204',
-    userId: 'USR-104',
-    userName: 'Mahesh Mittal',
-    userEmail: 'mahesh.mittal@example.com',
-    planName: 'Gold Monthly',
-    amount: 999,
-    paymentMethod: 'Net Banking',
-    paymentStatus: 'Failed',
-    gatewayRef: 'pay_Nkx78129384_failed',
-    createdDate: '2025-12-01 11:30',
-  }
-]
-
-const INITIAL_BANNERS = [
-  {
-    id: 'BAN-101',
-    title: 'Find Your Perfect Match in Agrawal Community',
-    subtitle: '100% Verified Profiles with Authentic Family & Gotra Credentials',
-    imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=1200',
-    linkTarget: '/matches',
-    status: 'Active',
-    positionOrder: 1,
-  },
-  {
-    id: 'BAN-102',
-    title: 'Upgrade to Gold Membership',
-    subtitle: 'Unlock Unlimited Chats, Direct Contact Details & VIP Badge',
-    imageUrl: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=1200',
-    linkTarget: '/membership',
-    status: 'Active',
-    positionOrder: 2,
-  }
-]
-
-const INITIAL_STATIC_CONTENT = {
-  aboutUs: `Welcome to Matrimony Hub - Agrawal Biodata, the premier matchmaking platform built specifically for the Agrawal community. We provide a safe, dignified, and intelligent digital platform where families and individuals can discover compatible life partners with authentic gotra, family tree details, professional achievements, and verified credentials.`,
-  contactUs: `Head Office: 108 Agrasen Bhavan, MG Road, Jaipur, Rajasthan - 302001\nEmail: support@matrimonyhub.com | Helpline: +91 1800 123 4567\nOperating Hours: Monday to Saturday, 9:00 AM - 7:00 PM IST`,
-  privacyPolicy: `Matrimony Hub values your privacy. We strictly safeguard all user biodatas, photos, and identity proof documents using end-to-end encryption. Your contact details are never disclosed to non-connected members without your explicit permission.`,
-  termsOfService: `By creating an account on Matrimony Hub, you agree to submit genuine personal & family details. Misrepresentation of identity, gotra, age, or marital status will lead to immediate account suspension and legal reporting.`,
-  communityGuidelines: `1. Treat all members and their families with respect.\n2. Do not use abusive or vulgar language in chats.\n3. Verify identity before organizing in-person meetings.`,
-}
-
-const INITIAL_COMPLAINTS = [
-  {
-    id: 'CMP-701',
-    category: 'Fake Profile',
-    reportedProfileId: 'PRF-505',
-    reportedProfileName: 'Neha Mittal',
-    reportedUserId: 'USR-104',
-    reporterUserId: 'USR-101',
-    reporterUserName: 'Rajesh Agrawal',
-    reason: 'Suspicious profile information and incorrect employment details.',
-    description: 'The uploaded photos do not match the educational certificates, and the phone number provided belongs to an unregistered third party.',
-    status: 'Under Review',
-    createdDate: '2026-02-04 16:20',
-    assignedTo: 'Admin Team',
-    actionTaken: '',
-  },
-  {
-    id: 'CMP-702',
-    category: 'Abuse',
-    reportedProfileId: 'PRF-505',
-    reportedProfileName: 'Neha Mittal',
-    reportedUserId: 'USR-104',
-    reporterUserId: 'USR-103',
-    reporterUserName: 'Vikram Singhal',
-    reason: 'Inappropriate message sent in chat.',
-    description: 'Received unsolicited promotional links and aggressive remarks.',
-    status: 'Resolved',
-    createdDate: '2026-01-20 11:10',
-    assignedTo: 'Moderator Alpha',
-    actionTaken: 'User Suspended for 30 days',
-  }
-]
-
-const INITIAL_BLOCK_HISTORY = [
-  {
-    id: 'BLK-901',
-    blockedByUserId: 'USR-101',
-    blockedByName: 'Rajesh Agrawal',
-    blockedUserId: 'USR-104',
-    blockedUserName: 'Mahesh Mittal',
-    blockedProfileName: 'Neha Mittal',
-    date: '2026-02-04 16:30',
-    reason: 'Inappropriate conduct',
-  }
-]
-
-const INITIAL_AUDIT_LOGS = [
-  {
-    id: 'LOG-301',
-    adminName: 'Super Admin',
-    adminRole: 'Super Admin',
-    action: 'Approved Profile Verification',
-    target: 'Verification VRF-200 (Priya Garg)',
-    timestamp: '2025-11-12 16:45',
-    details: 'Verified Aadhaar ID and TCS employment proof.',
-  },
-  {
-    id: 'LOG-302',
-    adminName: 'Moderator Alpha',
-    adminRole: 'Moderator',
-    action: 'Suspended User Account',
-    target: 'User USR-104 (Mahesh Mittal)',
-    timestamp: '2025-12-03 12:10',
-    details: 'Suspended account due to failed identity verification and reported harassment.',
-  }
-]
-
-// Storage Initialization Helper
-function getItem(key, initialData) {
-  try {
-    const raw = localStorage.getItem(key)
-    if (!raw) {
-      localStorage.setItem(key, JSON.stringify(initialData))
-      return initialData
-    }
-    return JSON.parse(raw)
-  } catch (err) {
-    console.error(`Error loading storage key ${key}:`, err)
-    return initialData
+    status: plan.isActive ? 'Active' : 'Inactive',
+    badge: plan.badge || '',
+    benefits: asArray(plan.features),
+    contactViewLimit: plan.contactViewLimit ?? 0,
+    interestSendLimit: plan.interestSendLimit ?? 0,
+    chatAccess: Boolean(plan.chatAccess),
+    activeSubscribers: plan.activeSubscribers || 0,
+    createdDate: formatDate(plan.createdAt),
   }
 }
 
-function setItem(key, data) {
-  try {
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch (err) {
-    console.error(`Error saving storage key ${key}:`, err)
+function normalizeBanner(b) {
+  if (!b) return null
+  return {
+    id: b.id || b._id,
+    title: b.title || '',
+    subtitle: b.subtitle || '',
+    imageUrl: b.imageUrl || '',
+    linkTarget: b.targetUrl || '',
+    status: b.isActive ? 'Active' : 'Inactive',
+    positionOrder: b.sortOrder || 0,
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * CMS static content: flat UI object <-> keyed API pages
+ * ------------------------------------------------------------------ */
+
+const CMS_KEY_BY_FIELD = {
+  aboutUs: 'about-us',
+  contactUs: 'contact-us',
+  privacyPolicy: 'privacy-policy',
+  termsOfService: 'terms-of-service',
+  communityGuidelines: 'community-guidelines',
+}
+
+const CMS_TITLE_BY_KEY = {
+  'about-us': 'About Agrawal Matrimony',
+  'contact-us': 'Contact Support',
+  'privacy-policy': 'Privacy Policy',
+  'terms-of-service': 'Terms of Service',
+  'community-guidelines': 'Community Guidelines',
+  faqs: 'Frequently Asked Questions',
+}
+
+/* ------------------------------------------------------------------ *
+ * Public service
+ * ------------------------------------------------------------------ */
 
 export const adminDataService = {
-  // Users Management
-  getUsers: () => getItem(STORAGE_KEYS.USERS, INITIAL_USERS),
-  getUserById: (userId) => {
-    const users = adminDataService.getUsers()
-    return users.find((u) => u.id === userId) || null
+  /* ---------------------------- Users ---------------------------- */
+
+  async getUsers(params = {}) {
+    const res = await api.getUsers({ limit: 100, ...params })
+    return itemsOf(res).map(normalizeUser).filter(Boolean)
   },
-  saveUser: (userObj) => {
-    const users = adminDataService.getUsers()
-    const index = users.findIndex((u) => u.id === userObj.id)
-    if (index >= 0) {
-      users[index] = userObj
-    } else {
-      users.unshift(userObj)
+
+  async getUsersPaged(params = {}) {
+    const res = await api.getUsers(params)
+    return {
+      users: itemsOf(res).map(normalizeUser).filter(Boolean),
+      pagination: res?.pagination || null,
     }
-    setItem(STORAGE_KEYS.USERS, users)
-    adminDataService.logAction('Saved User Record', `User ${userObj.id} (${userObj.name})`, `Status: ${userObj.accountStatus}`)
-    return userObj
   },
-  updateUserStatus: (userId, newStatus) => {
-    const users = adminDataService.getUsers()
-    const user = users.find((u) => u.id === userId)
-    if (user) {
-      user.accountStatus = newStatus
-      setItem(STORAGE_KEYS.USERS, users)
-      adminDataService.logAction(`${newStatus === 'Suspended' ? 'Suspended' : 'Activated'} User Account`, `User ${user.id} (${user.name})`, `Account status updated to ${newStatus}`)
+
+  async getUserById(userId) {
+    const res = await api.getUserById(userId)
+    const user = normalizeUser(res?.user || res)
+    if (!user) return null
+
+    // The detail page also renders this user's candidate profiles, payments and
+    // KYC submissions, which the endpoint returns alongside the user document.
+    if (asArray(res?.profiles).length > 0) {
+      user.profiles = asArray(res.profiles).map(normalizeProfile).filter(Boolean)
     }
+    user.payments = asArray(res?.payments).map(normalizePayment).filter(Boolean)
+    user.verifications = asArray(res?.verifications).map(normalizeVerification).filter(Boolean)
+    user.subscriptions = asArray(res?.subscriptions)
+
     return user
   },
-  deleteUser: (userId) => {
-    const users = adminDataService.getUsers()
-    const updated = users.filter((u) => u.id !== userId)
-    setItem(STORAGE_KEYS.USERS, updated)
-    adminDataService.logAction('Deleted User Account', `User ${userId}`, 'Account deleted via soft/hard delete policy.')
+
+  async updateUserStatus(userId, newStatus, reason = '') {
+    const res = await api.updateUserStatus(userId, newStatus, reason)
+    return normalizeUser(res?.user || res)
+  },
+
+  async deleteUser(userId, reason = 'Deleted by administrator') {
+    await api.deleteUser(userId, reason)
     return true
   },
 
-  // Verification Requests Management
-  getVerifications: () => getItem(STORAGE_KEYS.VERIFICATIONS, INITIAL_VERIFICATIONS),
-  getVerificationById: (id) => {
-    const list = adminDataService.getVerifications()
-    return list.find((v) => v.id === id) || null
+  async exportUsersCSV() {
+    return api.exportUsersCSV()
   },
-  approveVerification: (id) => {
-    const verifications = adminDataService.getVerifications()
-    const req = verifications.find((v) => v.id === id)
-    if (req) {
-      req.status = 'Approved'
-      req.govtIdStatus = 'Approved'
-      req.profDocStatus = 'Approved'
-      req.approvedAt = new Date().toISOString().replace('T', ' ').slice(0, 16)
-      setItem(STORAGE_KEYS.VERIFICATIONS, verifications)
 
-      // Synchronize with User & Matrimonial Profile!
-      const users = adminDataService.getUsers()
-      const user = users.find((u) => u.id === req.userId)
-      if (user) {
-        user.verificationStatus = 'Approved'
-        const profile = user.profiles.find((p) => p.profileId === req.profileId)
-        if (profile) {
-          profile.verified = true
-        }
-        setItem(STORAGE_KEYS.USERS, users)
-      }
+  /* ------------------------ Verifications ------------------------ */
 
-      adminDataService.logAction('Approved Verification Request', `Verification ${req.id} for Profile ${req.profileName}`, 'Granted Verified Badge')
+  async getVerifications(params = {}) {
+    const res = await api.getVerifications({ limit: 100, ...params })
+    return itemsOf(res).map(normalizeVerification).filter(Boolean)
+  },
+
+  async getVerificationById(id) {
+    const res = await api.getVerificationById(id)
+    return normalizeVerification(res?.verification || res)
+  },
+
+  async approveVerification(id, notes = '') {
+    const res = await api.approveVerification(id, notes)
+    return normalizeVerification(res?.verification || res)
+  },
+
+  async rejectVerification(id, reason) {
+    const res = await api.rejectVerification(id, reason, reason)
+    return normalizeVerification(res?.verification || res)
+  },
+
+  /* -------------------------- Plans ------------------------------ */
+
+  async getSubscriptions() {
+    const res = await api.getPlans({ includeInactive: 'true' })
+    return asArray(res?.plans).map(normalizePlan).filter(Boolean)
+  },
+
+  async saveSubscriptionPlan(plan) {
+    const payload = {
+      name: plan.name,
+      badge: plan.badge || '',
+      monthlyPrice: Number(plan.price ?? plan.monthlyPrice ?? 0),
+      quarterlyPrice: Number(plan.quarterlyPrice ?? 0),
+      yearlyPrice: Number(plan.yearlyPrice ?? Number(plan.price ?? 0) * 12),
+      features: asArray(plan.benefits),
+      contactViewLimit: Number(plan.contactViewLimit ?? 0),
+      interestSendLimit: Number(plan.interestSendLimit ?? 0),
+      chatAccess: Boolean(plan.chatAccess),
+      isActive: plan.status !== 'Inactive',
     }
-    return req
-  },
-  rejectVerification: (id, reason) => {
-    const verifications = adminDataService.getVerifications()
-    const req = verifications.find((v) => v.id === id)
-    if (req) {
-      req.status = 'Rejected'
-      req.govtIdStatus = 'Rejected'
-      req.profDocStatus = 'Rejected'
-      req.rejectionReason = reason
-      req.rejectedAt = new Date().toISOString().replace('T', ' ').slice(0, 16)
-      setItem(STORAGE_KEYS.VERIFICATIONS, verifications)
 
-      // Update User verification status
-      const users = adminDataService.getUsers()
-      const user = users.find((u) => u.id === req.userId)
-      if (user) {
-        user.verificationStatus = 'Rejected'
-        setItem(STORAGE_KEYS.USERS, users)
-      }
+    const res = plan.id
+      ? await api.updatePlan(plan.id, payload)
+      : await api.createPlan(payload)
 
-      adminDataService.logAction('Rejected Verification Request', `Verification ${req.id}`, `Reason: ${reason}`)
-    }
-    return req
+    return normalizePlan(res?.plan || res)
   },
 
-  // Subscription Plans
-  getSubscriptions: () => getItem(STORAGE_KEYS.SUBSCRIPTIONS, INITIAL_SUBSCRIPTIONS),
-  saveSubscriptionPlan: (plan) => {
-    const plans = adminDataService.getSubscriptions()
-    const index = plans.findIndex((p) => p.id === plan.id)
-    if (index >= 0) {
-      plans[index] = plan
-    } else {
-      plan.id = `SUB-PLAN-${Date.now().toString().slice(-4)}`
-      plan.createdDate = new Date().toISOString().slice(0, 10)
-      plans.unshift(plan)
-    }
-    setItem(STORAGE_KEYS.SUBSCRIPTIONS, plans)
-    adminDataService.logAction('Saved Subscription Plan', `Plan ${plan.name}`, `Price: ₹${plan.price}, Status: ${plan.status}`)
-    return plan
-  },
-  deleteSubscriptionPlan: (planId) => {
-    const plans = adminDataService.getSubscriptions()
-    const updated = plans.filter((p) => p.id !== planId)
-    setItem(STORAGE_KEYS.SUBSCRIPTIONS, updated)
-    adminDataService.logAction('Deleted Subscription Plan', `Plan ${planId}`, 'Plan deactivated & removed.')
+  async deleteSubscriptionPlan(planId) {
+    await api.deletePlan(planId)
     return true
   },
 
-  // Payments Management
-  getPayments: () => getItem(STORAGE_KEYS.PAYMENTS, INITIAL_PAYMENTS),
-
-  // Banners & Content Management
-  getBanners: () => getItem(STORAGE_KEYS.BANNERS, INITIAL_BANNERS),
-  saveBanner: (banner) => {
-    const banners = adminDataService.getBanners()
-    const index = banners.findIndex((b) => b.id === banner.id)
-    if (index >= 0) {
-      banners[index] = banner
-    } else {
-      banner.id = `BAN-${Date.now().toString().slice(-4)}`
-      banners.push(banner)
-    }
-    setItem(STORAGE_KEYS.BANNERS, banners)
-    adminDataService.logAction('Saved Homepage Banner', `Banner ${banner.title}`, `Status: ${banner.status}`)
-    return banner
+  async getSubscribers(params = {}) {
+    const res = await api.getSubscriptions({ limit: 100, ...params })
+    return itemsOf(res)
   },
-  deleteBanner: (bannerId) => {
-    const banners = adminDataService.getBanners()
-    const updated = banners.filter((b) => b.id !== bannerId)
-    setItem(STORAGE_KEYS.BANNERS, updated)
-    adminDataService.logAction('Deleted Banner', `Banner ${bannerId}`, 'Banner removed from homepage slider.')
+
+  /* ------------------------- Payments ---------------------------- */
+
+  async getPayments(params = {}) {
+    const res = await api.getPayments({ limit: 100, ...params })
+    return itemsOf(res).map(normalizePayment).filter(Boolean)
+  },
+
+  /* -------------------------- Banners ---------------------------- */
+
+  async getBanners() {
+    const res = await api.getBanners()
+    return asArray(res?.banners).map(normalizeBanner).filter(Boolean)
+  },
+
+  async saveBanner(banner) {
+    const payload = {
+      title: banner.title,
+      subtitle: banner.subtitle || '',
+      imageUrl: banner.imageUrl,
+      targetUrl: banner.linkTarget || '',
+      isActive: banner.status !== 'Inactive',
+      sortOrder: Number(banner.positionOrder || 0),
+    }
+
+    const res = banner.id
+      ? await api.updateBanner(banner.id, payload)
+      : await api.createBanner(payload)
+
+    return normalizeBanner(res?.banner || res)
+  },
+
+  async deleteBanner(bannerId) {
+    await api.deleteBanner(bannerId)
     return true
   },
 
-  // Static Content
-  getStaticContent: () => getItem(STORAGE_KEYS.STATIC_CONTENT, INITIAL_STATIC_CONTENT),
-  saveStaticContent: (contentObj) => {
-    setItem(STORAGE_KEYS.STATIC_CONTENT, contentObj)
-    adminDataService.logAction('Updated Static CMS Content', 'Platform Static Pages', 'Updated Legal & About content.')
+  /* ----------------------- Static Content ------------------------ */
+
+  /**
+   * Collapses the keyed CMS pages into the flat object the content and legal
+   * pages bind their textareas to.
+   */
+  async getStaticContent() {
+    const res = await api.getCMSPages()
+    const pages = asArray(res?.pages)
+    const byKey = Object.fromEntries(pages.map((p) => [p.key, p]))
+
+    const content = {}
+    Object.entries(CMS_KEY_BY_FIELD).forEach(([field, key]) => {
+      content[field] = byKey[key]?.content || ''
+    })
+
+    // FAQs are stored as structured points rather than free text.
+    content.faqs = asArray(byKey.faqs?.points).map((p) => ({
+      question: p.title || p.question || '',
+      answer: p.description || p.answer || '',
+    }))
+
+    return content
+  },
+
+  /**
+   * Writes back only the fields that changed. Each CMS page is a separate
+   * document, so this fans out to one PUT per touched key.
+   */
+  async saveStaticContent(contentObj) {
+    const writes = []
+
+    Object.entries(CMS_KEY_BY_FIELD).forEach(([field, key]) => {
+      if (contentObj[field] === undefined) return
+      writes.push(
+        api.updateCMSPage(key, {
+          title: CMS_TITLE_BY_KEY[key],
+          content: contentObj[field],
+        })
+      )
+    })
+
+    if (contentObj.faqs !== undefined) {
+      writes.push(
+        api.updateCMSPage('faqs', {
+          title: CMS_TITLE_BY_KEY.faqs,
+          content: 'Frequently asked questions',
+          points: asArray(contentObj.faqs).map((f) => ({
+            title: f.question,
+            description: f.answer,
+          })),
+        })
+      )
+    }
+
+    await Promise.all(writes)
     return contentObj
   },
 
-  // Complaints & Moderation
-  getComplaints: () => getItem(STORAGE_KEYS.COMPLAINTS, INITIAL_COMPLAINTS),
-  updateComplaintStatus: (complaintId, status, actionTaken = '') => {
-    const list = adminDataService.getComplaints()
-    const comp = list.find((c) => c.id === complaintId)
-    if (comp) {
-      comp.status = status
-      if (actionTaken) comp.actionTaken = actionTaken
-      setItem(STORAGE_KEYS.COMPLAINTS, list)
-      adminDataService.logAction('Updated Complaint Status', `Complaint ${complaintId}`, `Status: ${status}, Action: ${actionTaken}`)
-    }
-    return comp
-  },
-  getBlockHistory: () => getItem(STORAGE_KEYS.BLOCK_HISTORY, INITIAL_BLOCK_HISTORY),
+  /* ------------------------ Complaints --------------------------- */
 
-  // Featured Profiles Match Management
-  toggleProfileFeatured: (userId, profileId, isFeatured) => {
-    const users = adminDataService.getUsers()
-    const user = users.find((u) => u.id === userId)
-    if (user) {
-      const profile = user.profiles.find((p) => p.profileId === profileId)
-      if (profile) {
-        profile.isFeatured = isFeatured
-        setItem(STORAGE_KEYS.USERS, users)
-        adminDataService.logAction(`${isFeatured ? 'Added to' : 'Removed from'} Featured Profiles`, `Profile ${profile.fullName}`, `User ${user.id}`)
+  async getComplaints(params = {}) {
+    const res = await api.getComplaints({ limit: 100, ...params })
+    return itemsOf(res).map(normalizeComplaint).filter(Boolean)
+  },
+
+  /**
+   * Resolve a complaint. `resolutionAction` must be one of the values the API
+   * accepts: Warning Sent | User Suspended | Profile Removed | Dismissed.
+   * Choosing "User Suspended" also suspends the reported account server-side,
+   * so callers must not issue a separate status update.
+   */
+  async resolveComplaint(complaintId, resolutionAction, adminNotes = '') {
+    const res = await api.resolveComplaint(complaintId, resolutionAction, adminNotes)
+    return normalizeComplaint(res?.complaint || res)
+  },
+
+  async getBlockHistory(params = {}) {
+    const res = await api.getBlocks({ limit: 100, ...params })
+    return itemsOf(res).map((b) => {
+      const blocker =
+        typeof b.blockerUserId === 'object' && b.blockerUserId !== null ? b.blockerUserId : null
+      const blocked = typeof b.blockedUserId === 'object' && b.blockedUserId !== null ? b.blockedUserId : null
+      const blockedProfile =
+        typeof b.blockedProfileId === 'object' && b.blockedProfileId !== null ? b.blockedProfileId : null
+
+      return {
+        id: b.id || b._id,
+        blockedByUserId: blocker?.id || blocker?._id || b.blockerUserId || '',
+        blockedByName: blocker?.name || '',
+        blockedUserId: blocked?.id || blocked?._id || b.blockedUserId || '',
+        blockedUserName: blocked?.name || '',
+        blockedProfileName: blockedProfile?.fullName || '',
+        date: formatDateTime(b.createdAt),
+        reason: b.reason || '',
       }
-    }
+    })
   },
 
-  // Dashboard KPI Metrics
-  getDashboardMetrics: () => {
-    const users = adminDataService.getUsers()
-    const verifications = adminDataService.getVerifications()
-    const subscriptions = adminDataService.getSubscriptions()
-    const payments = adminDataService.getPayments()
+  /* -------------------- Featured Profiles ------------------------ */
 
-    const totalUsers = users.length
-    const activeUsers = users.filter((u) => u.accountStatus === 'Active').length
-    const pendingVerifications = verifications.filter((v) => v.status === 'Pending').length
-    const totalDailyMatches = 342 // Live dynamic daily matches counter
-    const totalRevenue = payments
-      .filter((p) => p.paymentStatus === 'Success')
-      .reduce((sum, p) => sum + p.amount, 0)
-    const activeSubscriptions = users.filter((u) => u.subscriptionStatus === 'Active' && u.subscriptionPlan !== 'Free Tier').length
+  async toggleProfileFeatured(userId, profileId, isFeatured) {
+    const res = await api.setProfileFeatured(profileId, isFeatured)
+    return normalizeProfile(res?.profile || res)
+  },
+
+  async getMatchPairs(params = {}) {
+    const res = await api.getMatchPairs({ limit: 100, ...params })
+    return itemsOf(res).map((pair) => ({
+      id: pair.id || pair._id,
+      matchScore: pair.matchScore || 0,
+      date: formatDate(pair.createdAt || pair.lastCalculatedAt),
+      user1: {
+        id: pair.profile?.profileId || pair.profile?.id || '',
+        name: pair.profile?.fullName || '',
+        gender: pair.profile?.gender || '',
+        age: ageFromDob(pair.profile?.dob),
+        gotra: pair.profile?.gotra || '',
+        image: resolveAssetUrl(pair.profile?.profilePicture),
+        accountName: pair.profile?.ownerName || '',
+      },
+      user2: {
+        id: pair.matchedProfile?.profileId || pair.matchedProfile?.id || '',
+        name: pair.matchedProfile?.fullName || '',
+        gender: pair.matchedProfile?.gender || '',
+        age: ageFromDob(pair.matchedProfile?.dob),
+        gotra: pair.matchedProfile?.gotra || '',
+        image: resolveAssetUrl(pair.matchedProfile?.profilePicture),
+        accountName: pair.matchedProfile?.ownerName || '',
+      },
+    }))
+  },
+
+  /* ------------------------- Dashboard --------------------------- */
+
+  async getDashboardMetrics() {
+    const res = await api.getDashboardMetrics()
+    const k = res?.kpis || res || {}
 
     return {
-      totalUsers,
-      activeUsers,
-      pendingVerifications,
-      dailyMatches: totalDailyMatches,
-      revenue: totalRevenue,
-      activeSubscriptions,
+      totalUsers: k.totalUsers || 0,
+      activeUsers: k.activeUsers || 0,
+      suspendedUsers: k.suspendedUsers || 0,
+      pendingVerifications: k.pendingVerifications || 0,
+      totalProfiles: k.totalProfiles || k.totalCandidateProfiles || 0,
+      verifiedProfiles: k.verifiedProfiles || 0,
+      dailyMatches: k.dailyMatches || 0,
+      revenue: k.totalRevenue || 0,
+      activeSubscriptions: k.activeSubscriptions || 0,
+      pendingComplaints: k.pendingComplaints || 0,
     }
   },
 
-  // Audit Logging
-  getAuditLogs: () => getItem(STORAGE_KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS),
-  logAction: (action, target, details = '') => {
-    const logs = adminDataService.getAuditLogs()
-    const newLog = {
-      id: `LOG-${Date.now().toString().slice(-4)}`,
-      adminName: 'Super Admin',
-      adminRole: 'Super Admin',
-      action,
-      target,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      details,
-    }
-    logs.unshift(newLog)
-    setItem(STORAGE_KEYS.AUDIT_LOGS, logs)
-  }
+  /* -------------------------- Audit ------------------------------ */
+
+  async getAuditLogs(params = {}) {
+    const res = await api.getAuditLogs({ limit: 100, ...params })
+    return itemsOf(res).map(normalizeAuditLog).filter(Boolean)
+  },
 }
+
+export default adminDataService

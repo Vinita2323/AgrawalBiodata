@@ -8,28 +8,46 @@ export default function PaymentManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPayment, setSelectedPayment] = useState(null)
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
+
   useEffect(() => {
     loadPayments()
   }, [])
 
-  const loadPayments = () => {
-    const data = adminDataService.getPayments()
-    setPayments(data)
+  const loadPayments = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      setPayments(await adminDataService.getPayments())
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load payment records.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  const q = searchTerm.toLowerCase()
   const filtered = payments.filter((p) => {
     const matchesStatus =
-      statusFilter === 'All' || p.paymentStatus.toLowerCase() === statusFilter.toLowerCase()
+      statusFilter === 'All' || String(p.paymentStatus).toLowerCase() === statusFilter.toLowerCase()
     const matchesSearch =
-      p.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.planName.toLowerCase().includes(searchTerm.toLowerCase())
+      String(p.transactionId).toLowerCase().includes(q) ||
+      String(p.userName).toLowerCase().includes(q) ||
+      String(p.planName).toLowerCase().includes(q)
 
     return matchesStatus && matchesSearch
   })
 
   return (
     <AdminLayout title="Payment Management">
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">error</span>
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -102,7 +120,7 @@ export default function PaymentManagementPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="text-center py-12 text-[#775a19] font-semibold">
-                    No transactions match selected parameters.
+                    {isLoading ? 'Loading transactions...' : 'No transactions match selected parameters.'}
                   </td>
                 </tr>
               ) : (

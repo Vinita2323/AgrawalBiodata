@@ -11,12 +11,76 @@ export default function UserDetailPage() {
   const [activeTab, setActiveTab] = useState('Overview') // 'Overview' | 'Profiles' | 'Verification' | 'Subscription' | 'Payments' | 'Activity'
   const [selectedProfileIndex, setSelectedProfileIndex] = useState(0)
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMutating, setIsMutating] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
   useEffect(() => {
-    if (userId) {
-      const found = adminDataService.getUserById(userId)
-      setUser(found)
+    let cancelled = false
+
+    async function load() {
+      if (!userId) return
+      setIsLoading(true)
+      setErrorMsg('')
+      try {
+        const found = await adminDataService.getUserById(userId)
+        if (!cancelled) setUser(found)
+      } catch (err) {
+        if (!cancelled) setErrorMsg(err?.message || 'Could not load this user account.')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
     }
   }, [userId])
+
+  const handleStatusChange = async (newStatus) => {
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.updateUserStatus(user.id, newStatus)
+      setUser({ ...user, accountStatus: newStatus })
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not update the account status.')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
+  const handleToggleFeatured = async (profile) => {
+    const next = !profile.isFeatured
+
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.toggleProfileFeatured(user.id, profile._id, next)
+      setUser((prev) => ({
+        ...prev,
+        profiles: prev.profiles.map((p) =>
+          String(p._id) === String(profile._id) ? { ...p, isFeatured: next } : p
+        ),
+      }))
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not change the featured placement.')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <AdminLayout title="User Details">
+        <div className="bg-white rounded-2xl p-12 text-center max-w-md mx-auto my-12 border border-stone-200">
+          <div className="w-8 h-8 border-4 border-amber-100 border-t-amber-500 rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs text-stone-500 font-semibold">Loading user account...</p>
+        </div>
+      </AdminLayout>
+    )
+  }
 
   if (!user) {
     return (
@@ -24,7 +88,9 @@ export default function UserDetailPage() {
         <div className="bg-white rounded-2xl p-12 text-center space-y-4 max-w-md mx-auto my-12 border border-stone-200">
           <span className="material-symbols-outlined text-4xl text-stone-300">person_off</span>
           <h3 className="font-display font-bold text-lg text-stone-800">User Account Not Found</h3>
-          <p className="text-xs text-stone-500">The requested user ID does not exist in the database.</p>
+          <p className="text-xs text-stone-500">
+            {errorMsg || 'The requested user ID does not exist in the database.'}
+          </p>
           <Link
             to="/admin/users"
             className="inline-block px-4 py-2 bg-[#570013] text-white font-semibold text-xs rounded-xl"
@@ -36,12 +102,27 @@ export default function UserDetailPage() {
     )
   }
 
-  const currentProfile = user.profiles[selectedProfileIndex] || user.profiles[0]
-  const allPayments = adminDataService.getPayments().filter((p) => p.userId === user.id)
-  const verifications = adminDataService.getVerifications().filter((v) => v.userId === user.id)
+  // getUserById returns the account together with its candidate profiles,
+  // payments and KYC submissions, so no extra round-trips are needed here.
+  const profiles = user.profiles || []
+  const currentProfile = profiles[selectedProfileIndex] || profiles[0] || {}
+  const allPayments = user.payments || []
+  const verifications = user.verifications || []
 
   return (
     <AdminLayout title={`User: ${user.name}`}>
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-center justify-between gap-2 print:hidden">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* HEADER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-stone-200/80 shadow-xs print:hidden">
         <div className="flex items-center gap-4">
@@ -75,25 +156,21 @@ export default function UserDetailPage() {
         <div className="flex items-center gap-2">
           {user.accountStatus === 'Active' ? (
             <button
-              onClick={() => {
-                adminDataService.updateUserStatus(user.id, 'Suspended')
-                setUser({ ...user, accountStatus: 'Suspended' })
-              }}
-              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+              onClick={() => handleStatusChange('Suspended')}
+              disabled={isMutating}
+              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-sm">block</span>
-              <span>Suspend Account</span>
+              <span>{isMutating ? 'Working...' : 'Suspend Account'}</span>
             </button>
           ) : (
             <button
-              onClick={() => {
-                adminDataService.updateUserStatus(user.id, 'Active')
-                setUser({ ...user, accountStatus: 'Active' })
-              }}
-              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+              onClick={() => handleStatusChange('Active')}
+              disabled={isMutating}
+              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-sm">check_circle</span>
-              <span>Activate Account</span>
+              <span>{isMutating ? 'Working...' : 'Activate Account'}</span>
             </button>
           )}
         </div>
@@ -169,12 +246,31 @@ export default function UserDetailPage() {
                   {currentProfile.fullName} ({currentProfile.profileId})
                 </h3>
               </div>
-              {currentProfile.verified && (
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-full flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">verified</span>
-                  Verified Badge Granted
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {currentProfile.verified && (
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-full flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">verified</span>
+                    Verified Badge Granted
+                  </span>
+                )}
+
+                {/* Featured placement promotes this profile in discovery. */}
+                <button
+                  onClick={() => handleToggleFeatured(currentProfile)}
+                  disabled={isMutating || !currentProfile._id}
+                  className={`px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1 border transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                    currentProfile.isFeatured
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                      : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'
+                  }`}
+                  title={currentProfile.isFeatured ? 'Remove from featured' : 'Add to featured'}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {currentProfile.isFeatured ? 'star' : 'star_outline'}
+                  </span>
+                  {currentProfile.isFeatured ? 'Featured' : 'Feature Profile'}
+                </button>
+              </div>
             </div>
 
             {/* Profile Detail Grid */}

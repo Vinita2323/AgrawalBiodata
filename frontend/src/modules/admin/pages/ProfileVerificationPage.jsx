@@ -12,30 +12,48 @@ export default function ProfileVerificationPage() {
   const [docTypeFilter, setDocTypeFilter] = useState('All') // 'All' | 'Government ID' | 'Professional'
   const [searchTerm, setSearchTerm] = useState('')
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
+
   useEffect(() => {
     loadVerifications()
   }, [])
 
-  const loadVerifications = () => {
-    const data = adminDataService.getVerifications()
-    setVerifications(data)
+  const loadVerifications = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      setVerifications(await adminDataService.getVerifications())
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load the verification queue.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  const q = searchTerm.toLowerCase()
   const filtered = verifications.filter((v) => {
-    const matchesTab = statusTab === 'All' || v.status.toLowerCase() === statusTab.toLowerCase()
+    const matchesTab = statusTab === 'All' || String(v.status).toLowerCase() === statusTab.toLowerCase()
     const matchesDocType =
       docTypeFilter === 'All' ||
       (docTypeFilter === 'Government ID' ? v.govtIdType : v.profDocType)
     const matchesSearch =
-      v.profileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.id.toLowerCase().includes(searchTerm.toLowerCase())
+      String(v.profileName).toLowerCase().includes(q) ||
+      String(v.userName).toLowerCase().includes(q) ||
+      String(v.id).toLowerCase().includes(q)
 
     return matchesTab && matchesDocType && matchesSearch
   })
 
   return (
     <AdminLayout title="Profile Verification Management">
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">error</span>
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -127,7 +145,9 @@ export default function ProfileVerificationPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="text-center py-12 text-[#775a19] font-semibold">
-                    No verification requests match the selected filters.
+                    {isLoading
+                      ? 'Loading verification queue...'
+                      : 'No verification requests match the selected filters.'}
                   </td>
                 </tr>
               ) : (

@@ -3,6 +3,56 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import HeaderBar from './HeaderBar'
+import { getMyProfile } from '../../../services/profileService'
+import { getMatches, getTodayMatches, searchMatches } from '../../../services/matchService'
+import {
+  getSavedSearches,
+  recordSearch,
+  deleteSavedSearch,
+} from '../../../services/accountService'
+import {
+  getReceivedInterests,
+  getSentInterests,
+  sendInterest,
+  acceptInterest,
+  declineInterest,
+} from '../../../services/interestService'
+import { addToShortlist, removeFromShortlist } from '../../../services/socialService'
+import { isAuthenticated } from '../../../services/authService'
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../../../services/notificationService'
+import {
+  getConversations,
+  getMessages,
+  markConversationRead,
+  openConversation,
+  sendMessage as sendMessageApi,
+} from '../../../services/messageService'
+import {
+  onSocketEvent,
+  joinConversation,
+  leaveConversation,
+  sendSocketMessage,
+  emitTyping,
+  emitConversationRead,
+} from '../../../services/socket'
+import { resolveAssetUrl } from '../../../services/api'
+
+/** Renders an ISO timestamp as a short relative label ("10 min ago"). */
+function relativeTime(value) {
+  if (!value) return ''
+  const then = new Date(value).getTime()
+  if (Number.isNaN(then)) return ''
+
+  const seconds = Math.floor((Date.now() - then) / 1000)
+  if (seconds < 60) return 'Just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+  return `${Math.floor(seconds / 86400)} days ago`
+}
 
 export default function DashboardScreen({ initialTab, onSelectProfile, onBack, isPremiumUser }) {
   const navigate = useNavigate()
@@ -153,12 +203,146 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Blocked' | 'Help & Support'
   const [notificationsTab, setNotificationsTab] = useState('All')
   const [userProfile, setUserProfile] = useState(null)
+  const [liveMatches, setLiveMatches] = useState([])
+  const [liveTodayMatches, setLiveTodayMatches] = useState([])
+  const [isLoadingLive, setIsLoadingLive] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
+  // Set when saved partner preferences filtered the feed, so an empty or short
+  // list can explain itself instead of looking like "no one is out there".
+  const [preferenceFilter, setPreferenceFilter] = useState(null)
+
+  // Notifications load on demand when the tab opens, and refresh when the
+  // category filter changes, so the feed is never stale on entry.
+  useEffect(() => {
+    if (activeTab !== 'Notifications') return
+    loadNotifications(notificationsTab)
+  }, [activeTab, notificationsTab])
+
+  const loadNotifications = async (category = 'All') => {
+    if (!isAuthenticated()) return
+
+    setIsLoadingNotifications(true)
+    try {
+      const res = await getNotifications({ category, limit: 50 })
+      setNotifications(res?.notifications || [])
+      setUnreadNotificationCount(res?.unreadCount || 0)
+    } catch {
+      setNotifications([])
+    } finally {
+      setIsLoadingNotifications(false)
+    }
+  }
+
+  const handleMarkAllNotificationsRead = async () => {
+    const previous = notifications
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+    setUnreadNotificationCount(0)
+    try {
+      await markAllNotificationsRead()
+    } catch {
+      setNotifications(previous)
+    }
+  }
+
+  const handleOpenNotification = async (item) => {
+    if (item.unread) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+      )
+      setUnreadNotificationCount((c) => Math.max(0, c - 1))
+      try {
+        await markNotificationRead(item.id)
+      } catch {
+        // The feed reloads on next open; a failed read flag is not worth a toast.
+      }
+    }
+    if (item.linkTarget) navigate(item.linkTarget)
+  }
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile')
-    if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile))
+    async function loadDashboardData() {
+      // 1. Initial local profile fallback
+      const savedProfile = localStorage.getItem('userProfile')
+      if (savedProfile) {
+        try {
+          setUserProfile(JSON.parse(savedProfile))
+        } catch {}
+      }
+
+      // 2. Fetch live data from MongoDB if authenticated
+      if (isAuthenticated()) {
+        try {
+          setIsLoadingLive(true)
+          // Interests are loaded by the Interests tab itself, which needs both
+          // directions; fetching them here as well would duplicate the work.
+          const [profileRes, matchesRes, todayRes] = await Promise.allSettled([
+            getMyProfile(),
+            getMatches({ limit: 20 }),
+            getTodayMatches()
+          ])
+
+          if (profileRes.status === 'fulfilled' && profileRes.value?.profile) {
+            setUserProfile(profileRes.value.profile)
+          }
+
+          if (matchesRes.status === 'fulfilled' && matchesRes.value?.matches) {
+            if (matchesRes.value.preferencesApplied) {
+              setPreferenceFilter({
+                shown: matchesRes.value.pagination?.total ?? matchesRes.value.matches.length,
+                beforeFilter: matchesRes.value.totalBeforePreferences,
+              })
+            } else {
+              setPreferenceFilter(null)
+            }
+
+            const formatted = matchesRes.value.matches.map(m => ({
+              id: m.profile.profileId || m.profile._id,
+              name: m.profile.fullName,
+              age: m.profile.dob ? Math.floor((new Date() - new Date(m.profile.dob)) / (365.25 * 24 * 60 * 60 * 1000)) : 26,
+              height: m.profile.height || "5'6\"",
+              city: `${m.profile.city || ''}${m.profile.state ? `, ${m.profile.state}` : ''}`,
+              profession: m.profile.occupation || m.profile.workingAt || 'Professional',
+              education: m.profile.qualification || 'Graduate',
+              compatibility: m.totalScore || 90,
+              gotra: m.profile.gotra,
+              motherGotra: m.profile.motherGotra,
+              verified: m.profile.verified,
+              isNearby: true,
+              image: m.profile.profilePicture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600'
+            }))
+            if (formatted.length > 0) {
+              setLiveMatches(formatted)
+            }
+          }
+
+          if (todayRes.status === 'fulfilled' && todayRes.value?.todayMatches) {
+            const formattedToday = todayRes.value.todayMatches.map(m => ({
+              id: m.profile.profileId || m.profile._id,
+              name: m.profile.fullName,
+              age: m.profile.dob ? Math.floor((new Date() - new Date(m.profile.dob)) / (365.25 * 24 * 60 * 60 * 1000)) : 26,
+              height: m.profile.height || "5'5\"",
+              city: m.profile.city || 'Delhi',
+              matchScore: m.totalScore || 95,
+              gotra: m.profile.gotra,
+              education: m.profile.qualification || 'Graduate',
+              image: m.profile.profilePicture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400'
+            }))
+            if (formattedToday.length > 0) {
+              setLiveTodayMatches(formattedToday)
+            }
+          }
+
+        } catch (err) {
+          console.warn('Dashboard data fetch note:', err)
+        } finally {
+          setIsLoadingLive(false)
+        }
+      }
     }
+
+    loadDashboardData()
   }, [])
 
   useEffect(() => {
@@ -198,172 +382,363 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     }
   }
 
-  // Chats list data
-  const [chatsList, setChatsList] = useState([
-    {
-      id: 'c1',
-      name: 'Priya Garg',
-      lastMessage: 'Typing...',
-      isTyping: true,
-      time: '11:30 AM',
-      unreadCount: 2,
-      isOnline: true,
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'c2',
-      name: 'Anjali Bansal',
-      lastMessage: 'Hello 👋',
-      time: '10:15 AM',
-      unreadCount: 1,
-      isOnline: true,
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'c3',
-      name: 'Riya Goyal',
-      lastMessage: 'Sent a photo',
-      time: 'Yesterday',
-      unreadCount: 0,
-      isOnline: false,
-      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'c4',
-      name: 'Kavya Singhal',
-      lastMessage: 'Thank you 😊',
-      time: 'Yesterday',
-      unreadCount: 0,
-      isOnline: false,
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'c5',
-      name: 'Neha Mittal',
-      lastMessage: 'Hi, How are you?',
-      time: '2 May',
-      unreadCount: 0,
-      isOnline: false,
-      image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300',
-    },
-  ])
+  /* ------------------------- Messaging ------------------------- */
 
-  const initialConversation = {
-    c1: [
-      { id: 'm1', sender: 'me', text: 'Hello Priya! 👋', time: '11:20 AM', read: true },
-      { id: 'm2', sender: 'them', text: 'Hello! Namaste 🙏', time: '11:21 AM' },
-      { id: 'm3', sender: 'them', text: 'I liked your profile.', time: '11:22 AM' },
-      { id: 'm4', sender: 'me', text: 'Thank you! 😊', time: '11:23 AM', read: true },
-      { id: 'm5', sender: 'them', text: 'Would you like to know more about each other?', time: '11:24 AM' },
-      { id: 'm6', sender: 'me', text: 'Yes, sure 😊', time: '11:24 AM', read: true },
-    ],
-    c2: [
-      { id: 'm1', sender: 'them', text: 'Hello 👋', time: '10:15 AM' },
-    ],
+  const [chatsList, setChatsList] = useState([])
+  const [isLoadingChats, setIsLoadingChats] = useState(false)
+  const [chatError, setChatError] = useState('')
+  const [typingConversationId, setTypingConversationId] = useState(null)
+  const typingTimeoutRef = useRef(null)
+
+  /** Maps an API conversation onto the shape this screen renders. */
+  const toChatRow = (c) => ({
+    id: c.id,
+    name: c.withProfile?.fullName || 'Candidate',
+    profileId: c.withProfile?.id,
+    lastMessage: c.lastMessage || 'Say hello to start the conversation',
+    time: relativeTime(c.lastMessageAt),
+    unreadCount: c.unreadCount || 0,
+    verified: c.withProfile?.verified,
+    image: resolveAssetUrl(c.withProfile?.profilePicture),
+  })
+
+  const loadConversations = async () => {
+    if (!isAuthenticated()) return
+
+    setIsLoadingChats(true)
+    setChatError('')
+    try {
+      const res = await getConversations({ limit: 50 })
+      setChatsList((res?.conversations || []).map(toChatRow))
+    } catch (err) {
+      setChatError(err?.message || 'Could not load your conversations.')
+    } finally {
+      setIsLoadingChats(false)
+    }
   }
 
-  const handleSendMessage = (chatId) => {
-    if (!newMessageText.trim()) return
-    const newMsg = {
-      id: `m-${Date.now()}`,
-      sender: 'me',
-      text: newMessageText,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
+  useEffect(() => {
+    if (activeTab !== 'Messages') return
+    loadConversations()
+  }, [activeTab])
 
-    setChatMessages((prev) => ({
-      ...prev,
-      [chatId]: [...(prev[chatId] || initialConversation[chatId] || []), newMsg],
-    }))
+  // Incoming messages arrive on the shared socket whether or not the relevant
+  // thread is open, so both the list and the open thread are updated here.
+  useEffect(() => {
+    if (!isAuthenticated()) return
 
-    setChatsList((prev) =>
-      prev.map((c) =>
-        c.id === chatId ? { ...c, lastMessage: newMessageText, time: 'Just now', unreadCount: 0 } : c
+    const offNew = onSocketEvent('message:new', ({ conversationId, message }) => {
+      setChatMessages((prev) => {
+        if (!prev[conversationId]) return prev
+        return { ...prev, [conversationId]: [...prev[conversationId], message] }
+      })
+
+      setChatsList((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                lastMessage: message.body,
+                time: 'Just now',
+                unreadCount: selectedChat?.id === conversationId ? 0 : c.unreadCount + 1,
+              }
+            : c
+        )
       )
+
+      // Reading the open thread immediately keeps the badge honest.
+      if (selectedChat?.id === conversationId) {
+        emitConversationRead(conversationId)
+      }
+    })
+
+    const offTypingStart = onSocketEvent('typing:start', ({ conversationId }) =>
+      setTypingConversationId(conversationId)
     )
+    const offTypingStop = onSocketEvent('typing:stop', () => setTypingConversationId(null))
+
+    return () => {
+      offNew()
+      offTypingStart()
+      offTypingStop()
+    }
+  }, [selectedChat])
+
+  /** Opens a thread: joins its socket room, loads history, clears unread. */
+  const handleOpenChat = async (chat) => {
+    setSelectedChat(chat)
+    setChatError('')
+    joinConversation(chat.id)
+
+    try {
+      const res = await getMessages(chat.id, { limit: 100 })
+      setChatMessages((prev) => ({ ...prev, [chat.id]: res?.messages || [] }))
+
+      await markConversationRead(chat.id)
+      setChatsList((prev) =>
+        prev.map((c) => (c.id === chat.id ? { ...c, unreadCount: 0 } : c))
+      )
+    } catch (err) {
+      setChatError(err?.message || 'Could not open this conversation.')
+    }
+  }
+
+  const handleCloseChat = () => {
+    if (selectedChat) leaveConversation(selectedChat.id)
+    setSelectedChat(null)
+  }
+
+  const handleSendMessage = async (chatId) => {
+    const text = newMessageText.trim()
+    if (!text) return
 
     setNewMessageText('')
+    emitTyping(chatId, false)
+
+    try {
+      // Prefer the socket for latency; fall back to REST when it is down.
+      let saved
+      try {
+        saved = await sendSocketMessage(chatId, text)
+      } catch {
+        const res = await sendMessageApi(chatId, text)
+        saved = res?.message
+      }
+
+      if (saved) {
+        setChatMessages((prev) => ({
+          ...prev,
+          [chatId]: [...(prev[chatId] || []), saved],
+        }))
+        setChatsList((prev) =>
+          prev.map((c) =>
+            c.id === chatId ? { ...c, lastMessage: text, time: 'Just now', unreadCount: 0 } : c
+          )
+        )
+      }
+    } catch (err) {
+      setNewMessageText(text)
+      setChatError(err?.message || 'Message could not be sent.')
+    }
   }
 
-  // Interests state data
-  const [interestsData, setInterestsData] = useState([
-    {
-      id: 'int-1',
-      name: 'Priya Garg',
-      age: 26,
-      city: 'Jaipur',
-      date: '12 May 2024',
-      status: 'Received',
-      isOnline: true,
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'int-2',
-      name: 'Anjali Bansal',
-      age: 28,
-      city: 'Jodhpur',
-      date: '10 May 2024',
-      status: 'Received',
-      isOnline: true,
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'int-3',
-      name: 'Neha Goyal',
-      age: 27,
-      city: 'Ajmer',
-      date: '08 May 2024',
-      status: 'Received',
-      isOnline: true,
-      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=300',
-    },
-    {
-      id: 'int-4',
-      name: 'Rohan Bansal',
-      age: 29,
-      city: 'Mumbai',
-      date: '05 May 2024',
-      status: 'Sent',
-      isOnline: false,
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
-    },
-  ])
+  /** Debounced typing indicator: start on input, stop after a idle second. */
+  const handleMessageInputChange = (value, chatId) => {
+    setNewMessageText(value)
+    if (!chatId) return
 
-  const handleUpdateInterestStatus = (id, newStatus, e) => {
+    emitTyping(chatId, true)
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => emitTyping(chatId, false), 1200)
+  }
+
+  /* ------------------------- Interests ------------------------- */
+
+  const [interestsData, setInterestsData] = useState([])
+
+  /** Maps an API interest onto the row shape this screen renders. */
+  const toInterestRow = (int, direction) => {
+    const other = direction === 'Sent' ? int.recipientProfileId : int.senderProfileId
+    const statusLabel =
+      int.status === 'Pending' ? direction : int.status === 'Accepted' ? 'Accepted' : int.status
+
+    return {
+      id: int.id || int._id,
+      name: other?.fullName || 'Candidate',
+      profileId: other?._id || other,
+      age: other?.dob
+        ? Math.floor((Date.now() - new Date(other.dob)) / (365.25 * 24 * 60 * 60 * 1000))
+        : null,
+      city: other?.city || '',
+      date: new Date(int.createdAt).toLocaleDateString(),
+      status: statusLabel,
+      direction,
+      image: resolveAssetUrl(other?.profilePicture),
+    }
+  }
+
+  const loadInterests = async () => {
+    if (!isAuthenticated()) return
+
+    try {
+      const [received, sent] = await Promise.all([
+        getReceivedInterests({ limit: 100 }),
+        getSentInterests({ limit: 100 }),
+      ])
+
+      setInterestsData([
+        ...(received?.interests || []).map((i) => toInterestRow(i, 'Received')),
+        ...(sent?.interests || []).map((i) => toInterestRow(i, 'Sent')),
+      ])
+    } catch {
+      // The Interests tab renders its own empty state.
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'Interests') return
+    loadInterests()
+  }, [activeTab])
+
+  /**
+   * Accept or decline a received interest. Accepting also opens the
+   * conversation so the user can message straight away.
+   */
+  const handleUpdateInterestStatus = async (id, newStatus, e) => {
     e?.stopPropagation()
+
+    const previous = interestsData
     setInterestsData((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
     )
+
+    try {
+      if (newStatus === 'Accepted') {
+        await acceptInterest(id)
+        showToast('Interest accepted. You can now start a conversation.', 'success')
+        loadConversations()
+      } else if (newStatus === 'Declined') {
+        await declineInterest(id)
+        showToast('Interest declined.', 'success')
+      }
+    } catch (err) {
+      setInterestsData(previous)
+      showToast(err?.message || 'Could not update this interest.', 'error')
+    }
   }
 
-  const [recentSearches, setRecentSearches] = useState([
-    {
-      id: 'r1',
-      title: 'Priya Garg, 26',
-      subtitle: 'Jaipur, Rajasthan',
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
-    },
-    {
-      id: 'r2',
-      title: 'Software Engineer',
-      subtitle: 'Delhi',
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-    },
-  ])
+  /** Opens (creating if needed) the chat thread with a connected candidate. */
+  const handleMessageCandidate = async (profileId, e) => {
+    e?.stopPropagation()
+    if (!profileId) return
 
-  const removeRecentSearch = (id, e) => {
-    e.stopPropagation()
+    try {
+      const res = await openConversation(profileId)
+      const conversation = res?.conversation
+      if (!conversation) throw new Error('Conversation could not be opened.')
+
+      await loadConversations()
+      handleTabNavigate('Messages')
+      await handleOpenChat(toChatRow(conversation))
+    } catch (err) {
+      showToast(err?.message || 'Could not open this conversation.', 'error')
+    }
+  }
+
+  /* -------------------------- Search --------------------------- */
+
+  const [recentSearches, setRecentSearches] = useState([])
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
+
+  const loadRecentSearches = async () => {
+    if (!isAuthenticated()) return
+    try {
+      const res = await getSavedSearches({ limit: 10 })
+      setRecentSearches(
+        (res?.searches || []).map((s) => ({
+          id: s.id,
+          title: s.label || s.query,
+          subtitle: s.resultCount ? `${s.resultCount} results` : 'Tap to run again',
+          query: s.query,
+        }))
+      )
+    } catch {
+      setRecentSearches([])
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'Search') return
+    loadRecentSearches()
+  }, [activeTab])
+
+  /** Runs a server-side search and records it in the user's history. */
+  const runSearch = async (term) => {
+    const q = (term ?? searchQuery).trim()
+    if (!q) {
+      setSearchResults([])
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const res = await searchMatches({ query: q, limit: 50 })
+      const results = (res?.results || res?.matches || []).map((r) => {
+        const prof = r.profile || r
+        return {
+          id: prof.profileId || prof._id,
+          name: prof.fullName,
+          age: prof.dob
+            ? Math.floor((Date.now() - new Date(prof.dob)) / (365.25 * 24 * 60 * 60 * 1000))
+            : null,
+          height: prof.height || '',
+          city: [prof.city, prof.state].filter(Boolean).join(', '),
+          profession: prof.occupation || prof.workingAt || '',
+          education: prof.qualification || '',
+          compatibility: r.matchScore || prof.matchScore || 0,
+          gotra: prof.gotra,
+          verified: prof.verified,
+          image: resolveAssetUrl(prof.profilePicture),
+        }
+      })
+
+      setSearchResults(results)
+
+      if (isAuthenticated()) {
+        await recordSearch({ query: q, label: q, resultCount: results.length })
+        loadRecentSearches()
+      }
+    } catch (err) {
+      showToast(err?.message || 'Search failed. Please try again.', 'error')
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const removeRecentSearch = async (id, e) => {
+    e?.stopPropagation()
     setRecentSearches((prev) => prev.filter((item) => item.id !== id))
+    try {
+      await deleteSavedSearch(id)
+    } catch {
+      loadRecentSearches()
+    }
   }
 
-  const toggleFavorite = (id, e) => {
+  const toggleFavorite = async (id, e) => {
     e?.stopPropagation()
-    setFavorites((prev) => ({ ...prev, [id]: !prev[id] }))
+    const isFav = !favorites[id]
+    setFavorites((prev) => ({ ...prev, [id]: isFav }))
+    if (isAuthenticated()) {
+      try {
+        if (isFav) {
+          await addToShortlist(id)
+          showToast('Profile added to saved shortlist', 'success')
+        } else {
+          await removeFromShortlist(id)
+          showToast('Profile removed from shortlist', 'info')
+        }
+      } catch (err) {
+        console.warn('Shortlist API note:', err)
+      }
+    }
   }
 
-  const toggleInterest = (id, e) => {
+  const toggleInterest = async (id, e) => {
     e?.stopPropagation()
-    setInterested((prev) => ({ ...prev, [id]: !prev[id] }))
+    const isInt = !interested[id]
+    setInterested((prev) => ({ ...prev, [id]: isInt }))
+    if (isInt && isAuthenticated()) {
+      try {
+        await sendInterest(id, 'Hello, I came across your profile and would like to connect.')
+        showToast('Interest expressed successfully!', 'success')
+      } catch (err) {
+        console.warn('Interest API note:', err)
+        showToast(err.message || 'Interest sent', 'info')
+      }
+    }
   }
 
   const matchesList = [
@@ -483,56 +858,29 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     { id: 'more', label: 'More Filters', icon: 'tune' },
   ]
 
-  const filteredSearchList = matchesList.filter((item) => {
-    if (!searchQuery.trim()) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      item.name.toLowerCase().includes(q) ||
-      item.city.toLowerCase().includes(q) ||
-      item.profession.toLowerCase().includes(q) ||
-      item.education.toLowerCase().includes(q)
-    )
-  })
+  // Server-side results once a search has run; otherwise the local match feed
+  // is filtered so the tab is never empty before the user types.
+  const filteredSearchList = searchQuery.trim()
+    ? searchResults
+    : matchesList
 
-  // Filtered interests by tab
+  // Filtered interests by tab. "Received"/"Sent" mean pending in that
+  // direction; "Accepted"/"Declined" span both directions.
   const filteredInterests = interestsData.filter((item) => item.status === interestsTab)
 
-  const notificationsList = [
-    {
-      id: 'n1',
-      category: 'Interests',
-      title: 'Priya Garg accepted your interest.',
-      time: '2 min ago',
-      unread: true,
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
-    },
-    {
-      id: 'n2',
-      category: 'Messages',
-      title: 'You have a new message from Anjali Bansal',
-      time: '10 min ago',
-      unread: true,
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-    },
-    {
-      id: 'n3',
-      category: 'Matches',
-      title: 'Your profile was viewed by 15 members today',
-      time: '1 hour ago',
-      unread: true,
-      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200',
-    },
-    {
-      id: 'n4',
-      category: 'All',
-      title: 'Your profile is 75% complete',
-      subtitle: 'Complete now to get more matches',
-      time: '2 hours ago',
-      unread: true,
-      isProgressRing: true,
-      progressPercent: 75,
-    },
-  ]
+  // Live notification feed. `notificationsList` mirrors the shape the render
+  // below already expects, so only the source changed.
+  const notificationsList = notifications.map((n) => ({
+    id: n.id,
+    category: n.category,
+    title: n.title,
+    subtitle: n.body || '',
+    time: relativeTime(n.createdAt),
+    unread: !n.isRead,
+    isProgressRing: !n.actorProfileId?.profilePicture,
+    image: resolveAssetUrl(n.actorProfileId?.profilePicture),
+    linkTarget: n.linkTarget,
+  }))
 
   return (
     <div className="bg-[#fcfaf7] text-slate-800 font-body min-h-screen flex flex-col justify-between pb-24 select-none">
@@ -574,12 +922,24 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           {/* Notification List */}
           <div className="space-y-4 mb-6">
-            {notificationsList
-              .filter((item) => notificationsTab === 'All' || item.category === notificationsTab || item.category === 'All')
-              .map((item) => (
+            {isLoadingNotifications && notificationsList.length === 0 && (
+              <div className="text-center py-10 text-xs text-slate-400 font-semibold">
+                Loading notifications...
+              </div>
+            )}
+
+            {!isLoadingNotifications && notificationsList.length === 0 && (
+              <div className="text-center py-12 text-slate-400">
+                <span className="material-symbols-outlined text-4xl block mb-2">notifications_off</span>
+                <p className="text-xs font-semibold">You have no notifications yet.</p>
+              </div>
+            )}
+
+            {notificationsList.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between py-2 border-b border-gray-100/90 gap-3"
+                  onClick={() => handleOpenNotification(item)}
+                  className="flex items-center justify-between py-2 border-b border-gray-100/90 gap-3 cursor-pointer hover:bg-amber-50/40 transition-colors -mx-2 px-2 rounded-lg"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {item.isProgressRing ? (
@@ -617,12 +977,17 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               ))}
           </div>
 
-          {/* View All Notifications Button */}
-          <div className="text-center py-3">
-            <button className="text-xs font-bold text-[#570013] hover:underline cursor-pointer">
-              View All Notifications
-            </button>
-          </div>
+          {/* Mark All Read */}
+          {unreadNotificationCount > 0 && (
+            <div className="text-center py-3">
+              <button
+                onClick={handleMarkAllNotificationsRead}
+                className="text-xs font-bold text-[#570013] hover:underline cursor-pointer"
+              >
+                Mark all {unreadNotificationCount} as read
+              </button>
+            </div>
+          )}
         </div>
       ) : activeTab === 'Profile' ? (
         /* PROFILE PAGE VIEW */
@@ -659,7 +1024,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </span>
                 </div>
                 <p className="text-xs text-amber-200/90 font-medium mb-3 flex items-center">
-                  <span>MHM123456</span>
+                  <span>{userProfile?.profileId || 'MHM123456'}</span>
                   {isPremiumUser && (
                     <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-300/50 text-amber-200 text-[10px] font-bold shadow-sm">
                       <span className="material-symbols-outlined text-[12px]">workspace_premium</span>
@@ -670,7 +1035,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
                 <button 
                   onClick={() => navigate('/profile-completion-dashboard')}
-                  className="px-4 py-1.5 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shadow-2xs active:scale-95 transition"
+                  className="px-4 py-1.5 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shadow-2xs active:scale-95 transition cursor-pointer"
                 >
                   Edit Profile
                 </button>
@@ -679,43 +1044,50 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
 
           {/* Profile Completion Overlapping Card */}
-          <div className="bg-white rounded-lg p-4 shadow-xl border border-amber-100/90 -mt-8 mx-5 relative z-20 mb-6 flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <h2 className="text-xs font-bold text-slate-800 mb-1">Profile Completion</h2>
-              <p className="text-xs text-slate-500 max-w-[190px] leading-snug mb-3">
-                Complete your profile to get better matches
-              </p>
-              <button 
-                onClick={() => navigate('/profile-completion-dashboard')}
-                className="px-4 py-2 rounded-full bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-xs shadow-md hover:brightness-105 active:scale-95 transition"
-              >
-                Complete Now
-              </button>
-            </div>
+          {(() => {
+            const completionPct = Number(userProfile?.completionPercentage ?? 75);
+            return (
+              <div className="bg-white rounded-lg p-4 shadow-xl border border-amber-100/90 -mt-8 mx-5 relative z-20 mb-6 flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <h2 className="text-xs font-bold text-slate-800 mb-1">Profile Completion</h2>
+                  <p className="text-xs text-slate-500 max-w-[190px] leading-snug mb-3">
+                    {completionPct >= 100 
+                      ? 'Your profile is 100% complete!' 
+                      : 'Complete your profile to get better matches'}
+                  </p>
+                  <button 
+                    onClick={() => navigate('/profile-completion-dashboard')}
+                    className="px-4 py-2 rounded-full bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-xs shadow-md hover:brightness-105 active:scale-95 transition cursor-pointer"
+                  >
+                    {completionPct >= 100 ? 'View / Edit Biodata' : 'Complete Now'}
+                  </button>
+                </div>
 
-            {/* Circular Progress Ring */}
-            <div className="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-amber-100"
-                  strokeWidth="3.5"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-amber-500"
-                  strokeDasharray="75, 100"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <span className="absolute font-bold text-[#570013] text-xs">75%</span>
-            </div>
-          </div>
+                {/* Dynamic Circular Progress Ring */}
+                <div className="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-amber-100"
+                      strokeWidth="3.5"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-amber-500 transition-all duration-700 ease-out"
+                      strokeDasharray={`${completionPct}, 100`}
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <span className="absolute font-bold text-[#570013] text-xs">{completionPct}%</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Menu Action Tiles Grid (2 Rows x 4 Columns) */}
           <div className="px-3.5">
@@ -787,42 +1159,42 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             <div className="flex-shrink-0 bg-white border-b border-gray-200/70 px-4 py-3 flex items-center justify-between z-30 shadow-2xs">
               <div className="flex items-center gap-2.5">
                 <button
-                  onClick={() => setSelectedChat(null)}
+                  onClick={handleCloseChat}
                   className="p-1 rounded-full hover:bg-gray-100 transition text-slate-800"
                   aria-label="Back to chats"
                 >
                   <span className="material-symbols-outlined text-2xl block">arrow_back</span>
                 </button>
-                <div className="relative w-9 h-9 rounded-full flex-shrink-0">
-                  <img
-                    src={selectedChat.image}
-                    alt={selectedChat.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                  {selectedChat.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
+                <div className="relative w-9 h-9 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
+                  {selectedChat.image ? (
+                    <img
+                      src={selectedChat.image}
+                      alt={selectedChat.name}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="material-symbols-outlined text-lg text-[#570013]">person</span>
                   )}
                 </div>
                 <div>
                   <h2 className="font-bold text-xs md:text-sm text-slate-900 leading-tight">
                     {selectedChat.name}
                   </h2>
-                  <p className="text-[10px] text-emerald-600 font-semibold">Online</p>
+                  {typingConversationId === selectedChat.id && (
+                    <p className="text-[10px] text-emerald-600 font-semibold">Typing...</p>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center gap-1.5 text-slate-700">
-                <button className="p-1.5 rounded-full hover:bg-gray-100 active:scale-95 transition">
-                  <span className="material-symbols-outlined text-xl block">call</span>
-                </button>
-                <button className="p-1.5 rounded-full hover:bg-gray-100 active:scale-95 transition">
-                  <span className="material-symbols-outlined text-xl block">videocam</span>
-                </button>
-                <button className="p-1.5 rounded-full hover:bg-gray-100 active:scale-95 transition">
-                  <span className="material-symbols-outlined text-xl block">more_vert</span>
+            {chatError && (
+              <div className="flex-shrink-0 px-4 py-2 bg-red-50 border-b border-red-200 text-[11px] text-red-800 font-bold flex items-center justify-between">
+                <span>{chatError}</span>
+                <button onClick={() => setChatError('')} className="text-red-500 font-bold">
+                  ✕
                 </button>
               </div>
-            </div>
+            )}
 
             {/* Messages Thread Body (Only Messages Scrollable) */}
             <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-3 bg-[#fff8ee]">
@@ -833,28 +1205,50 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 </span>
               </div>
 
-              {(chatMessages[selectedChat.id] || initialConversation[selectedChat.id] || []).map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}
-                >
+              {(chatMessages[selectedChat.id] || []).length === 0 && (
+                <div className="text-center py-10 text-xs text-slate-400 font-semibold">
+                  No messages yet. Say hello to start the conversation.
+                </div>
+              )}
+
+              {(chatMessages[selectedChat.id] || []).map((msg) => {
+                // The thread is rendered from the recipient's point of view:
+                // a message is "mine" when I am not its recipient.
+                const isMine = String(msg.recipientProfileId) === String(selectedChat.profileId)
+                return (
                   <div
-                    className={`max-w-[80%] px-3.5 py-2 rounded-md text-xs leading-normal shadow-2xs flex flex-wrap items-end gap-2 ${
-                      msg.sender === 'me'
-                        ? 'bg-[#ffe6c9] text-slate-900 rounded-tr-none'
-                        : 'bg-white border border-amber-100/70 text-slate-800 rounded-tl-none'
-                    }`}
+                    key={msg.id || msg._id}
+                    className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
                   >
-                    <span>{msg.text}</span>
-                    <div className="flex items-center gap-1 ml-auto pt-1 text-[10px] text-slate-400">
-                      <span>{msg.time}</span>
-                      {msg.sender === 'me' && (
-                        <span className="text-blue-500 font-bold text-xs leading-none">✓✓</span>
-                      )}
+                    <div
+                      className={`max-w-[80%] px-3.5 py-2 rounded-md text-xs leading-normal shadow-2xs flex flex-wrap items-end gap-2 ${
+                        isMine
+                          ? 'bg-[#ffe6c9] text-slate-900 rounded-tr-none'
+                          : 'bg-white border border-amber-100/70 text-slate-800 rounded-tl-none'
+                      }`}
+                    >
+                      <span>{msg.body}</span>
+                      <div className="flex items-center gap-1 ml-auto pt-1 text-[10px] text-slate-400">
+                        <span>
+                          {new Date(msg.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        {isMine && (
+                          <span
+                            className={`font-bold text-xs leading-none ${
+                              msg.readAt ? 'text-blue-500' : 'text-slate-300'
+                            }`}
+                          >
+                            ✓✓
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Message Input Box (Fixed Bottom) */}
@@ -867,7 +1261,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   type="text"
                   placeholder="Type a message..."
                   value={newMessageText}
-                  onChange={(e) => setNewMessageText(e.target.value)}
+                  onChange={(e) => handleMessageInputChange(e.target.value, selectedChat.id)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(selectedChat.id)}
                   className="flex-1 bg-transparent text-xs font-medium text-slate-900 focus:outline-none placeholder-gray-400 min-w-0"
                 />
@@ -928,48 +1322,82 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               })}
             </div>
 
+            {chatError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-800 font-bold flex items-center justify-between">
+                <span>{chatError}</span>
+                <button onClick={() => setChatError('')} className="text-red-500 font-bold">
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Chats List */}
             {chatsTab === 'Chats' ? (
               <div className="divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 shadow-2xs overflow-hidden">
+                {isLoadingChats && chatsList.length === 0 && (
+                  <div className="text-center py-12 text-xs text-slate-400 font-semibold">
+                    Loading conversations...
+                  </div>
+                )}
+
+                {!isLoadingChats && chatsList.length === 0 && (
+                  <div className="text-center py-12 px-6">
+                    <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">
+                      forum
+                    </span>
+                    <p className="text-sm font-semibold text-slate-700">No conversations yet</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Chats open once a candidate accepts your interest.
+                    </p>
+                    <button
+                      onClick={() => handleTabNavigate('Interests')}
+                      className="mt-4 px-4 py-2 bg-[#570013] text-white font-bold rounded-lg text-xs active:scale-95 transition"
+                    >
+                      View Interests
+                    </button>
+                  </div>
+                )}
+
                 {chatsList.map((chat) => (
                   <div
                     key={chat.id}
-                    onClick={() => {
-                      setSelectedChat(chat)
-                      setChatsList((prev) =>
-                        prev.map((c) => (c.id === chat.id ? { ...c, unreadCount: 0 } : c))
-                      )
-                    }}
+                    onClick={() => handleOpenChat(chat)}
                     className="p-3.5 flex items-center justify-between hover:bg-amber-50/30 transition cursor-pointer"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {/* Avatar */}
-                      <div className="relative w-12 h-12 rounded-full flex-shrink-0">
-                        <img
-                          src={chat.image}
-                          alt={chat.name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                        {chat.isOnline && (
-                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+                      <div className="relative w-12 h-12 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
+                        {chat.image ? (
+                          <img
+                            src={chat.image}
+                            alt={chat.name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="material-symbols-outlined text-xl text-[#570013]">person</span>
                         )}
                       </div>
 
                       {/* Chat details */}
                       <div className="min-w-0 flex-grow">
-                        <h3 className="font-bold text-xs md:text-sm text-slate-900 truncate">
+                        <h3 className="font-bold text-xs md:text-sm text-slate-900 truncate flex items-center gap-1">
                           {chat.name}
+                          {chat.verified && (
+                            <span className="material-symbols-outlined text-[13px] text-emerald-600">
+                              verified
+                            </span>
+                          )}
                         </h3>
                         <p
                           className={`text-xs truncate ${
-                            chat.isTyping
+                            typingConversationId === chat.id
                               ? 'text-emerald-600 font-semibold'
                               : chat.unreadCount > 0
                               ? 'text-slate-900 font-semibold'
                               : 'text-slate-400 font-medium'
                           }`}
                         >
-                          {chat.lastMessage}
+                          {typingConversationId === chat.id ? 'Typing...' : chat.lastMessage}
                         </p>
                       </div>
                     </div>
@@ -987,21 +1415,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-lg border border-gray-100">
+              <div className="text-center py-12 bg-white rounded-lg border border-gray-100 px-6">
                 <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">call</span>
-                <p className="text-sm font-semibold text-slate-700">No recent calls</p>
-                <p className="text-xs text-slate-400">Audio and video calls will show up here</p>
+                <p className="text-sm font-semibold text-slate-700">Calling is not available yet</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Audio and video calling are planned for a future release.
+                </p>
               </div>
             )}
-
-            {/* Floating Action Button: + New Chat */}
-            <button
-              onClick={() => setSelectedChat(chatsList[0])}
-              className="fixed bottom-24 right-6 bg-[#570013] hover:bg-[#72001a] text-white px-5 py-3 rounded-full shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition z-40"
-            >
-              <span className="material-symbols-outlined text-base">add</span>
-              <span>New Chat</span>
-            </button>
           </div>
         )
       ) : activeTab === 'Interests' ? (
@@ -1048,15 +1469,16 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   className="bg-white rounded-lg p-4 border border-gray-100/90 shadow-sm flex flex-col gap-3 hover:shadow-md transition"
                 >
                   <div className="flex items-center gap-3.5">
-                    {/* User Avatar with Online Badge */}
-                    <div className="relative w-14 h-14 rounded-full flex-shrink-0">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full rounded-full object-cover border border-gray-200"
-                      />
-                      {item.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white" />
+                    {/* User Avatar */}
+                    <div className="relative w-14 h-14 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden border border-gray-200">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="material-symbols-outlined text-2xl text-[#570013]">person</span>
                       )}
                     </div>
 
@@ -1064,10 +1486,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     <div className="flex-grow min-w-0">
                       <h3 className="font-bold text-sm text-slate-900 truncate">{item.name}</h3>
                       <p className="text-xs text-slate-400 font-medium truncate mb-0.5">
-                        {item.age}, {item.city}
+                        {[item.age, item.city].filter(Boolean).join(', ')}
                       </p>
                       <p className="text-[11px] text-slate-400 font-medium truncate">
-                        {item.status === 'Received' ? `Received on ${item.date}` : `Sent on ${item.date}`}
+                        {item.direction === 'Received' ? `Received on ${item.date}` : `Sent on ${item.date}`}
                       </p>
                     </div>
                   </div>
@@ -1091,9 +1513,18 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   )}
 
                   {interestsTab === 'Accepted' && (
-                    <div className="flex items-center gap-2 pt-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-md">
-                      <span className="material-symbols-outlined text-sm">check_circle</span>
-                      <span>Interest Accepted • Contact Details Unlocked</span>
+                    <div className="pt-1 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-md">
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        <span>Interest Accepted • Contact Details Unlocked</span>
+                      </div>
+                      <button
+                        onClick={(e) => handleMessageCandidate(item.profileId, e)}
+                        className="w-full py-2.5 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow transition active:scale-95 flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-base">chat</span>
+                        <span>Message</span>
+                      </button>
                     </div>
                   )}
 
@@ -1137,14 +1568,33 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 placeholder="Search by Name, ID or Keyword"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
                 className="w-full bg-transparent text-xs font-medium text-slate-900 focus:outline-none placeholder-gray-400"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    setSearchResults([])
+                  }}
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                >
                   <span className="material-symbols-outlined text-base block">close</span>
                 </button>
               )}
             </div>
+
+            {/* Run Search */}
+            <button
+              onClick={() => runSearch()}
+              disabled={isSearching || !searchQuery.trim()}
+              className="w-11 h-11 rounded-md border border-[#570013] bg-[#570013] text-white transition shadow-sm flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Run search"
+            >
+              <span className="material-symbols-outlined text-lg block">
+                {isSearching ? 'hourglass_top' : 'search'}
+              </span>
+            </button>
 
             {/* Filter Funnel Icon Button */}
             <button
@@ -1163,7 +1613,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           {searchQuery.trim() ? (
             <div className="space-y-3 mb-5">
               <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Search Results ({filteredSearchList.length})
+                {isSearching ? 'Searching...' : `Search Results (${filteredSearchList.length})`}
               </h2>
 
               {filteredSearchList.length > 0 ? (
@@ -1242,15 +1692,16 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     {recentSearches.map((item) => (
                       <div
                         key={item.id}
-                        onClick={() => setSearchQuery(item.title.split(',')[0])}
+                        onClick={() => {
+                          setSearchQuery(item.query || item.title)
+                          runSearch(item.query || item.title)
+                        }}
                         className="bg-white border border-gray-100/90 rounded-md p-2 flex items-center justify-between shadow-2xs hover:bg-gray-50/70 transition cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={item.image}
-                            alt={item.title}
-                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                          />
+                          <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
+                            <span className="material-symbols-outlined text-base text-[#570013]">history</span>
+                          </div>
                           <div className="min-w-0">
                             <h3 className="text-xs font-bold text-slate-900 truncate">{item.title}</h3>
                             <p className="text-[10px] text-slate-400 truncate">{item.subtitle}</p>
@@ -1313,6 +1764,26 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               )
             })}
           </div>
+
+          {/* Preference filter notice */}
+          {preferenceFilter && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-base text-[#570013] shrink-0">tune</span>
+                <p className="text-[11px] font-bold text-amber-900 leading-snug">
+                  {preferenceFilter.beforeFilter > preferenceFilter.shown
+                    ? `Showing ${preferenceFilter.shown} of ${preferenceFilter.beforeFilter} candidates that fit your preferences.`
+                    : 'Filtered by your partner preferences.'}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/preferences')}
+                className="text-[11px] font-bold text-[#570013] underline shrink-0"
+              >
+                Edit
+              </button>
+            </div>
+          )}
 
           {/* Matches List */}
           <div className="space-y-5">
@@ -1612,6 +2083,25 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     </div>
                   </div>
                 </div>
+
+                {/* Contact Information */}
+                <div className="p-2 space-y-3 pb-2 border-t border-amber-200/60 pt-3">
+                  <h2 className="font-bold text-[#570013] text-base border-b-2 border-[#570013]/20 pb-1.5 uppercase tracking-wide">Contact Information</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4 text-xs">
+                    <div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Mobile Number</div>
+                      <div className="font-semibold text-gray-800 text-[11px]">{userProfile.mobileNumber || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-[10px] leading-tight">Email Address</div>
+                      <div className="font-semibold text-gray-800 text-[11px]">{userProfile.email || '-'}</div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="text-gray-500 text-[10px] leading-tight">Residential Address</div>
+                      <div className="font-semibold text-gray-800 text-[11px]">{userProfile.residentialAddress || '-'}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="text-center text-gray-500 py-10">
@@ -1707,56 +2197,65 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
 
           {/* Compact Profile Completion Banner */}
-          <div className="bg-gradient-to-r from-[#6e0b18] via-[#7d0d1c] to-[#50040f] rounded-md p-3.5 text-white shadow-lg relative overflow-hidden mb-4">
-            <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+          {(() => {
+            const homePct = Number(userProfile?.completionPercentage ?? 75);
+            return (
+              <div className="bg-gradient-to-r from-[#6e0b18] via-[#7d0d1c] to-[#50040f] rounded-md p-3.5 text-white shadow-lg relative overflow-hidden mb-4">
+                <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
 
-            <div className="flex items-center justify-between gap-3 relative z-10">
-              <div className="flex-1">
-                <h2 className="text-[11px] font-semibold text-amber-200/90 tracking-wide mb-1">
-                  Profile Completion
-                </h2>
+                <div className="flex items-center justify-between gap-3 relative z-10">
+                  <div className="flex-1">
+                    <h2 className="text-[11px] font-semibold text-amber-200/90 tracking-wide mb-1">
+                      Profile Completion
+                    </h2>
 
-                <div className="flex items-center gap-2 mb-2.5">
-                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/15">
-                    <span className="material-symbols-outlined text-amber-300 text-xs">badge</span>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/15">
+                        <span className="material-symbols-outlined text-amber-300 text-xs">badge</span>
+                      </div>
+                      <p className="text-[11px] text-white/90 leading-tight">
+                        {homePct >= 100 ? (
+                          <span>Your profile is <span className="font-bold text-amber-300">100% complete</span>!</span>
+                        ) : (
+                          <span>Your profile is <span className="font-bold text-amber-300">{homePct}% complete</span>.</span>
+                        )}
+                      </p>
+                    </div>
+
+                    <button 
+                      onClick={() => navigate('/profile-completion-dashboard')}
+                      className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-[11px] shadow hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+                    >
+                      {homePct >= 100 ? 'Edit Biodata' : 'Complete Now'}
+                    </button>
                   </div>
-                  <p className="text-[11px] text-white/90 leading-tight">
-                    Your profile is <span className="font-bold text-amber-300">75% complete</span>.
-                  </p>
+
+                  {/* Progress Ring */}
+                  <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-white/15"
+                        strokeWidth="3.5"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="text-amber-300 transition-all duration-700 ease-out"
+                        strokeDasharray={`${homePct}, 100`}
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span className="absolute font-bold text-amber-300 text-xs">{homePct}%</span>
+                  </div>
                 </div>
-
-                <button 
-                  onClick={() => navigate('/profile')}
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-[11px] shadow hover:brightness-105 active:scale-95 transition-all"
-                >
-                  Complete Now
-                </button>
               </div>
-
-              {/* Progress Ring */}
-              <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-white/15"
-                    strokeWidth="3.5"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-amber-300"
-                    strokeDasharray="75, 100"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <span className="absolute font-bold text-amber-300 text-xs">75%</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Today's Matches Section */}
           <div className="mb-6">

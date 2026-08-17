@@ -1,112 +1,38 @@
-import React, { useState } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import AdminLayout from '../components/AdminLayout'
+import { adminDataService } from '../services/adminDataService'
 
 export default function MatchManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [exportToast, setExportToast] = useState('')
+  const [pairings, setPairings] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  // Seed Data: Simple Clean Matched User Pairs
-  const pairings = [
-    {
-      id: 'MATCH-PAIR-101',
-      matchScore: 96,
-      date: '2026-02-05',
-      user1: {
-        id: 'PRF-502',
-        name: 'Rohan Agrawal',
-        gender: 'Male',
-        age: 28,
-        gotra: 'Garg',
-        image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Rajesh Agrawal',
-      },
-      user2: {
-        id: 'PRF-503',
-        name: 'Anjali Bansal',
-        gender: 'Female',
-        age: 24,
-        gotra: 'Bansal',
-        image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Sunita Goyal',
-      }
-    },
-    {
-      id: 'MATCH-PAIR-102',
-      matchScore: 94,
-      date: '2026-02-06',
-      user1: {
-        id: 'PRF-504',
-        name: 'Aarav Singhal',
-        gender: 'Male',
-        age: 29,
-        gotra: 'Singhal',
-        image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Vikram Singhal',
-      },
-      user2: {
-        id: 'PRF-501',
-        name: 'Priya Garg',
-        gender: 'Female',
-        age: 26,
-        gotra: 'Garg',
-        image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Rajesh Agrawal',
-      }
-    },
-    {
-      id: 'MATCH-PAIR-103',
-      matchScore: 91,
-      date: '2026-02-07',
-      user1: {
-        id: 'PRF-506',
-        name: 'Riya Goyal',
-        gender: 'Female',
-        age: 25,
-        gotra: 'Goyal',
-        image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Pankaj Goyal',
-      },
-      user2: {
-        id: 'PRF-504',
-        name: 'Aarav Singhal',
-        gender: 'Male',
-        age: 29,
-        gotra: 'Singhal',
-        image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Vikram Singhal',
-      }
-    },
-    {
-      id: 'MATCH-PAIR-104',
-      matchScore: 88,
-      date: '2026-02-08',
-      user1: {
-        id: 'PRF-505',
-        name: 'Neha Mittal',
-        gender: 'Female',
-        age: 27,
-        gotra: 'Mittal',
-        image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Mahesh Mittal',
-      },
-      user2: {
-        id: 'PRF-502',
-        name: 'Rohan Agrawal',
-        gender: 'Male',
-        age: 28,
-        gotra: 'Garg',
-        image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
-        accountName: 'Rajesh Agrawal',
-      }
+  useEffect(() => {
+    loadPairings()
+  }, [])
+
+  const loadPairings = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      setPairings(await adminDataService.getMatchPairs())
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load match pair records.')
+    } finally {
+      setIsLoading(false)
     }
-  ]
+  }
 
+
+  const q = searchTerm.toLowerCase()
   const filtered = pairings.filter(
     (p) =>
-      p.user1.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.user2.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.user1.gotra.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.user2.gotra.toLowerCase().includes(searchTerm.toLowerCase())
+      String(p.user1.name).toLowerCase().includes(q) ||
+      String(p.user2.name).toLowerCase().includes(q) ||
+      String(p.user1.gotra).toLowerCase().includes(q) ||
+      String(p.user2.gotra).toLowerCase().includes(q)
   )
 
   // Direct CSV Export Matches Report
@@ -179,6 +105,18 @@ export default function MatchManagementPage() {
 
   return (
     <AdminLayout title="Match Data">
+      {errorMsg && (
+        <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={loadPairings} className="text-red-700 underline font-bold shrink-0">
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Toast Notification Banner */}
       {exportToast && (
         <div className="mb-4 bg-emerald-900/90 text-emerald-100 border border-emerald-500/40 px-4 py-3 rounded-lg text-sm font-semibold flex items-center justify-between shadow-lg animate-fade-in">
@@ -190,7 +128,7 @@ export default function MatchManagementPage() {
             onClick={() => setExportToast('')}
             className="text-emerald-300 hover:text-white font-bold"
           >
-            ✕
+            âœ•
           </button>
         </div>
       )}
@@ -248,7 +186,7 @@ export default function MatchManagementPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="text-center py-12 text-[#775a19] font-semibold">
-                    No matching records found.
+                    {isLoading ? 'Loading match pairs...' : 'No matching records found.'}
                   </td>
                 </tr>
               ) : (
@@ -265,7 +203,7 @@ export default function MatchManagementPage() {
                         <div>
                           <p className="font-bold text-base text-[#570013]">{pair.user1.name}</p>
                           <p className="text-xs text-[#775a19] font-bold">
-                            {pair.user1.gotra} Gotra • {pair.user1.age} yrs ({pair.user1.gender})
+                            {pair.user1.gotra} Gotra â€¢ {pair.user1.age} yrs ({pair.user1.gender})
                           </p>
                         </div>
                       </div>
@@ -290,7 +228,7 @@ export default function MatchManagementPage() {
                         <div>
                           <p className="font-bold text-base text-[#570013]">{pair.user2.name}</p>
                           <p className="text-xs text-[#775a19] font-bold">
-                            {pair.user2.gotra} Gotra • {pair.user2.age} yrs ({pair.user2.gender})
+                            {pair.user2.gotra} Gotra â€¢ {pair.user2.age} yrs ({pair.user2.gender})
                           </p>
                         </div>
                       </div>

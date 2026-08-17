@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { adminDataService } from '../services/adminDataService'
 
@@ -9,44 +9,75 @@ export default function ComplaintManagementPage() {
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [selectedComplaint, setSelectedComplaint] = useState(null)
   const [actionSuccess, setActionSuccess] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMutating, setIsMutating] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    const c = adminDataService.getComplaints()
-    setComplaints(c)
-    const bh = adminDataService.getBlockHistory()
-    setBlockHistory(bh)
+  const loadData = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      const [c, bh] = await Promise.all([
+        adminDataService.getComplaints(),
+        adminDataService.getBlockHistory(),
+      ])
+      setComplaints(c)
+      setBlockHistory(bh)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load reports and blocks.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleResolveAction = (complaintId, actionType) => {
-    let actionText = ''
-    if (actionType === 'suspend') {
-      actionText = 'Reported User Suspended for 30 Days'
-      if (selectedComplaint?.reportedUserId) {
-        adminDataService.updateUserStatus(selectedComplaint.reportedUserId, 'Suspended')
-      }
-    } else if (actionType === 'warn') {
-      actionText = 'Formal Warning Notice Issued'
-    } else {
-      actionText = 'Complaint Reviewed & Dismissed'
-    }
+  // Maps the UI's action buttons onto the resolution actions the API accepts.
+  const RESOLUTION_BY_ACTION = {
+    suspend: { action: 'User Suspended', label: 'Reported User Suspended' },
+    warn: { action: 'Warning Sent', label: 'Formal Warning Notice Issued' },
+    dismiss: { action: 'Dismissed', label: 'Complaint Reviewed & Dismissed' },
+  }
 
-    adminDataService.updateComplaintStatus(complaintId, 'Resolved', actionText)
-    loadData()
-    setSelectedComplaint(null)
-    setActionSuccess(`Action recorded: ${actionText}`)
-    setTimeout(() => setActionSuccess(''), 4000)
+  const handleResolveAction = async (complaintId, actionType) => {
+    const resolution = RESOLUTION_BY_ACTION[actionType] || RESOLUTION_BY_ACTION.dismiss
+
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      // "User Suspended" also suspends the reported account server-side.
+      await adminDataService.resolveComplaint(complaintId, resolution.action, resolution.label)
+      await loadData()
+      setSelectedComplaint(null)
+      setActionSuccess(`Action recorded: ${resolution.label}`)
+      setTimeout(() => setActionSuccess(''), 4000)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not record this moderation action.')
+    } finally {
+      setIsMutating(false)
+    }
   }
 
   const filteredComplaints = complaints.filter((item) => {
-    return categoryFilter === 'All' || item.category.toLowerCase() === categoryFilter.toLowerCase()
+    return categoryFilter === 'All' || String(item.category).toLowerCase() === categoryFilter.toLowerCase()
   })
 
   return (
     <AdminLayout title="Reports & Blocks">
+      {errorMsg && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Toast */}
       {actionSuccess && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-md text-xs text-emerald-900 font-bold flex items-center gap-2 shadow-2xs">
@@ -125,7 +156,7 @@ export default function ComplaintManagementPage() {
                   {filteredComplaints.length === 0 ? (
                     <tr>
                       <td colSpan="7" className="text-center py-12 text-[#775a19] font-semibold">
-                        No complaints recorded for this category.
+                        {isLoading ? 'Loading reports...' : 'No complaints recorded for this category.'}
                       </td>
                     </tr>
                   ) : (
@@ -243,19 +274,22 @@ export default function ComplaintManagementPage() {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleResolveAction(selectedComplaint.id, 'suspend')}
-                  className="px-3.5 py-2 bg-red-700 text-white font-extrabold rounded-md hover:bg-red-800 text-xs shadow-xs active:scale-95 transition-all"
+                  disabled={isMutating}
+                  className="px-3.5 py-2 bg-red-700 text-white font-extrabold rounded-md hover:bg-red-800 text-xs shadow-xs active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Suspend User
                 </button>
                 <button
                   onClick={() => handleResolveAction(selectedComplaint.id, 'warn')}
-                  className="px-3.5 py-2 bg-amber-600 text-white font-extrabold rounded-md hover:bg-amber-700 text-xs shadow-xs active:scale-95 transition-all"
+                  disabled={isMutating}
+                  className="px-3.5 py-2 bg-amber-600 text-white font-extrabold rounded-md hover:bg-amber-700 text-xs shadow-xs active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Issue Warning
                 </button>
                 <button
                   onClick={() => handleResolveAction(selectedComplaint.id, 'dismiss')}
-                  className="px-3.5 py-2 bg-stone-200 text-stone-800 font-extrabold rounded-md hover:bg-stone-300 text-xs shadow-xs active:scale-95 transition-all"
+                  disabled={isMutating}
+                  className="px-3.5 py-2 bg-stone-200 text-stone-800 font-extrabold rounded-md hover:bg-stone-300 text-xs shadow-xs active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   Dismiss Report
                 </button>

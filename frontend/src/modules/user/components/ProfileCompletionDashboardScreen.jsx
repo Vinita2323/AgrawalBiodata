@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { getMyProfile, createProfile, updateProfile, uploadProfilePhoto } from '../../../services/profileService'
+import { isAuthenticated } from '../../../services/authService'
 
 export default function ProfileCompletionDashboardScreen({ onContinue, onSkip }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [step, setStep] = useState(1)
   const [isEditing, setIsEditing] = useState(false)
+  const [currentProfileId, setCurrentProfileId] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [toast, setToast] = useState(null)
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3500)
+  }
+
   const [formData, setFormData] = useState({
     fullName: '',
     gender: '',
@@ -38,6 +49,7 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
     mamajiList: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }],
     residentialAddress: '',
     mobileNumber: '',
+    email: '',
     // Step 4 fields
     profilePicture: null
   })
@@ -54,27 +66,136 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
     })
   }, [step])
 
-  // Auto-fill from registration data (Create Account Screen)
+  // Load existing profile from MongoDB or prefill from registration data
   useEffect(() => {
-    const regData = location.state?.formData || JSON.parse(localStorage.getItem('registrationData') || '{}')
-    if (regData && Object.keys(regData).length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        fullName: regData.fullName || prev.fullName,
-        gender: regData.gender || prev.gender,
-        dob: regData.dob || prev.dob,
-        mobileNumber: regData.mobile || prev.mobileNumber,
-      }))
+    async function loadInitialData() {
+      if (isAuthenticated()) {
+        try {
+          const res = await getMyProfile()
+          if (res?.profile) {
+            const p = res.profile
+            setCurrentProfileId(p.profileId || p._id)
+            setFormData((prev) => ({
+              ...prev,
+              fullName: p.fullName || prev.fullName,
+              gender: p.gender || prev.gender,
+              gotra: p.gotra || prev.gotra,
+              dob: p.dob ? new Date(p.dob).toISOString().split('T')[0] : prev.dob,
+              tob: p.tob || prev.tob,
+              pob: p.pob || prev.pob,
+              height: p.height || prev.height,
+              complexion: p.complexion || prev.complexion,
+              manglik: p.manglik || prev.manglik,
+              qualification: p.qualification || prev.qualification,
+              hobbies: Array.isArray(p.hobbies) ? p.hobbies.join(', ') : (p.hobbies || prev.hobbies),
+              income: p.income || prev.income,
+              workingAt: p.workingAt || prev.workingAt,
+              grandfather: p.grandfather || prev.grandfather,
+              grandmother: p.grandmother || prev.grandmother,
+              father: p.father || prev.father,
+              fatherOccupation: p.fatherOccupation || prev.fatherOccupation,
+              fatherOccupationDetails: p.fatherOccupationDetails || prev.fatherOccupationDetails,
+              mother: p.mother || prev.mother,
+              motherGotra: p.motherGotra || prev.motherGotra,
+              brotherList: (p.brotherList && p.brotherList.length > 0) ? p.brotherList : prev.brotherList,
+              sisterList: (p.sisterList && p.sisterList.length > 0) ? p.sisterList : prev.sisterList,
+              taujiList: (p.taujiList && p.taujiList.length > 0) ? p.taujiList : prev.taujiList,
+              chachaList: (p.chachaList && p.chachaList.length > 0) ? p.chachaList : prev.chachaList,
+              buajiList: (p.buajiList && p.buajiList.length > 0) ? p.buajiList : prev.buajiList,
+              mamaji: p.mamaji || prev.mamaji,
+              mamajiList: (p.mamajiList && p.mamajiList.length > 0) ? p.mamajiList : prev.mamajiList,
+              residentialAddress: p.residentialAddress || prev.residentialAddress,
+              mobileNumber: p.mobileNumber || prev.mobileNumber,
+              email: p.email || prev.email,
+              profilePicture: p.profilePicture || prev.profilePicture
+            }))
+            return
+          }
+        } catch (err) {
+          console.warn('Initial profile load note:', err)
+        }
+      }
+
+      const regData = location.state?.formData || JSON.parse(localStorage.getItem('registrationData') || '{}')
+      if (regData && Object.keys(regData).length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          fullName: regData.fullName || prev.fullName,
+          gender: regData.gender || prev.gender,
+          dob: regData.dob || prev.dob,
+          mobileNumber: regData.mobile || prev.mobileNumber,
+          email: regData.email || prev.email,
+        }))
+      }
     }
+
+    loadInitialData()
   }, [location.state])
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
+  const saveToBackend = async (dataToSave = formData, silent = false) => {
+    setIsSaving(true)
+    try {
+      const payload = { ...dataToSave }
+      
+      // Convert hobbies to clean array
+      if (typeof payload.hobbies === 'string') {
+        payload.hobbies = payload.hobbies.split(',').map(h => h.trim()).filter(Boolean)
+      }
+
+      // Clean relative lists
+      const cleanList = (list) => Array.isArray(list) ? list.filter(item => item && item.name && item.name.trim()) : []
+      payload.brotherList = cleanList(payload.brotherList)
+      payload.sisterList = cleanList(payload.sisterList)
+      payload.taujiList = cleanList(payload.taujiList)
+      payload.chachaList = cleanList(payload.chachaList)
+      payload.buajiList = cleanList(payload.buajiList)
+      payload.mamajiList = cleanList(payload.mamajiList)
+
+      // Normalize Manglik to canonical enum ('Non-Manglik', 'Manglik', 'Anshik Manglik', "Don't Know")
+      if (payload.manglik === 'No' || payload.manglik === 'Non-Manglik' || payload.manglik === 'non-manglik') {
+        payload.manglik = 'Non-Manglik'
+      } else if (payload.manglik === 'Yes' || payload.manglik === 'Manglik' || payload.manglik === 'manglik') {
+        payload.manglik = 'Manglik'
+      } else if (payload.manglik === 'Anshik' || payload.manglik === 'Anshik Manglik' || payload.manglik === 'Partial') {
+        payload.manglik = 'Anshik Manglik'
+      } else if (payload.manglik === "Don't Know" || payload.manglik === 'dont_know' || !payload.manglik) {
+        payload.manglik = payload.manglik === "Don't Know" ? "Don't Know" : 'Non-Manglik'
+      }
+
+      let savedProfile
+      if (currentProfileId) {
+        const res = await updateProfile(currentProfileId, payload)
+        savedProfile = res?.profile
+      } else {
+        const res = await createProfile(payload)
+        savedProfile = res?.profile
+        if (savedProfile) {
+          setCurrentProfileId(savedProfile.profileId || savedProfile._id)
+        }
+      }
+
+      localStorage.setItem('userProfile', JSON.stringify(payload))
+      if (!silent) {
+        showToast('Details saved to database successfully!', 'success')
+      }
+      return savedProfile
+    } catch (err) {
+      console.error('Save profile to database error:', err)
+      localStorage.setItem('userProfile', JSON.stringify(dataToSave))
+      if (!silent) {
+        showToast(err.message || 'Saved locally. Backend connection pending.', 'info')
+      }
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleSaveProgress = () => {
-    localStorage.setItem('userProfile', JSON.stringify(formData))
-    alert('Details saved successfully!')
+    saveToBackend(formData)
   }
 
   const handleRelativeChange = (listName, index, field, value) => {
@@ -93,15 +214,13 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
   }
 
   const saveRelativeItem = (listName) => {
-    localStorage.setItem('userProfile', JSON.stringify(formData))
-    alert('Relative details saved successfully!')
+    saveToBackend(formData)
   }
 
   const removeRelativeItem = (listName, index) => {
     setFormData((prev) => {
       const currentList = prev[listName] || []
       if (currentList.length <= 1) {
-        // Keep at least one empty item
         return {
           ...prev,
           [listName]: [{ name: '', status: 'Unmarried', spouseName: '', homePlace: '' }]
@@ -307,9 +426,10 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                   <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Manglik</label>
                   <div className="relative">
                     <select name="manglik" value={formData.manglik} onChange={handleChange} className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md pl-3 pr-8 py-2 text-[12px] font-semibold text-slate-800 focus:border-[#570013] focus:bg-white focus:ring-1 focus:ring-[#570013] focus:outline-none appearance-none shadow-sm transition-all">
-                      <option value="">Select Yes/No</option>
-                      <option value="Yes">Yes</option>
-                      <option value="No">No</option>
+                      <option value="">Select Manglik Status</option>
+                      <option value="Non-Manglik">Non-Manglik (No)</option>
+                      <option value="Manglik">Manglik (Yes)</option>
+                      <option value="Anshik Manglik">Anshik Manglik (Partial)</option>
                       <option value="Don't Know">Don't Know</option>
                     </select>
                     <span className="material-symbols-outlined text-[#775a19] text-[18px] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -646,35 +766,63 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                 </div>
               </div>
 
-              {/* Mobile Number */}
-              <div>
-                <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mobile Number</label>
-                <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all md:w-1/2">
-                  <span className="material-symbols-outlined text-[#775a19] text-[18px]">call</span>
-                  <input type="tel" name="mobileNumber" placeholder="+91 XXXXX XXXXX" value={formData.mobileNumber} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Mobile Number */}
+                <div>
+                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Mobile Number</label>
+                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
+                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">call</span>
+                    <input type="tel" name="mobileNumber" placeholder="+91 XXXXX XXXXX" value={formData.mobileNumber} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+                  </div>
+                </div>
+
+                {/* Email Address */}
+                <div>
+                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">Email Address</label>
+                  <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 flex items-center gap-2 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#570013] shadow-sm transition-all">
+                    <span className="material-symbols-outlined text-[#775a19] text-[18px]">mail</span>
+                    <input type="email" name="email" placeholder="example@mail.com" value={formData.email} onChange={handleChange} className="w-full bg-transparent text-[12px] font-semibold text-slate-800 focus:outline-none placeholder-slate-400" />
+                  </div>
                 </div>
               </div>
 
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
 
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(2)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide">
+                <button type="button" onClick={() => setStep(2)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer">
                   Back
                 </button>
-                <button type="button" onClick={() => setStep(4)} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
-                  <span>Next Step</span>
-                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                <button 
+                  type="button" 
+                  onClick={async () => {
+                    await saveToBackend(formData, true);
+                    setStep(4);
+                  }} 
+                  className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer"
+                >
+                  <span>{isSaving ? 'Saving...' : 'Next Step'}</span>
+                  <span className="material-symbols-outlined text-[16px]">{isSaving ? 'sync' : 'arrow_forward'}</span>
                 </button>
               </div>
             </form>
           )}
 
           {step === 4 && (
-            <form className="space-y-4 relative z-10" onSubmit={(e) => { 
+            <form className="space-y-4 relative z-10" onSubmit={async (e) => { 
               e.preventDefault();
-              const profileToSave = { ...formData };
-              localStorage.setItem('userProfile', JSON.stringify(profileToSave));
-              navigate('/home'); 
+              setIsSaving(true);
+              try {
+                await saveToBackend(formData, true);
+                showToast('Profile completed and saved to database successfully!', 'success');
+                setTimeout(() => {
+                  navigate('/home'); 
+                }, 800);
+              } catch (err) {
+                console.error('Final profile save error:', err);
+                navigate('/home');
+              } finally {
+                setIsSaving(false);
+              }
             }}>
               <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm mb-4">
                 Profile Photo
@@ -703,14 +851,25 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
                     </div>
                   )}
                   
-                  <input id="photo-upload" type="file" accept="image/png, image/jpeg, image/jpg" className="hidden" onChange={(e) => {
+                  <input id="photo-upload" type="file" accept="image/png, image/jpeg, image/jpg" className="hidden" onChange={async (e) => {
                     if (e.target.files && e.target.files[0]) {
                       const file = e.target.files[0];
                       const reader = new FileReader();
                       reader.onloadend = () => {
-                        setFormData({ ...formData, profilePicture: reader.result });
+                        setFormData((prev) => ({ ...prev, profilePicture: reader.result }));
                       };
                       reader.readAsDataURL(file);
+
+                      try {
+                        showToast('Uploading photo to database...', 'info');
+                        const uploadRes = await uploadProfilePhoto(file, currentProfileId);
+                        if (uploadRes?.profilePicture) {
+                          setFormData((prev) => ({ ...prev, profilePicture: uploadRes.profilePicture }));
+                          showToast('Profile photo saved to database!', 'success');
+                        }
+                      } catch (uploadErr) {
+                        console.warn('Backend photo upload notice:', uploadErr);
+                      }
                     }
                   }} />
                 </label>
@@ -724,18 +883,34 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
               <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
 
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(3)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide">
+                <button type="button" onClick={() => setStep(3)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer">
                   Back
                 </button>
-                <button type="submit" className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
-                  <span>Complete Profile</span>
-                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <button type="submit" disabled={isSaving} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer disabled:opacity-75">
+                  <span>{isSaving ? 'Saving to Database...' : 'Complete Profile'}</span>
+                  <span className="material-symbols-outlined text-[16px]">{isSaving ? 'sync' : 'check_circle'}</span>
                 </button>
               </div>
             </form>
           )}
         </div>
       </main>
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2.5 text-xs font-semibold transition-all ${
+          toast.type === 'error'
+            ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : toast.type === 'info'
+            ? 'bg-blue-50 border-blue-200 text-blue-800'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <span className="material-symbols-outlined text-lg">
+            {toast.type === 'error' ? 'error' : toast.type === 'info' ? 'info' : 'check_circle'}
+          </span>
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   )
 }

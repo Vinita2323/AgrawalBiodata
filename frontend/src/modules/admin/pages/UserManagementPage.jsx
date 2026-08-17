@@ -23,37 +23,64 @@ export default function UserManagementPage() {
 
   // Toast notification state
   const [exportToast, setExportToast] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMutating, setIsMutating] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     loadUsers()
   }, [])
 
-  const loadUsers = () => {
-    const data = adminDataService.getUsers()
-    setUsers(data)
+  const loadUsers = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      setUsers(await adminDataService.getUsers())
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load users.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleStatusChange = (userId, newStatus) => {
-    adminDataService.updateUserStatus(userId, newStatus)
-    loadUsers()
-    setActiveModalUser(null)
-    setModalAction(null)
+  const handleStatusChange = async (userId, newStatus) => {
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.updateUserStatus(userId, newStatus)
+      await loadUsers()
+      setActiveModalUser(null)
+      setModalAction(null)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not update the user status.')
+    } finally {
+      setIsMutating(false)
+    }
   }
 
-  const handleDeleteUser = (userId) => {
-    adminDataService.deleteUser(userId)
-    loadUsers()
-    setActiveModalUser(null)
-    setModalAction(null)
+  const handleDeleteUser = async (userId) => {
+    setIsMutating(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.deleteUser(userId)
+      await loadUsers()
+      setActiveModalUser(null)
+      setModalAction(null)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not delete the user account.')
+    } finally {
+      setIsMutating(false)
+    }
   }
 
   // Filtering & Search logic
+  const q = searchTerm.toLowerCase()
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.mobile.includes(searchTerm) ||
-      user.id.toLowerCase().includes(searchTerm.toLowerCase())
+      String(user.name).toLowerCase().includes(q) ||
+      String(user.email).toLowerCase().includes(q) ||
+      String(user.mobile).includes(searchTerm) ||
+      String(user.id).toLowerCase().includes(q)
 
     const matchesStatus =
       statusFilter === 'All' || user.accountStatus === statusFilter
@@ -64,8 +91,8 @@ export default function UserManagementPage() {
     const matchesSubscription =
       subscriptionFilter === 'All' ||
       (subscriptionFilter === 'Gold'
-        ? user.subscriptionPlan.includes('Gold')
-        : user.subscriptionPlan === 'Free Tier')
+        ? !/^free/i.test(String(user.subscriptionPlan))
+        : /^free/i.test(String(user.subscriptionPlan)))
 
     return matchesSearch && matchesStatus && matchesVerification && matchesSubscription
   })
@@ -156,6 +183,18 @@ export default function UserManagementPage() {
 
   return (
     <AdminLayout title="User Management">
+      {errorMsg && (
+        <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Toast Notification Banner */}
       {exportToast && (
         <div className="mb-4 bg-emerald-900/90 text-emerald-100 border border-emerald-500/40 px-4 py-3 rounded-lg text-sm font-semibold flex items-center justify-between shadow-lg animate-fade-in">
@@ -293,7 +332,7 @@ export default function UserManagementPage() {
               {paginatedUsers.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="text-center py-12 text-[#775a19] font-semibold">
-                    No matching users found for selected filters.
+                    {isLoading ? 'Loading users...' : 'No matching users found for selected filters.'}
                   </td>
                 </tr>
               ) : (
@@ -503,6 +542,7 @@ export default function UserManagementPage() {
               </button>
 
               <button
+                disabled={isMutating}
                 onClick={() => {
                   if (modalAction === 'suspend') {
                     handleStatusChange(activeModalUser.id, 'Suspended')
@@ -512,7 +552,7 @@ export default function UserManagementPage() {
                     handleDeleteUser(activeModalUser.id)
                   }
                 }}
-                className={`px-4 py-2 text-white font-bold rounded-md text-xs shadow-md ${
+                className={`px-4 py-2 text-white font-bold rounded-md text-xs shadow-md disabled:opacity-60 disabled:cursor-not-allowed ${
                   modalAction === 'suspend'
                     ? 'bg-amber-700 hover:bg-amber-800'
                     : modalAction === 'activate'
@@ -520,7 +560,7 @@ export default function UserManagementPage() {
                     : 'bg-red-700 hover:bg-red-800'
                 }`}
               >
-                Confirm {modalAction}
+                {isMutating ? 'Working...' : `Confirm ${modalAction}`}
               </button>
             </div>
           </div>

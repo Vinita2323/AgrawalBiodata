@@ -24,15 +24,29 @@ export default function ContentManagementPage() {
   const [linkTarget, setLinkTarget] = useState('/matches')
   const [bannerStatus, setBannerStatus] = useState('Active')
 
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
   useEffect(() => {
     loadContent()
   }, [])
 
-  const loadContent = () => {
-    const b = adminDataService.getBanners()
-    setBanners(b)
-    const sc = adminDataService.getStaticContent()
-    setStaticContent(sc)
+  const loadContent = async () => {
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      const [b, sc] = await Promise.all([
+        adminDataService.getBanners(),
+        adminDataService.getStaticContent(),
+      ])
+      setBanners(b)
+      setStaticContent((prev) => ({ ...prev, ...sc }))
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not load CMS content.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleOpenCreateBanner = () => {
@@ -55,7 +69,7 @@ export default function ContentManagementPage() {
     setShowBannerModal(true)
   }
 
-  const handleSaveBanner = (e) => {
+  const handleSaveBanner = async (e) => {
     e.preventDefault()
     const bannerObj = {
       id: editingBanner?.id,
@@ -66,31 +80,75 @@ export default function ContentManagementPage() {
       status: bannerStatus,
       positionOrder: editingBanner?.positionOrder || banners.length + 1,
     }
-    adminDataService.saveBanner(bannerObj)
-    loadContent()
-    setShowBannerModal(false)
-    setToastMsg('Banner updated successfully! Reflecting live on customer homepage.')
-    setTimeout(() => setToastMsg(''), 4000)
-  }
 
-  const handleDeleteBanner = (bannerId) => {
-    if (window.confirm('Delete this banner from homepage slider?')) {
-      adminDataService.deleteBanner(bannerId)
-      loadContent()
-      setToastMsg('Banner deleted.')
-      setTimeout(() => setToastMsg(''), 3000)
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.saveBanner(bannerObj)
+      await loadContent()
+      setShowBannerModal(false)
+      setToastMsg('Banner updated successfully! Reflecting live on customer homepage.')
+      setTimeout(() => setToastMsg(''), 4000)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save this banner.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleSaveStaticPages = (e) => {
+  const handleDeleteBanner = async (bannerId) => {
+    if (!window.confirm('Delete this banner from homepage slider?')) return
+
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.deleteBanner(bannerId)
+      await loadContent()
+      setToastMsg('Banner deleted.')
+      setTimeout(() => setToastMsg(''), 3000)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not delete this banner.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveStaticPages = async (e) => {
     e.preventDefault()
-    adminDataService.saveStaticContent(staticContent)
-    setToastMsg('Static legal & company pages content updated! Reflecting live across platform.')
-    setTimeout(() => setToastMsg(''), 4000)
+
+    setIsSaving(true)
+    setErrorMsg('')
+    try {
+      await adminDataService.saveStaticContent(staticContent)
+      setToastMsg('Static legal & company pages content updated! Reflecting live across platform.')
+      setTimeout(() => setToastMsg(''), 4000)
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save the static page content.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
     <AdminLayout title="Content Management System">
+      {errorMsg && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 font-semibold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">error</span>
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-semibold">
+          Loading CMS content...
+        </div>
+      )}
+
       {/* Toast Alert */}
       {toastMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-semibold flex items-center gap-2">
@@ -257,9 +315,10 @@ export default function ContentManagementPage() {
           <div className="pt-2 border-t border-stone-100 flex justify-end">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#570013] text-white font-bold rounded-xl shadow-md hover:bg-[#42000e]"
+              disabled={isSaving}
+              className="px-6 py-2.5 bg-[#570013] text-white font-bold rounded-xl shadow-md hover:bg-[#42000e] disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Save All Legal & Company Pages
+              {isSaving ? 'Saving...' : 'Save All Legal & Company Pages'}
             </button>
           </div>
         </form>
@@ -352,9 +411,10 @@ export default function ContentManagementPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#570013] text-white font-bold rounded-xl shadow-md"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-[#570013] text-white font-bold rounded-xl shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Banner
+                  {isSaving ? 'Saving...' : 'Save Banner'}
                 </button>
               </div>
             </form>

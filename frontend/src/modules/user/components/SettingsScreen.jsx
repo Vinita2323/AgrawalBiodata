@@ -1,12 +1,16 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { logout } from '../../../services/authService'
 
 export default function SettingsScreen({ onBack, onLogout }) {
   const navigate = useNavigate()
 
   const mainSettings = [
     { id: 'account', label: 'Account Settings', icon: 'person' },
+    { id: 'preferences', label: 'Partner Preferences', icon: 'tune' },
     { id: 'notification', label: 'Notification Settings', icon: 'notifications' },
+    { id: 'verification', label: 'Profile Verification', icon: 'verified_user' },
+    { id: 'blocked', label: 'Blocked Users', icon: 'block' },
   ]
 
   const secondarySettings = [
@@ -70,8 +74,16 @@ export default function SettingsScreen({ onBack, onLogout }) {
         {/* Group 3 Logout Card */}
         <div className="bg-white rounded-md border border-red-100 shadow-sm overflow-hidden">
           <button
-            onClick={onLogout}
-            className="w-full px-4 py-3.5 flex items-center gap-3.5 hover:bg-red-50/50 transition text-left active:scale-[0.99] text-red-600"
+            onClick={async () => {
+              try {
+                await logout()
+              } catch (e) {
+                console.warn('Logout note:', e)
+              }
+              if (onLogout) onLogout()
+              else navigate('/login')
+            }}
+            className="w-full px-4 py-3.5 flex items-center gap-3.5 hover:bg-red-50/50 transition text-left active:scale-[0.99] text-red-600 cursor-pointer"
           >
             <span className="material-symbols-outlined text-xl text-red-600">logout</span>
             <span className="text-xs font-extrabold text-red-600">Logout</span>

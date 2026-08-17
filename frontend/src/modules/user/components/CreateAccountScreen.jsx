@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { sendOtp } from '../../../services/authService'
 
 export default function CreateAccountScreen({ onBack, onCreateAccount }) {
   const navigate = useNavigate()
@@ -12,19 +13,37 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
     createdFor: 'Myself',
     acceptTerms: true,
   })
+  const [isLoading, setIsLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    setErrorMsg('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.acceptTerms) return
-    localStorage.setItem('registrationData', JSON.stringify(formData))
-    if (onCreateAccount) {
-      onCreateAccount(formData)
-    } else {
-      navigate('/otp-verification', { state: { mobile: formData.mobile, isNewUser: true, formData } })
+    if (!formData.mobile || formData.mobile.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number')
+      return
+    }
+
+    setIsLoading(true)
+    setErrorMsg('')
+    try {
+      localStorage.setItem('registrationData', JSON.stringify(formData))
+      await sendOtp(formData.mobile)
+      if (onCreateAccount) {
+        onCreateAccount(formData)
+      } else {
+        navigate('/otp-verification', { state: { mobile: formData.mobile, isNewUser: true, formData } })
+      }
+    } catch (err) {
+      console.error('Send OTP error:', err)
+      setErrorMsg(err.message || 'Failed to send OTP. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -174,7 +193,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
             {/* Email Address */}
             <div>
               <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                Email Address <span className="font-normal text-stone-400 text-[10px] normal-case">(Optional)</span>
+                Email Address <span className="text-rose-600 font-bold">*</span>
               </label>
               <div className="bg-[#FAF8F5] border border-stone-200 rounded-xl px-3 py-2.5 flex items-center gap-2.5 focus-within:border-[#570013] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#570013]/10 shadow-xs transition-all">
                 <span className="material-symbols-outlined text-stone-400 text-[18px] shrink-0">mail</span>
@@ -184,6 +203,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   className="w-full bg-transparent text-xs font-semibold text-stone-800 focus:outline-none placeholder:text-stone-400 placeholder:font-normal"
+                  required
                 />
               </div>
             </div>
@@ -206,15 +226,22 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
               </label>
             </div>
 
+            {errorMsg && (
+              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-rose-500 shrink-0">error</span>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
             {/* Submit Button */}
             <div className="pt-1">
               <button
                 type="submit"
-                disabled={!formData.fullName || formData.mobile.length < 10 || !formData.dob || !formData.acceptTerms}
+                disabled={isLoading || !formData.fullName || formData.mobile.length < 10 || !formData.dob || !formData.email || !formData.acceptTerms}
                 className="w-full py-3 px-5 rounded-xl bg-[#570013] hover:bg-[#72001a] disabled:bg-stone-200 disabled:text-stone-400 text-white font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:cursor-not-allowed"
               >
-                <span>Proceed to Verify</span>
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                <span>{isLoading ? 'Sending OTP...' : 'Proceed to Verify'}</span>
+                <span className="material-symbols-outlined text-[16px]">{isLoading ? 'sync' : 'arrow_forward'}</span>
               </button>
             </div>
           </form>

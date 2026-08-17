@@ -1,22 +1,147 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { createOrder, verifyPayment, getPlans } from '../../../services/paymentService'
+import { isAuthenticated, getStoredUser } from '../../../services/authService'
+import { loadRazorpayCheckout, openRazorpayCheckout } from '../../../services/razorpay'
 
-export default function PaymentScreen({ onBack, onPaymentComplete }) {
-  const [selectedMethod, setSelectedMethod] = useState('upi')
+const CYCLE_LABEL = {
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  yearly: 'Yearly',
+}
+
+/**
+ * Resolves the payable amount for a plan and billing cycle, mirroring the
+ * backend calculation in paymentService.createOrder so the summary shown here
+ * matches the amount Razorpay actually charges.
+ */
+function resolvePrice(plan, billingCycle) {
+  if (!plan) return 0
+  if (billingCycle === 'yearly') return plan.yearlyPrice || 0
+  if (billingCycle === 'quarterly') {
+    return plan.quarterlyPrice || Math.round((plan.monthlyPrice || 0) * 3 * 0.9)
+  }
+  return plan.monthlyPrice || 0
+}
+
+export default function PaymentScreen({
+  onBack,
+  onPaymentComplete,
+  planId: planIdProp,
+  billingCycle: billingCycleProp = 'monthly',
+}) {
+  const [plan, setPlan] = useState(null)
+  const [isLoadingPlan, setIsLoadingPlan] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  const handlePayment = () => {
+  const billingCycle = billingCycleProp
+
+  // Load the selected plan (or the first paid plan when none was passed through)
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPlan() {
+      setIsLoadingPlan(true)
+      try {
+        const res = await getPlans()
+        const list = res?.plans || []
+        const chosen =
+          list.find((p) => p.id === planIdProp || p._id === planIdProp || p.planId === planIdProp) ||
+          list.find((p) => (p.monthlyPrice || 0) > 0) ||
+          list[0] ||
+          null
+
+        if (!cancelled) {
+          setPlan(chosen)
+          if (!chosen) setErrorMsg('No subscription plans are available right now.')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setErrorMsg(err?.message || 'Could not load plan details. Please try again.')
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPlan(false)
+      }
+    }
+
+    loadPlan()
+    return () => {
+      cancelled = true
+    }
+  }, [planIdProp])
+
+  // Warm the Checkout script so the modal opens without a delay on tap
+  useEffect(() => {
+    loadRazorpayCheckout()
+  }, [])
+
+  const amount = resolvePrice(plan, billingCycle)
+
+  const handlePayment = async () => {
+    setErrorMsg('')
+
+    if (!isAuthenticated()) {
+      setErrorMsg('Please log in before purchasing a membership.')
+      return
+    }
+    if (!plan) {
+      setErrorMsg('No plan selected.')
+      return
+    }
+
     setIsProcessing(true)
-    setTimeout(() => {
+
+    try {
+      // 1. Create the order server-side (authoritative amount + Razorpay key)
+      const orderRes = await createOrder(plan.id || plan._id || plan.planId, billingCycle)
+      if (!orderRes?.orderId || !orderRes?.keyId) {
+        throw new Error('Could not initiate the payment order. Please try again.')
+      }
+
+      // 2. Open the hosted Checkout and collect the real signature
+      const ready = await loadRazorpayCheckout()
+      if (!ready) {
+        throw new Error('Payment gateway failed to load. Please check your connection and try again.')
+      }
+
+      const storedUser = getStoredUser()
+      const result = await openRazorpayCheckout({
+        keyId: orderRes.keyId,
+        orderId: orderRes.orderId,
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        description: `${plan.name} - ${CYCLE_LABEL[billingCycle] || billingCycle}`,
+        prefill: {
+          name: storedUser?.name || '',
+          email: storedUser?.email || '',
+          contact: storedUser?.mobile || '',
+        },
+      })
+
+      // 3. Verify server-side. Only a verified signature activates the plan.
+      await verifyPayment({
+        orderId: result.orderId || orderRes.orderId,
+        paymentId: result.paymentId,
+        signature: result.signature,
+      })
+
       setIsProcessing(false)
       setPaymentSuccess(true)
       setTimeout(() => {
-        if (onPaymentComplete) onPaymentComplete()
+        if (onPaymentComplete) onPaymentComplete(plan)
       }, 1500)
-    }, 2000)
+    } catch (err) {
+      setIsProcessing(false)
+
+      if (err?.code === 'CHECKOUT_DISMISSED') {
+        setErrorMsg('Payment cancelled. You have not been charged.')
+        return
+      }
+      setErrorMsg(err?.message || 'Payment could not be completed. Please try again.')
+    }
   }
 
-  // If success, show success UI
   if (paymentSuccess) {
     return (
       <div className="bg-[#fbf9f5] min-h-screen flex flex-col items-center justify-center p-6 text-center">
@@ -24,7 +149,9 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
           <span className="material-symbols-outlined text-4xl">check</span>
         </div>
         <h2 className="text-2xl font-extrabold text-[#570013] mb-2">Payment Successful!</h2>
-        <p className="text-slate-600 font-medium mb-6">Your Premium Gold plan is now active.</p>
+        <p className="text-slate-600 font-medium mb-6">
+          Your {plan?.name || 'Premium'} plan is now active.
+        </p>
         <div className="w-8 h-8 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin"></div>
       </div>
     )
@@ -59,61 +186,75 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
           </div>
         )}
 
+        {/* Error Banner */}
+        {errorMsg && (
+          <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-800 font-bold flex items-start gap-2 relative z-10">
+            <span className="material-symbols-outlined text-sm mt-0.5">error</span>
+            <span className="flex-1">{errorMsg}</span>
+            <button onClick={() => setErrorMsg('')} className="text-red-500 font-bold shrink-0">
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Order Summary */}
         <div className="bg-white rounded-md p-4 shadow-sm border border-amber-200/60 mb-6 relative z-10">
-          <h2 className="font-display font-bold text-[#570013] mb-3 border-b border-amber-100 pb-2">Order Summary</h2>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-semibold text-slate-800">Premium Gold (Yearly)</span>
-            <span className="text-sm font-bold text-[#570013]">₹799</span>
-          </div>
-          <div className="flex justify-between items-center text-xs text-emerald-600 font-semibold mb-3">
-            <span>Special Discount (20% Off)</span>
-            <span>- ₹200</span>
-          </div>
-          <div className="flex justify-between items-center border-t border-dashed border-amber-200 pt-3">
-            <span className="text-sm font-bold text-slate-900">Total Amount</span>
-            <span className="text-lg font-black text-[#570013]">₹599</span>
-          </div>
+          <h2 className="font-display font-bold text-[#570013] mb-3 border-b border-amber-100 pb-2">
+            Order Summary
+          </h2>
+
+          {isLoadingPlan ? (
+            <div className="space-y-2 animate-pulse">
+              <div className="h-4 bg-amber-100/70 rounded w-2/3"></div>
+              <div className="h-4 bg-amber-100/70 rounded w-1/3"></div>
+            </div>
+          ) : plan ? (
+            <>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold text-slate-800">
+                  {plan.name} ({CYCLE_LABEL[billingCycle] || billingCycle})
+                </span>
+                <span className="text-sm font-bold text-[#570013]">
+                  ₹{amount.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {plan.features?.length > 0 && (
+                <ul className="text-[11px] text-slate-600 font-medium space-y-1 mb-3">
+                  {plan.features.slice(0, 4).map((feature, idx) => (
+                    <li key={idx} className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[13px] text-emerald-600">
+                        check_circle
+                      </span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex justify-between items-center border-t border-dashed border-amber-200 pt-3">
+                <span className="text-sm font-bold text-slate-900">Total Amount</span>
+                <span className="text-lg font-black text-[#570013]">
+                  ₹{amount.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-slate-500 font-semibold">Plan details unavailable.</p>
+          )}
         </div>
 
-        {/* Payment Methods */}
-        <h2 className="font-display font-bold text-[#570013] mb-3 px-1 relative z-10">Select Payment Method</h2>
-        <div className="space-y-3 relative z-10">
-          {/* UPI Option */}
-          <label className={`flex items-center gap-3 p-4 rounded-md border transition-all cursor-pointer ${selectedMethod === 'upi' ? 'bg-amber-50/50 border-amber-400 shadow-md' : 'bg-white border-amber-200/50 shadow-sm'}`}>
-            <input 
-              type="radio" 
-              name="payment_method" 
-              value="upi"
-              disabled={isProcessing}
-              checked={selectedMethod === 'upi'} 
-              onChange={() => setSelectedMethod('upi')}
-              className="accent-[#570013] w-4 h-4"
-            />
-            <span className="material-symbols-outlined text-2xl text-[#775a19]">qr_code_scanner</span>
-            <div className="flex-1">
-              <span className="block font-bold text-sm text-slate-900">UPI / QR</span>
-              <span className="block text-[10px] text-slate-500 font-semibold">Google Pay, PhonePe, Paytm</span>
-            </div>
-          </label>
-
-          {/* Cards Option */}
-          <label className={`flex items-center gap-3 p-4 rounded-md border transition-all cursor-pointer ${selectedMethod === 'cards' ? 'bg-amber-50/50 border-amber-400 shadow-md' : 'bg-white border-amber-200/50 shadow-sm'}`}>
-            <input 
-              type="radio" 
-              name="payment_method" 
-              value="cards"
-              disabled={isProcessing}
-              checked={selectedMethod === 'cards'} 
-              onChange={() => setSelectedMethod('cards')}
-              className="accent-[#570013] w-4 h-4"
-            />
-            <span className="material-symbols-outlined text-2xl text-[#775a19]">credit_card</span>
-            <div className="flex-1">
-              <span className="block font-bold text-sm text-slate-900">Credit / Debit Card</span>
-              <span className="block text-[10px] text-slate-500 font-semibold">Visa, MasterCard, RuPay</span>
-            </div>
-          </label>
+        {/* Payment Method Note */}
+        <div className="bg-white rounded-md p-4 shadow-sm border border-amber-200/60 relative z-10">
+          <h2 className="font-display font-bold text-[#570013] mb-2">Payment Method</h2>
+          <p className="text-xs text-slate-600 font-medium leading-relaxed">
+            You will be redirected to Razorpay's secure checkout, where you can pay by UPI, credit
+            or debit card, net banking, or wallet.
+          </p>
+          <div className="flex items-center gap-2 mt-3 text-[10px] font-bold text-slate-500">
+            <span className="material-symbols-outlined text-[14px] text-emerald-600">lock</span>
+            <span>256-bit encrypted • PCI-DSS compliant</span>
+          </div>
         </div>
       </main>
 
@@ -121,11 +262,11 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-amber-200 py-3 px-4 shadow-2xl">
         <div className="max-w-xl mx-auto">
           <button
-            disabled={isProcessing}
+            disabled={isProcessing || isLoadingPlan || !plan}
             onClick={handlePayment}
             className={`w-full py-3.5 rounded-md font-bold text-sm transition shadow-lg text-center flex items-center justify-center gap-2 ${
-              isProcessing 
-                ? 'bg-gray-400 text-white cursor-not-allowed' 
+              isProcessing || isLoadingPlan || !plan
+                ? 'bg-gray-400 text-white cursor-not-allowed'
                 : 'bg-[#570013] text-[#ffdea5] hover:bg-[#800020]'
             }`}
           >
@@ -137,7 +278,9 @@ export default function PaymentScreen({ onBack, onPaymentComplete }) {
             ) : (
               <>
                 <span className="material-symbols-outlined text-lg">lock</span>
-                <span>Pay Securely ₹599</span>
+                <span>
+                  Pay Securely {plan ? `₹${amount.toLocaleString('en-IN')}` : ''}
+                </span>
               </>
             )}
           </button>

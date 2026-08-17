@@ -1,13 +1,19 @@
-import React, { useState } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { useAdminAuth } from '../context/AdminAuthContext'
+import {
+  getAdminProfile,
+  updateAdminProfile,
+  updateAdminPassword,
+  updateAdminPreferences,
+} from '../../../services/adminService'
 
 export default function AdminSettingsPage() {
   const { adminUser } = useAdminAuth()
 
   // State
-  const [name, setName] = useState(adminUser?.name || 'Super Administrator')
-  const [email, setEmail] = useState(adminUser?.email || 'admin@matrimonyhub.com')
+  const [name, setName] = useState(adminUser?.name || '')
+  const [email, setEmail] = useState(adminUser?.email || '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -19,16 +25,60 @@ export default function AdminSettingsPage() {
 
   const [toastMsg, setToastMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
-  const handleUpdateProfile = (e) => {
-    e.preventDefault()
-    setToastMsg('Account profile details updated successfully!')
+  // Load the authoritative profile and preferences from the API rather than
+  // trusting the cached login session.
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      try {
+        const res = await getAdminProfile()
+        const admin = res?.admin || res
+        if (cancelled || !admin) return
+
+        setName(admin.name || '')
+        setEmail(admin.email || '')
+
+        const prefs = admin.preferences || {}
+        if (typeof prefs.notifyVerifications === 'boolean') setNotifyVerifications(prefs.notifyVerifications)
+        if (typeof prefs.notifyComplaints === 'boolean') setNotifyComplaints(prefs.notifyComplaints)
+        if (typeof prefs.notifyPayments === 'boolean') setNotifyPayments(prefs.notifyPayments)
+      } catch (err) {
+        if (!cancelled) setErrorMsg(err?.message || 'Could not load your admin profile.')
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const showToast = (message) => {
+    setToastMsg(message)
     setTimeout(() => setToastMsg(''), 3500)
   }
 
-  const handleChangePassword = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault()
     setErrorMsg('')
+    setIsSaving(true)
+    try {
+      await updateAdminProfile({ name, email })
+      showToast('Account profile details updated successfully!')
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not update your profile details.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setErrorMsg('')
+
     if (newPassword !== confirmPassword) {
       setErrorMsg('New password and confirmation do not match.')
       return
@@ -37,17 +87,33 @@ export default function AdminSettingsPage() {
       setErrorMsg('New password must be at least 6 characters.')
       return
     }
-    setToastMsg('Password changed successfully!')
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setTimeout(() => setToastMsg(''), 3500)
+
+    setIsSaving(true)
+    try {
+      await updateAdminPassword(currentPassword, newPassword)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      showToast('Password changed successfully!')
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not change your password.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleSavePreferences = (e) => {
+  const handleSavePreferences = async (e) => {
     e.preventDefault()
-    setToastMsg('System notification preferences saved!')
-    setTimeout(() => setToastMsg(''), 3500)
+    setErrorMsg('')
+    setIsSaving(true)
+    try {
+      await updateAdminPreferences({ notifyVerifications, notifyComplaints, notifyPayments })
+      showToast('System notification preferences saved!')
+    } catch (err) {
+      setErrorMsg(err?.message || 'Could not save your notification preferences.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -130,9 +196,10 @@ export default function AdminSettingsPage() {
 
           <button
             type="submit"
-            className="w-full py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-sm hover:bg-[#42000e] transition-all active:scale-95"
+            disabled={isSaving}
+            className="w-full py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-sm hover:bg-[#42000e] transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Save Profile Info
+            {isSaving ? 'Saving...' : 'Save Profile Info'}
           </button>
         </form>
 
@@ -155,7 +222,7 @@ export default function AdminSettingsPage() {
               required
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
             />
           </div>
@@ -190,9 +257,10 @@ export default function AdminSettingsPage() {
 
           <button
             type="submit"
-            className="w-full py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-sm hover:bg-[#42000e] transition-all active:scale-95"
+            disabled={isSaving}
+            className="w-full py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-sm hover:bg-[#42000e] transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Update Password
+            {isSaving ? 'Saving...' : 'Update Password'}
           </button>
         </form>
       </div>
@@ -250,9 +318,10 @@ export default function AdminSettingsPage() {
 
         <button
           type="submit"
-          className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-sm hover:bg-[#42000e] transition-all active:scale-95"
+          disabled={isSaving}
+          className="px-4 py-2 bg-[#570013] text-amber-100 font-extrabold text-xs rounded-md shadow-sm hover:bg-[#42000e] transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Save Preferences
+          {isSaving ? 'Saving...' : 'Save Preferences'}
         </button>
       </form>
     </AdminLayout>
