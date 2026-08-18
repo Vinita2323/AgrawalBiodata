@@ -209,13 +209,29 @@ class NotificationService {
   /* -------------------------- Queries ---------------------------- */
 
   /**
-   * Paginated feed for one user, optionally filtered by category or unread.
+   * Narrows a feed query to one candidate profile.
+   *
+   * Notifications about a candidate (interests, visits, messages) carry that
+   * profile's id; account-level notices such as payment receipts carry none and
+   * belong to every profile, so they are always included.
    */
-  async list(userId, { category = 'All', unreadOnly = false, page = 1, limit = 20 } = {}) {
-    const filter = { userId };
-    if (category && category !== 'All') filter.category = category;
-    if (unreadOnly) filter.isRead = false;
+  scopeToProfile(filter, profileId) {
+    if (!profileId) return filter;
+    return {
+      ...filter,
+      $or: [{ profileId }, { profileId: null }]
+    };
+  }
 
+  /**
+   * Paginated feed for one user, optionally narrowed to a candidate profile.
+   */
+  async list(userId, { category = 'All', unreadOnly = false, page = 1, limit = 20, profileId = null } = {}) {
+    const base = { userId };
+    if (category && category !== 'All') base.category = category;
+    if (unreadOnly) base.isRead = false;
+
+    const filter = this.scopeToProfile(base, profileId);
     const skip = (page - 1) * limit;
 
     const [total, notifications, unreadCount] = await Promise.all([
@@ -225,7 +241,7 @@ class NotificationService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
-      Notification.countDocuments({ userId, isRead: false })
+      Notification.countDocuments(this.scopeToProfile({ userId, isRead: false }, profileId))
     ]);
 
     return { notifications, total, unreadCount };
@@ -239,16 +255,16 @@ class NotificationService {
     );
   }
 
-  async markAllRead(userId) {
+  async markAllRead(userId, profileId = null) {
     const result = await Notification.updateMany(
-      { userId, isRead: false },
+      this.scopeToProfile({ userId, isRead: false }, profileId),
       { isRead: true, readAt: new Date() }
     );
     return result.modifiedCount || 0;
   }
 
-  async unreadCount(userId) {
-    return Notification.countDocuments({ userId, isRead: false });
+  async unreadCount(userId, profileId = null) {
+    return Notification.countDocuments(this.scopeToProfile({ userId, isRead: false }, profileId));
   }
 
   async remove(userId, notificationId) {

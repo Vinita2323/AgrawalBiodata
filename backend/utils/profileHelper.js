@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const Block = require('../models/Block');
+const Interest = require('../models/Interest');
+const { INTEREST_STATUS } = require('../config/constants');
 
 /**
  * Resolves a profile by MongoDB _id or custom string profileId (e.g., "PRF-123456")
@@ -24,15 +26,32 @@ const findProfileByIdOrCustomId = async (id) => {
 };
 
 /**
- * Gets the active profile for a user ID
+ * Gets the active profile for a user ID.
+ *
+ * An account can run several candidate profiles (a parent operating biodata for
+ * a son and a daughter), so "active" is per-request rather than global:
+ * `requestedProfileId` - carried by the X-Profile-Id header - wins when the
+ * caller owns it, otherwise we fall back to the persisted `activeProfileId`.
+ * A profile owned by somebody else is ignored, never silently honoured.
+ *
+ * @param {string} userId
+ * @param {string} [requestedProfileId] Per-request override
  */
-const getUserActiveProfile = async (userId) => {
+const getUserActiveProfile = async (userId, requestedProfileId) => {
   if (!userId) return null;
   const user = await User.findById(userId);
   if (!user) return null;
 
   let profile = null;
-  if (user.activeProfileId) {
+
+  if (requestedProfileId) {
+    const requested = await findProfileByIdOrCustomId(requestedProfileId);
+    if (requested && requested.userId.toString() === user._id.toString()) {
+      profile = requested;
+    }
+  }
+
+  if (!profile && user.activeProfileId) {
     profile = await Profile.findById(user.activeProfileId);
   }
 
@@ -45,6 +64,27 @@ const getUserActiveProfile = async (userId) => {
   }
 
   return { user, activeProfile: profile };
+};
+
+/**
+ * Whether two candidate profiles are connected through an accepted interest.
+ *
+ * Deliberately profile-to-profile rather than account-to-account: a son's
+ * accepted interest must not unmask that family's phone number and address on
+ * his sister's profile.
+ */
+const areProfilesConnected = async (profileIdA, profileIdB) => {
+  if (!profileIdA || !profileIdB) return false;
+
+  return Boolean(
+    await Interest.exists({
+      status: INTEREST_STATUS.ACCEPTED,
+      $or: [
+        { senderProfileId: profileIdA, recipientProfileId: profileIdB },
+        { senderProfileId: profileIdB, recipientProfileId: profileIdA }
+      ]
+    })
+  );
 };
 
 /**
@@ -101,6 +141,7 @@ const isBlockedBetween = async (user1Id, user2Id, profile1Id, profile2Id) => {
 module.exports = {
   findProfileByIdOrCustomId,
   getUserActiveProfile,
+  areProfilesConnected,
   getBlockedIds,
   isBlockedBetween
 };

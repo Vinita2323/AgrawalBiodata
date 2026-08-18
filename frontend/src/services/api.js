@@ -76,6 +76,39 @@ export function getAuthToken() {
   return null;
 }
 
+/** localStorage key holding the candidate profile the UI is currently showing. */
+export const ACTIVE_PROFILE_ID_KEY = 'activeProfileId';
+
+/**
+ * The candidate profile the app is currently acting as.
+ *
+ * An account can run several profiles - a parent operating biodata for a son
+ * and a daughter - so every request carries the one on screen. The server falls
+ * back to the account's stored active profile when this is absent.
+ */
+export function getActiveProfileId() {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    return localStorage.getItem(ACTIVE_PROFILE_ID_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Records which profile subsequent requests should act as. */
+export function setActiveProfileId(profileId) {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    if (profileId) {
+      localStorage.setItem(ACTIVE_PROFILE_ID_KEY, profileId);
+    } else {
+      localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
+    }
+  } catch {
+    // Ignore quota / privacy-mode errors
+  }
+}
+
 /**
  * Retrieve refresh token from localStorage
  */
@@ -105,6 +138,7 @@ export function setAuthTokens({ accessToken, token, refreshToken }) {
  */
 export function clearAuthTokens() {
   if (typeof window === 'undefined' || !window.localStorage) return;
+  localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
   localStorage.removeItem('token');
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
@@ -200,6 +234,14 @@ async function request(endpoint, options = {}) {
     const token = getAuthToken();
     if (token) {
       reqHeaders.set('Authorization', `Bearer ${token}`);
+    }
+  }
+
+  // Tell the server which candidate profile this request is acting as.
+  if (!skipAuth && !reqHeaders.has('X-Profile-Id')) {
+    const activeProfileId = getActiveProfileId();
+    if (activeProfileId) {
+      reqHeaders.set('X-Profile-Id', activeProfileId);
     }
   }
 

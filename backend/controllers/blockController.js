@@ -28,7 +28,7 @@ const blockProfile = async (req, res, next) => {
       return badRequest(res, 'Blocked profile ID is required');
     }
 
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }

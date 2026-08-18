@@ -5,6 +5,7 @@
 const { verifyAccessToken } = require('../utils/token');
 const { unauthorized, forbidden } = require('../utils/apiResponse');
 const User = require('../models/User');
+const { readRequestedProfileId } = require('./activeProfile');
 
 const auth = async (req, res, next) => {
   try {
@@ -29,6 +30,12 @@ const auth = async (req, res, next) => {
       return forbidden(res, 'Your account has been suspended. Please contact platform support.');
     }
 
+    // Which of the account's candidate profiles this request is acting as.
+    const { profileId: requestedProfileId, foreign } = await readRequestedProfileId(req, user);
+    if (foreign) {
+      return forbidden(res, 'You do not have access to the requested profile');
+    }
+
     req.user = {
       userId: user._id.toString(),
       mobile: user.mobile,
@@ -40,6 +47,7 @@ const auth = async (req, res, next) => {
       subscriptionPlan: user.subscriptionPlan,
       subscriptionStatus: user.subscriptionStatus,
       activeProfileId: user.activeProfileId ? user.activeProfileId.toString() : null,
+      requestedProfileId,
       userDoc: user
     };
 
@@ -58,6 +66,7 @@ const optionalAuth = async (req, res, next) => {
       if (decoded && decoded.userId) {
         const user = await User.findById(decoded.userId);
         if (user && user.accountStatus !== 'Suspended') {
+          const { profileId: requestedProfileId } = await readRequestedProfileId(req, user);
           req.user = {
             userId: user._id.toString(),
             mobile: user.mobile,
@@ -69,6 +78,7 @@ const optionalAuth = async (req, res, next) => {
             subscriptionPlan: user.subscriptionPlan,
             subscriptionStatus: user.subscriptionStatus,
             activeProfileId: user.activeProfileId ? user.activeProfileId.toString() : null,
+            requestedProfileId,
             userDoc: user
           };
         }

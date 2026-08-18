@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Match Discovery Controller
  * Feeds, Daily Recommendations, Multi-Field Search & On-Demand Score Breakdown
  * Agrawal Matrimony Platform
@@ -51,7 +51,7 @@ const explicitlyFiltered = (query) => {
  */
 const getMatches = async (req, res, next) => {
   try {
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }
@@ -237,7 +237,7 @@ const getMatches = async (req, res, next) => {
  */
 const getTodayMatches = async (req, res, next) => {
   try {
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }
@@ -314,7 +314,7 @@ const getTodayMatches = async (req, res, next) => {
  */
 const searchMatches = async (req, res, next) => {
   try {
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     const activeProfile = userProfileData?.activeProfile || null;
     const { blockedUserIds, blockedProfileIds } = await getBlockedIds(req.user.userId);
 
@@ -533,7 +533,7 @@ const searchMatches = async (req, res, next) => {
 const getMatchScore = async (req, res, next) => {
   try {
     const { targetProfileId } = req.params;
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }

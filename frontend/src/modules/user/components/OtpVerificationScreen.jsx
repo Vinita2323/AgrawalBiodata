@@ -91,13 +91,30 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
 
       setIsSuccess(true)
 
+      // The backend is the only reliable source for whether this mobile just
+      // created an account - the route hint is a fallback for a direct hit on
+      // /otp-verification with no navigation state.
+      const isNewAccount =
+        typeof verifyRes?.isNewUser === 'boolean' ? verifyRes.isNewUser : isNew
+
+      // An existing account that never finished a biodata has nothing to show
+      // on the dashboard, so it belongs in profile setup rather than /home.
+      const needsProfile = !isNewAccount && !verifyRes?.user?.activeProfileId
+
       setTimeout(() => {
         if (onVerifySuccess) {
-          onVerifySuccess(location.state?.formData)
-        } else if (isNew || verifyRes?.isNewUser) {
-          navigate('/account-created', { state: { formData: location.state?.formData } })
+          onVerifySuccess({
+            isNewUser: isNewAccount,
+            needsProfile,
+            formData: location.state?.formData,
+          })
+        } else if (isNewAccount) {
+          navigate('/account-created', {
+            replace: true,
+            state: { formData: location.state?.formData },
+          })
         } else {
-          navigate('/home')
+          navigate(needsProfile ? '/profile-completion-dashboard' : '/home', { replace: true })
         }
       }, 1000)
     } catch (err) {

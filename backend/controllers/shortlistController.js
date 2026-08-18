@@ -25,7 +25,7 @@ const addToShortlist = async (req, res, next) => {
       return badRequest(res, 'Shortlisted profile ID is required');
     }
 
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }
@@ -74,20 +74,28 @@ const addToShortlist = async (req, res, next) => {
 const removeFromShortlist = async (req, res, next) => {
   try {
     const { targetProfileId } = req.params;
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     const activeProfile = userProfileData?.activeProfile || null;
 
     let targetProfile = await findProfileByIdOrCustomId(targetProfileId);
     const targetId = targetProfile ? targetProfile._id : (mongoose.Types.ObjectId.isValid(targetProfileId) ? targetProfileId : null);
 
+    // Every branch is pinned to the acting candidate profile. Matching on the
+    // account alone would let a removal from the son's shortlist delete the
+    // daughter's entry for the same candidate.
     const queryOr = [];
     if (mongoose.Types.ObjectId.isValid(targetProfileId)) {
-      queryOr.push({ _id: targetProfileId, userId: req.user.userId });
+      queryOr.push({
+        _id: targetProfileId,
+        userId: req.user.userId,
+        ...(activeProfile ? { profileId: activeProfile._id } : {})
+      });
     }
     if (targetId) {
-      queryOr.push({ userId: req.user.userId, shortlistedProfileId: targetId });
       if (activeProfile) {
         queryOr.push({ profileId: activeProfile._id, shortlistedProfileId: targetId });
+      } else {
+        queryOr.push({ userId: req.user.userId, shortlistedProfileId: targetId });
       }
     }
 
@@ -113,7 +121,7 @@ const removeFromShortlist = async (req, res, next) => {
  */
 const getShortlists = async (req, res, next) => {
   try {
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     const activeProfile = userProfileData?.activeProfile || null;
 
     const query = { userId: req.user.userId };

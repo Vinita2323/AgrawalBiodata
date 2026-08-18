@@ -23,12 +23,26 @@ function handleChatError(res, error, next) {
 }
 
 /**
+ * Id of a participant's profile, which `listConversations` populates and the
+ * other read paths leave as a raw ObjectId.
+ */
+function participantProfileId(participant) {
+  const ref = participant?.profileId;
+  if (!ref) return null;
+  return (ref._id || ref).toString();
+}
+
+/**
  * Shapes a conversation for the client: the other participant is surfaced as
  * `withProfile` and the caller's own unread count is lifted to the top level.
+ *
+ * Keyed on the acting candidate profile rather than the account, since both
+ * sides of a thread can belong to the same account only by profile.
  */
-function serializeConversation(conversation, userId) {
-  const mine = conversation.participants.find((p) => p.userId.toString() === userId.toString());
-  const theirs = conversation.participants.find((p) => p.userId.toString() !== userId.toString());
+function serializeConversation(conversation, profileId) {
+  const own = profileId.toString();
+  const mine = conversation.participants.find((p) => participantProfileId(p) === own);
+  const theirs = conversation.participants.find((p) => participantProfileId(p) !== own);
   const other = theirs?.profileId;
 
   return {
@@ -41,13 +55,14 @@ function serializeConversation(conversation, userId) {
           profilePicture: other.profilePicture,
           verified: other.verified
         }
-      : { id: theirs?.profileId?.toString() || null },
+      : { id: participantProfileId(theirs) },
     lastMessage: conversation.lastMessage,
     lastMessageAt: conversation.lastMessageAt,
-    isLastMessageMine:
+    isLastMessageMine: Boolean(
       conversation.lastMessageSenderProfileId &&
       mine &&
-      conversation.lastMessageSenderProfileId.toString() === mine.profileId.toString(),
+      conversation.lastMessageSenderProfileId.toString() === participantProfileId(mine)
+    ),
     unreadCount: mine ? mine.unreadCount : 0
   };
 }
@@ -61,13 +76,23 @@ const getConversations = async (req, res, next) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
 
-    const { conversations, total } = await chatService.listConversations(req.user.userId, {
+    const activeProfile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile;
+    if (!activeProfile) {
+      return success(res, 'Conversations retrieved successfully', {
+        conversations: [],
+        total: 0,
+        page,
+        limit
+      });
+    }
+
+    const { conversations, total } = await chatService.listConversations(activeProfile._id, {
       page,
       limit
     });
 
     return success(res, 'Conversations retrieved successfully', {
-      conversations: conversations.map((c) => serializeConversation(c, req.user.userId)),
+      conversations: conversations.map((c) => serializeConversation(c, activeProfile._id)),
       total,
       page,
       limit
@@ -89,7 +114,7 @@ const openConversation = async (req, res, next) => {
       return badRequest(res, 'Target profile ID is required');
     }
 
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData?.activeProfile) {
       return badRequest(
         res,
@@ -112,7 +137,7 @@ const openConversation = async (req, res, next) => {
     await conversation.populate('participants.profileId', 'fullName profileId profilePicture verified');
 
     return created(res, 'Conversation ready', {
-      conversation: serializeConversation(conversation, req.user.userId)
+      conversation: serializeConversation(conversation, userProfileData.activeProfile._id)
     });
   } catch (error) {
     return handleChatError(res, error, next);
@@ -135,7 +160,7 @@ const getMessages = async (req, res, next) => {
       'fullName profileId profilePicture verified'
     );
 
-    chatService.assertParticipant(conversation, req.user.userId);
+    const { me } = chatService.assertParticipant(conversation, req.user.userId);
 
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
@@ -143,7 +168,7 @@ const getMessages = async (req, res, next) => {
     const { messages, total } = await chatService.listMessages(conversationId, { page, limit });
 
     return success(res, 'Messages retrieved successfully', {
-      conversation: serializeConversation(conversation, req.user.userId),
+      conversation: serializeConversation(conversation, participantProfileId(me)),
       messages,
       total,
       page,
@@ -235,7 +260,8 @@ const markConversationRead = async (req, res, next) => {
  */
 const getUnreadCount = async (req, res, next) => {
   try {
-    const unreadCount = await chatService.totalUnread(req.user.userId);
+    const activeProfile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile;
+    const unreadCount = activeProfile ? await chatService.totalUnread(activeProfile._id) : 0;
     return success(res, 'Unread message count retrieved', { unreadCount });
   } catch (error) {
     next(error);

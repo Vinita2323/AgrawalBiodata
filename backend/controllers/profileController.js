@@ -7,11 +7,22 @@
 const mongoose = require('mongoose');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
-const Interest = require('../models/Interest');
 const Block = require('../models/Block');
 const { calculateProfileCompletion } = require('../services/profileScoreService');
+const { getUserActiveProfile, areProfilesConnected } = require('../utils/profileHelper');
 const { isValidGotra, normalizeGotra } = require('../utils/gotras');
 const { success, created, badRequest, notFound, forbidden } = require('../utils/apiResponse');
+
+/**
+ * Candidate profiles one account may run at once.
+ *
+ * Read per call rather than cached at module load so the limit can be tuned per
+ * deployment through MAX_PROFILES_PER_ACCOUNT without a rebuild.
+ */
+const maxProfilesPerAccount = () => {
+  const configured = parseInt(process.env.MAX_PROFILES_PER_ACCOUNT, 10);
+  return Number.isFinite(configured) && configured > 0 ? configured : 5;
+};
 
 
 /**
@@ -126,6 +137,19 @@ const createProfile = async (req, res, next) => {
       return notFound(res, 'User account not found');
     }
 
+    // Counted from the Profile collection rather than user.profiles, which can
+    // be short for profiles created before that array was maintained.
+    const limit = maxProfilesPerAccount();
+    const existingCount = await Profile.countDocuments({ userId: user._id });
+    if (existingCount >= limit) {
+      return badRequest(
+        res,
+        `You can manage at most ${limit} candidate profiles on one account.`,
+        null,
+        'PROFILE_LIMIT_REACHED'
+      );
+    }
+
     // Generate unique profileId
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const generatedProfileId = `PRF-${randomSuffix}`;
@@ -225,23 +249,12 @@ const createProfile = async (req, res, next) => {
  */
 const getMeProfile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.userId);
-    if (!user) {
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
+    if (!userProfileData) {
       return notFound(res, 'User not found');
     }
 
-    let profile = null;
-    if (user.activeProfileId) {
-      profile = await Profile.findById(user.activeProfileId);
-    }
-
-    if (!profile) {
-      profile = await Profile.findOne({ userId: user._id });
-      if (profile) {
-        user.activeProfileId = profile._id;
-        await user.save();
-      }
-    }
+    const profile = userProfileData.activeProfile;
 
     if (!profile) {
       return success(res, 'No candidate profile found for this user', {
@@ -324,6 +337,12 @@ const switchActiveProfile = async (req, res, next) => {
 
     const user = await User.findById(req.user.userId);
     user.activeProfileId = profile._id;
+
+    // Profiles created before this list was maintained are absent from it;
+    // backfill on switch so ownership checks can trust the cached array.
+    if (!user.profiles.some((p) => p.toString() === profile._id.toString())) {
+      user.profiles.push(profile._id);
+    }
     await user.save();
 
     return success(res, `Switched active profile to ${profile.fullName} (${profile.profileId})`, {
@@ -365,17 +384,15 @@ const getProfileById = async (req, res, next) => {
     const isOwner = Boolean(req.user && profile.userId.toString() === req.user.userId);
     const profileData = profile.toJSON();
 
+    // Connection is judged between the viewer's active candidate profile and
+    // this one, never between the two accounts: on a parent's account, the
+    // son's accepted interest must not unmask contact details for the daughter.
     let isConnected = false;
     if (req.user && !isOwner) {
-      isConnected = Boolean(
-        await Interest.exists({
-          status: 'Accepted',
-          $or: [
-            { senderUserId: req.user.userId, recipientUserId: profile.userId },
-            { senderUserId: profile.userId, recipientUserId: req.user.userId }
-          ]
-        })
-      );
+      const viewerProfile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile;
+      if (viewerProfile) {
+        isConnected = await areProfilesConnected(viewerProfile._id, profile._id);
+      }
     }
 
     if (!isOwner) {
@@ -459,13 +476,8 @@ const updateProfile = async (req, res, next) => {
     let profile = null;
 
     if (profileId === 'me') {
-      const user = await User.findById(req.user.userId);
-      if (user?.activeProfileId) {
-        profile = await Profile.findById(user.activeProfileId);
-      }
-      if (!profile) {
-        profile = await Profile.findOne({ userId: req.user.userId });
-      }
+      profile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile || null;
+
     } else {
       profile = await findProfileByIdOrCustomId(profileId);
     }
@@ -694,13 +706,8 @@ const uploadProfilePhoto = async (req, res, next) => {
     let profile = null;
 
     if (!profileId || profileId === 'me') {
-      const user = await User.findById(req.user.userId);
-      if (user?.activeProfileId) {
-        profile = await Profile.findById(user.activeProfileId);
-      }
-      if (!profile) {
-        profile = await Profile.findOne({ userId: req.user.userId });
-      }
+      profile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile || null;
+
     } else {
       profile = await findProfileByIdOrCustomId(profileId);
     }
@@ -745,13 +752,8 @@ const uploadGalleryPhoto = async (req, res, next) => {
     let profile = null;
 
     if (!profileId || profileId === 'me') {
-      const user = await User.findById(req.user.userId);
-      if (user?.activeProfileId) {
-        profile = await Profile.findById(user.activeProfileId);
-      }
-      if (!profile) {
-        profile = await Profile.findOne({ userId: req.user.userId });
-      }
+      profile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile || null;
+
     } else {
       profile = await findProfileByIdOrCustomId(profileId);
     }
@@ -808,13 +810,8 @@ const deleteGalleryPhoto = async (req, res, next) => {
     let profile = null;
 
     if (profileId === 'me') {
-      const user = await User.findById(req.user.userId);
-      if (user?.activeProfileId) {
-        profile = await Profile.findById(user.activeProfileId);
-      }
-      if (!profile) {
-        profile = await Profile.findOne({ userId: req.user.userId });
-      }
+      profile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile || null;
+
     } else {
       profile = await findProfileByIdOrCustomId(profileId);
     }
@@ -859,13 +856,8 @@ const getCompletionScore = async (req, res, next) => {
     let profile = null;
 
     if (!profileId || profileId === 'me') {
-      const user = await User.findById(req.user.userId);
-      if (user?.activeProfileId) {
-        profile = await Profile.findById(user.activeProfileId);
-      }
-      if (!profile) {
-        profile = await Profile.findOne({ userId: req.user.userId });
-      }
+      profile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile || null;
+
     } else {
       profile = await findProfileByIdOrCustomId(profileId);
     }

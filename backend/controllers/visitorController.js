@@ -40,7 +40,7 @@ const recordVisit = async (req, res, next) => {
       return success(res, 'Self-profile view not recorded', { recorded: false });
     }
 
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     const visitorActiveProfile = userProfileData?.activeProfile || null;
 
     const visitDate = getUTCMidnight();
@@ -92,7 +92,7 @@ const recordVisit = async (req, res, next) => {
  */
 const getVisitors = async (req, res, next) => {
   try {
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }
@@ -135,7 +135,7 @@ const getVisitors = async (req, res, next) => {
  */
 const getVisitorMetrics = async (req, res, next) => {
   try {
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }

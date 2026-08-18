@@ -32,7 +32,7 @@ const getPreferences = async (req, res, next) => {
   try {
     const profile = req.params.profileId
       ? await findProfileByIdOrCustomId(req.params.profileId)
-      : (await getUserActiveProfile(req.user.userId))?.activeProfile;
+      : (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile;
 
     if (!profile) {
       return notFound(res, 'Candidate profile not found');
@@ -58,7 +58,7 @@ const updatePreferences = async (req, res, next) => {
   try {
     const profile = req.params.profileId
       ? await findProfileByIdOrCustomId(req.params.profileId)
-      : (await getUserActiveProfile(req.user.userId))?.activeProfile;
+      : (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile;
 
     if (!profile) {
       return notFound(res, 'Candidate profile not found');
@@ -134,7 +134,7 @@ const recordSearch = async (req, res, next) => {
       return badRequest(res, 'A search query or at least one filter is required');
     }
 
-    const profileData = await getUserActiveProfile(req.user.userId);
+    const profileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     const signature = JSON.stringify({ query: query.trim().toLowerCase(), filters });
 
     const existing = await SavedSearch.findOne({

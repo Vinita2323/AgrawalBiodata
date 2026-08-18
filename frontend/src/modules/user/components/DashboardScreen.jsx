@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import HeaderBar from './HeaderBar'
+import { useActiveProfile } from '../../../context/ActiveProfileContext'
 import { getMyProfile } from '../../../services/profileService'
 import { getMatches, getTodayMatches, searchMatches } from '../../../services/matchService'
 import {
@@ -57,6 +58,7 @@ function relativeTime(value) {
 export default function DashboardScreen({ initialTab, onSelectProfile, onBack, isPremiumUser }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { activeProfileId } = useActiveProfile()
   const biodataRef = useRef(null)
   const [isExportingPdf, setIsExportingPdf] = useState(false)
   const [toastMessage, setToastMessage] = useState(null)
@@ -218,7 +220,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   useEffect(() => {
     if (activeTab !== 'Notifications') return
     loadNotifications(notificationsTab)
-  }, [activeTab, notificationsTab])
+  }, [activeTab, notificationsTab, activeProfileId])
 
   const loadNotifications = async (category = 'All') => {
     if (!isAuthenticated()) return
@@ -343,7 +345,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     }
 
     loadDashboardData()
-  }, [])
+    // Re-runs when the account switches candidate profile: matches, interests
+    // and chats all belong to one candidate, so the previous profile's data
+    // must not linger on screen.
+  }, [activeProfileId])
 
   useEffect(() => {
     const path = location.pathname
@@ -419,8 +424,11 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
   useEffect(() => {
     if (activeTab !== 'Messages') return
+    // Threads belong to a candidate profile, so a switch must clear whatever
+    // thread was open before reloading the other profile's inbox.
+    setSelectedChat(null)
     loadConversations()
-  }, [activeTab])
+  }, [activeTab, activeProfileId])
 
   // Incoming messages arrive on the shared socket whether or not the relevant
   // thread is open, so both the list and the open thread are updated here.
@@ -578,7 +586,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   useEffect(() => {
     if (activeTab !== 'Interests') return
     loadInterests()
-  }, [activeTab])
+  }, [activeTab, activeProfileId])
 
   /**
    * Accept or decline a received interest. Accepting also opens the
@@ -651,7 +659,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   useEffect(() => {
     if (activeTab !== 'Search') return
     loadRecentSearches()
-  }, [activeTab])
+  }, [activeTab, activeProfileId])
 
   /** Runs a server-side search and records it in the user's history. */
   const runSearch = async (term) => {

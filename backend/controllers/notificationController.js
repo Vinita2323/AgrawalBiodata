@@ -5,8 +5,19 @@
 
 const notificationService = require('../services/notificationService');
 const User = require('../models/User');
+const { getUserActiveProfile } = require('../utils/profileHelper');
 const { success, notFound, badRequest } = require('../utils/apiResponse');
 const { NOTIFICATION_CATEGORIES } = require('../config/constants');
+
+/**
+ * The candidate profile this request is acting as, or null when the account has
+ * none yet. Feeds are narrowed to it so a parent running two children's
+ * biodatas does not see one child's alerts while viewing the other.
+ */
+async function actingProfileId(req) {
+  const data = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
+  return data?.activeProfile?._id || null;
+}
 
 /**
  * 1. List the authenticated user's notification feed
@@ -26,7 +37,8 @@ const getNotifications = async (req, res, next) => {
       category,
       unreadOnly: req.query.unreadOnly === 'true',
       page,
-      limit
+      limit,
+      profileId: await actingProfileId(req)
     });
 
     return success(res, 'Notifications retrieved successfully', {
@@ -50,7 +62,7 @@ const getNotifications = async (req, res, next) => {
  */
 const getUnreadCount = async (req, res, next) => {
   try {
-    const unreadCount = await notificationService.unreadCount(req.user.userId);
+    const unreadCount = await notificationService.unreadCount(req.user.userId, await actingProfileId(req));
     return success(res, 'Unread notification count retrieved', { unreadCount });
   } catch (error) {
     next(error);
@@ -68,7 +80,7 @@ const markRead = async (req, res, next) => {
       return notFound(res, 'Notification not found');
     }
 
-    const unreadCount = await notificationService.unreadCount(req.user.userId);
+    const unreadCount = await notificationService.unreadCount(req.user.userId, await actingProfileId(req));
     return success(res, 'Notification marked as read', { notification, unreadCount });
   } catch (error) {
     next(error);
@@ -81,7 +93,7 @@ const markRead = async (req, res, next) => {
  */
 const markAllRead = async (req, res, next) => {
   try {
-    const updated = await notificationService.markAllRead(req.user.userId);
+    const updated = await notificationService.markAllRead(req.user.userId, await actingProfileId(req));
     return success(res, 'All notifications marked as read', { updated, unreadCount: 0 });
   } catch (error) {
     next(error);

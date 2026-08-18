@@ -10,25 +10,13 @@
 
 const ContactUnlock = require('../models/ContactUnlock');
 const User = require('../models/User');
-const Interest = require('../models/Interest');
-const { findProfileByIdOrCustomId, isBlockedBetween } = require('../utils/profileHelper');
+const {
+  findProfileByIdOrCustomId,
+  isBlockedBetween,
+  getUserActiveProfile,
+  areProfilesConnected
+} = require('../utils/profileHelper');
 const { success, badRequest, notFound, forbidden } = require('../utils/apiResponse');
-
-/**
- * Whether the two users are connected through an accepted interest.
- * A connection reveals contact details for free.
- */
-async function areConnected(userIdA, userIdB) {
-  return Boolean(
-    await Interest.exists({
-      status: 'Accepted',
-      $or: [
-        { senderUserId: userIdA, recipientUserId: userIdB },
-        { senderUserId: userIdB, recipientUserId: userIdA }
-      ]
-    })
-  );
-}
 
 /**
  * 1. Unlock a candidate's contact details
@@ -81,8 +69,12 @@ const unlockContact = async (req, res, next) => {
       });
     }
 
-    // Mutual connections see contacts without spending an unlock.
-    if (await areConnected(req.user.userId, profile.userId)) {
+    // Mutual connections see contacts without spending an unlock. Judged
+    // profile-to-profile: an interest the son had accepted must not hand this
+    // family's number to the daughter's profile for free.
+    const viewerProfile = (await getUserActiveProfile(req.user.userId, req.user.requestedProfileId))?.activeProfile;
+
+    if (viewerProfile && (await areProfilesConnected(viewerProfile._id, profile._id))) {
       await ContactUnlock.create({
         userId: user._id,
         unlockedProfileId: profile._id,

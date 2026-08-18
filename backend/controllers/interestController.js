@@ -25,7 +25,7 @@ const expressInterest = async (req, res, next) => {
       return badRequest(res, 'Recipient profile ID is required');
     }
 
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     if (!userProfileData || !userProfileData.activeProfile) {
       return badRequest(res, 'No active candidate profile found. Please create or activate a profile first.', null, 'NO_ACTIVE_PROFILE');
     }
@@ -285,14 +285,32 @@ const getInterests = async (req, res, next) => {
     const status = req.query.status;
     const currentUserId = req.user.userId;
 
+    // Scoped to the candidate profile in play, not the account. An account
+    // running biodata for a son and a daughter must see two separate inboxes,
+    // otherwise proposals for one child surface under the other.
+    const userProfileData = await getUserActiveProfile(currentUserId, req.user.requestedProfileId);
+    const activeProfile = userProfileData?.activeProfile || null;
+
+    if (!activeProfile) {
+      return badRequest(
+        res,
+        'No active candidate profile found. Please create or activate a profile first.',
+        null,
+        'NO_ACTIVE_PROFILE'
+      );
+    }
+
     const query = {};
 
     if (type === 'sent') {
-      query.senderUserId = currentUserId;
+      query.senderProfileId = activeProfile._id;
     } else if (type === 'received') {
-      query.recipientUserId = currentUserId;
+      query.recipientProfileId = activeProfile._id;
     } else {
-      query.$or = [{ senderUserId: currentUserId }, { recipientUserId: currentUserId }];
+      query.$or = [
+        { senderProfileId: activeProfile._id },
+        { recipientProfileId: activeProfile._id }
+      ];
     }
 
     if (status) {
@@ -332,7 +350,7 @@ const getInterests = async (req, res, next) => {
 const getInterestStatus = async (req, res, next) => {
   try {
     const { targetProfileId } = req.params;
-    const userProfileData = await getUserActiveProfile(req.user.userId);
+    const userProfileData = await getUserActiveProfile(req.user.userId, req.user.requestedProfileId);
     const activeProfile = userProfileData?.activeProfile || null;
 
     const targetProfile = await findProfileByIdOrCustomId(targetProfileId);
@@ -340,19 +358,22 @@ const getInterestStatus = async (req, res, next) => {
       return notFound(res, 'Target profile not found');
     }
 
+    if (!activeProfile) {
+      return success(res, 'No interest history found', {
+        status: 'None',
+        isSender: false,
+        interestId: null
+      });
+    }
+
+    // Profile-to-profile only. Matching on the account pair would report the
+    // son's accepted interest as the daughter's status against the same family.
     const query = {
       $or: [
-        { senderUserId: req.user.userId, recipientUserId: targetProfile.userId },
-        { senderUserId: targetProfile.userId, recipientUserId: req.user.userId }
-      ]
-    };
-
-    if (activeProfile) {
-      query.$or.push(
         { senderProfileId: activeProfile._id, recipientProfileId: targetProfile._id },
         { senderProfileId: targetProfile._id, recipientProfileId: activeProfile._id }
-      );
-    }
+      ]
+    };
 
     const interest = await Interest.findOne(query).sort({ updatedAt: -1 });
 
@@ -364,7 +385,7 @@ const getInterestStatus = async (req, res, next) => {
       });
     }
 
-    const isSender = interest.senderUserId.toString() === req.user.userId;
+    const isSender = interest.senderProfileId.toString() === activeProfile._id.toString();
 
     return success(res, 'Interest status fetched successfully', {
       status: interest.status,

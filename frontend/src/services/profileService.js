@@ -3,7 +3,21 @@
  * Agrawal Matrimony Platform
  */
 
-import { api } from './api';
+import { api, setActiveProfileId } from './api';
+
+/**
+ * Caches the profile the UI is showing and pins subsequent requests to it.
+ * @param {Object} profile Candidate profile document
+ */
+function rememberActiveProfile(profile) {
+  if (!profile) return;
+  try {
+    localStorage.setItem('activeProfile', JSON.stringify(profile));
+  } catch {
+    // Ignore quota / privacy-mode errors
+  }
+  setActiveProfileId(profile.id || profile._id || null);
+}
 
 /**
  * 1. Fetch active candidate profile for current authenticated user
@@ -12,12 +26,9 @@ import { api } from './api';
 export async function getMyProfile() {
   const data = await api.get('/profiles/me');
   if (data?.profile) {
-    try {
-      localStorage.setItem('activeProfile', JSON.stringify(data.profile));
-    } catch {
-      // Ignore
-    }
+    rememberActiveProfile(data.profile);
   }
+
   return data;
 }
 
@@ -31,12 +42,9 @@ export const getMeProfile = getMyProfile;
 export async function createProfile(profileData) {
   const data = await api.post('/profiles', profileData);
   if (data?.profile) {
-    try {
-      localStorage.setItem('activeProfile', JSON.stringify(data.profile));
-    } catch {
-      // Ignore
-    }
+    rememberActiveProfile(data.profile);
   }
+
   return data;
 }
 
@@ -50,12 +58,9 @@ export async function updateProfile(id, profileData) {
   const endpoint = id ? `/profiles/${id}` : '/profiles/me';
   const data = await api.put(endpoint, profileData);
   if (data?.profile) {
-    try {
-      localStorage.setItem('activeProfile', JSON.stringify(data.profile));
-    } catch {
-      // Ignore
-    }
+    rememberActiveProfile(data.profile);
   }
+
   return data;
 }
 
@@ -124,13 +129,16 @@ export const getMyProfiles = getUserProfiles;
  */
 export async function switchActiveProfile(profileId) {
   const data = await api.post('/profiles/switch-active', { profileId });
-  if (data?.activeProfile) {
-    try {
-      localStorage.setItem('activeProfile', JSON.stringify(data.activeProfile));
-    } catch {
-      // Ignore
-    }
+
+  // The endpoint answers with { activeProfileId, profile }; earlier code read a
+  // non-existent `activeProfile` key, so the cache never actually moved.
+  const switched = data?.profile || data?.activeProfile;
+  if (switched) {
+    rememberActiveProfile(switched);
+  } else if (data?.activeProfileId) {
+    setActiveProfileId(data.activeProfileId);
   }
+
   return data;
 }
 

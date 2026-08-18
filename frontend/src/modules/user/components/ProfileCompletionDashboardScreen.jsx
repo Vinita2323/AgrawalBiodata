@@ -2,8 +2,20 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getMyProfile, createProfile, updateProfile, uploadProfilePhoto } from '../../../services/profileService'
 import { isAuthenticated } from '../../../services/authService'
+import { useActiveProfile } from '../../../context/ActiveProfileContext'
 
-export default function ProfileCompletionDashboardScreen({ onContinue, onSkip }) {
+/** Who an additional biodata is being created for. */
+const PROFILE_FOR_OPTIONS = ['Son', 'Daughter', 'Brother', 'Sister', 'Relative', 'Friend', 'Self']
+
+/**
+ * The four-step biodata form.
+ *
+ * Serves two flows: completing the account's first profile during onboarding,
+ * and adding a further candidate later (`isNewProfile`) - a parent running
+ * biodata for a second child. In the latter the form starts blank rather than
+ * loading the active profile, and asks who the biodata is for.
+ */
+export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, isNewProfile = false }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [step, setStep] = useState(1)
@@ -17,7 +29,10 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
     setTimeout(() => setToast(null), 3500)
   }
 
+  const { refreshProfiles, switchProfile } = useActiveProfile()
+
   const [formData, setFormData] = useState({
+    profileFor: isNewProfile ? 'Son' : 'Self',
     fullName: '',
     gender: '',
     gotra: '',
@@ -69,6 +84,10 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
   // Load existing profile from MongoDB or prefill from registration data
   useEffect(() => {
     async function loadInitialData() {
+      // Adding a further candidate starts from an empty form - prefilling from
+      // the active profile would silently copy one child's biodata onto another.
+      if (isNewProfile) return
+
       if (isAuthenticated()) {
         try {
           const res = await getMyProfile()
@@ -130,7 +149,7 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
     }
 
     loadInitialData()
-  }, [location.state])
+  }, [location.state, isNewProfile])
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -175,6 +194,17 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
         savedProfile = res?.profile
         if (savedProfile) {
           setCurrentProfileId(savedProfile.profileId || savedProfile._id)
+
+          // A newly added candidate becomes the one the account is operating
+          // as, so the dashboard that follows shows the profile just created.
+          const newId = savedProfile.id || savedProfile._id
+          if (newId) {
+            try {
+              await switchProfile(newId)
+            } catch {
+              await refreshProfiles()
+            }
+          }
         }
       }
 
@@ -311,7 +341,38 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip })
           
           {step === 1 && (
             <form className="space-y-4 relative z-10">
-              
+
+              {/* Who this biodata is for. Only asked when adding a further
+                  candidate - the first profile is assumed to be the account
+                  holder's own until they say otherwise. */}
+              {isNewProfile && (
+                <div>
+                  <label className="block text-[11px] leading-normal font-bold text-[#570013] uppercase tracking-wider mb-1.5">
+                    This profile is for
+                  </label>
+                  <div className="relative">
+                    <select
+                      name="profileFor"
+                      value={formData.profileFor}
+                      onChange={handleChange}
+                      className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md pl-3 pr-8 py-2 text-[12px] font-semibold text-slate-800 focus:border-[#570013] focus:bg-white focus:ring-1 focus:ring-[#570013] focus:outline-none appearance-none shadow-sm transition-all"
+                    >
+                      {PROFILE_FOR_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option === 'Self' ? 'Myself' : `My ${option}`}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined text-[#775a19] text-[18px] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      expand_more
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-medium mt-1">
+                    Matches, interests and chats are kept separate for each profile.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Full Name */}
                 <div>

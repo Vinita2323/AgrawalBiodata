@@ -164,10 +164,14 @@ class ChatService {
   }
 
   /**
-   * Lists a user's conversations, newest activity first.
+   * Lists one candidate profile's conversations, newest activity first.
+   *
+   * Scoped to the profile rather than the account: a parent running biodata for
+   * a son and a daughter needs two separate inboxes, not one merged thread list
+   * in which it is unclear which child a chat belongs to.
    */
-  async listConversations(userId, { page = 1, limit = 20 } = {}) {
-    const filter = { 'participants.userId': userId };
+  async listConversations(profileId, { page = 1, limit = 20 } = {}) {
+    const filter = { 'participants.profileId': profileId };
     const skip = (page - 1) * limit;
 
     const [total, conversations] = await Promise.all([
@@ -223,15 +227,17 @@ class ChatService {
   }
 
   /**
-   * Total unread messages across all of a user's conversations.
+   * Total unread messages across one candidate profile's conversations.
    */
-  async totalUnread(userId) {
-    const conversations = await Conversation.find({ 'participants.userId': userId }).select(
+  async totalUnread(profileId) {
+    const conversations = await Conversation.find({ 'participants.profileId': profileId }).select(
       'participants'
     );
 
     return conversations.reduce((sum, c) => {
-      const entry = c.participants.find((p) => p.userId.toString() === userId.toString());
+      const entry = c.participants.find(
+        (p) => p.profileId.toString() === profileId.toString()
+      );
       return sum + (entry ? entry.unreadCount : 0);
     }, 0);
   }

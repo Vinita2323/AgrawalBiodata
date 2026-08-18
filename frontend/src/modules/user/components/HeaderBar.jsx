@@ -1,4 +1,5 @@
 import React from 'react'
+import ProfileSwitcher from './ProfileSwitcher'
 
 export default function HeaderBar({ isExport = false }) {
   return (
@@ -21,6 +22,10 @@ export default function HeaderBar({ isExport = false }) {
           ( दक्षिणी पश्चिमी राजस्थान अग्रवाल सम्मेलन द्वारा संचालित )
         </p>
       </div>
+
+      {/* Which candidate this account is currently operating as. Hidden on the
+          export layout, which is rendered for print rather than interaction. */}
+      {!isExport && <ProfileSwitcher />}
     </header>
   )
 }

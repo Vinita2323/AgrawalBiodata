@@ -24,6 +24,8 @@ import PrivacyPolicyScreen from '../components/PrivacyPolicyScreen'
 import CommunityGuidelinesScreen from '../components/CommunityGuidelinesScreen'
 import WelcomeScreen from '../components/WelcomeScreen'
 import HeaderBar from '../components/HeaderBar'
+import ManageProfilesScreen from '../components/ManageProfilesScreen'
+import { ActiveProfileProvider } from '../../../context/ActiveProfileContext'
 
 export default function UserFlowPage() {
   const navigate = useNavigate()
@@ -38,6 +40,7 @@ export default function UserFlowPage() {
   }
 
   return (
+    <ActiveProfileProvider>
     <div className="min-h-screen w-full bg-[#1b1b1b] flex justify-center items-center font-body selection:bg-[#775a19] selection:text-white">
       <ScrollToTop />
       <div className="w-full max-w-[480px] min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl flex flex-col">
@@ -118,7 +121,17 @@ export default function UserFlowPage() {
             element={
               <OtpVerificationScreen
                 onChangeNumber={() => navigate('/login')}
-                onVerifySuccess={() => navigate('/account-created')}
+                onVerifySuccess={({ isNewUser, needsProfile, formData } = {}) => {
+                  if (isNewUser) {
+                    navigate('/account-created', { replace: true, state: { formData } })
+                  } else {
+                    // A returning account with no biodata yet goes to setup;
+                    // /home would only show an empty dashboard.
+                    navigate(needsProfile ? '/profile-completion-dashboard' : '/home', {
+                      replace: true,
+                    })
+                  }
+                }}
               />
             }
           />
@@ -343,10 +356,28 @@ export default function UserFlowPage() {
             }
           />
 
+          {/* Multi-Profile Management (a parent running biodata for
+              more than one child) */}
+          <Route
+            path="/profiles"
+            element={<ManageProfilesScreen onBack={() => navigate('/profile')} />}
+          />
+          <Route
+            path="/profiles/new"
+            element={
+              <ProfileCompletionDashboardScreen
+                isNewProfile
+                onContinue={() => navigate('/home')}
+                onSkip={() => navigate('/profiles')}
+              />
+            }
+          />
+
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </div>
     </div>
+    </ActiveProfileProvider>
   )
 }
