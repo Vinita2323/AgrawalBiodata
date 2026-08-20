@@ -25,6 +25,7 @@ import CommunityGuidelinesScreen from '../components/CommunityGuidelinesScreen'
 import WelcomeScreen from '../components/WelcomeScreen'
 import HeaderBar from '../components/HeaderBar'
 import ManageProfilesScreen from '../components/ManageProfilesScreen'
+import SignupOnlyRoute, { clearJustSignedUp } from '../components/SignupOnlyRoute'
 import { ActiveProfileProvider } from '../../../context/ActiveProfileContext'
 
 export default function UserFlowPage() {
@@ -140,9 +141,14 @@ export default function UserFlowPage() {
           <Route
             path="/account-created"
             element={
-              <AccountCreatedScreen
-                onStartSetup={() => navigate('/profile-completion-dashboard')}
-              />
+              <SignupOnlyRoute>
+                <AccountCreatedScreen
+                  onStartSetup={() => {
+                    clearJustSignedUp()
+                    navigate('/profile-completion-dashboard', { replace: true })
+                  }}
+                />
+              </SignupOnlyRoute>
             }
           />
 

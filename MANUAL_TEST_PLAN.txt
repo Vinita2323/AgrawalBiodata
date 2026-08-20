@@ -1,0 +1,474 @@
+================================================================================
+AGARWAL BIODATA - MANUAL TEST PLAN
+================================================================================
+Covers the full user app, the multi-profile feature, and the admin panel.
+Database: MongoDB Atlas (cluster0) - this is now LIVE data, see WARNINGS below.
+
+Mark each step:  [P] pass   [F] fail   [S] skipped
+When something fails, note: the URL, what you did, what you expected,
+what happened, and anything red in the browser console (F12).
+
+================================================================================
+0. BEFORE YOU START
+================================================================================
+
+0.1  START THE BACKEND
+     Open a terminal:
+         cd C:\Users\admin\Desktop\appzeto-2\agarwal\backend
+         npm run dev
+     Expect: "MongoDB Connected: ac-kkc0uua-shard-00-00.sgtssky.mongodb.net"
+             "Server running in development mode on port 5000"
+     If the port is busy, close whatever is on 5000 and retry.
+
+0.2  START THE FRONTEND
+     A second terminal:
+         cd C:\Users\admin\Desktop\appzeto-2\agarwal\frontend
+         npm run dev
+     Open the URL it prints (normally http://localhost:5173).
+
+0.3  HOW TO GET THE OTP  <-- READ THIS, YOU WILL NEED IT CONSTANTLY
+     No SMS is sent in development. The OTP screen does NOT show the code.
+     To read it:
+         1. Press F12 to open DevTools -> Network tab
+         2. Enter the mobile number and press Send OTP
+         3. Click the "send-otp" request -> Response tab
+         4. Copy the 6 digits from  data.devOtp
+     (The one exception is Settings > Account > change mobile, which does
+      print the code on screen as "(dev: 123456)".)
+
+0.4  OTP COOLDOWN
+     There is a 30-second cooldown between OTP requests to the same number.
+     If "devOtp" is missing from the response, you asked too soon - wait 30s.
+
+0.5  TEST NUMBERS
+     Use 10-digit numbers you will recognise later, e.g.
+         PARENT   9000000001   (will run two children's profiles)
+         BRIDE    9000000002   (a separate family)
+         GROOM    9000000003   (a separate family)
+     Write down which is which - you will switch between them a lot.
+
+0.6  RESET BETWEEN RUNS
+     To sign out fully: Profile tab > Settings > Logout.
+     For a hard reset in the browser: F12 > Application > Local Storage >
+     right-click the site > Clear. Then reload.
+
+--------------------------------------------------------------------------------
+WARNINGS - PLEASE READ
+--------------------------------------------------------------------------------
+ *  The app now writes to the LIVE ATLAS DATABASE. Every account and profile
+    you create during testing is real and will persist. Use the recognisable
+    test numbers above so they can be cleaned up afterwards.
+
+ *  DO NOT RUN  npm run seed  unless you want mock candidates permanently
+    added to the live database. It does not wipe anything, but it does add.
+
+ *  npm test is safe - it uses a throwaway in-memory database and never
+    touches Atlas.
+
+ *  The existing 7 users / 7 profiles in Atlas are pre-existing data.
+    Do not delete them.
+
+================================================================================
+1. SIGN-UP, LOGIN AND THE BUG THAT STARTED THIS
+================================================================================
+
+1.1  Go to http://localhost:5173/
+     [ ] Lands on the welcome / auth screen, logo and header render correctly.
+
+1.2  Tap "Create Account". Fill in name, gender, DOB, mobile = PARENT number.
+     [ ] Form validates empty fields sensibly.
+     [ ] Submitting moves to the OTP screen showing the number you typed.
+
+1.3  Enter a WRONG 6-digit code.
+     [ ] A clear error appears. You are NOT let through.
+
+1.4  Enter the correct OTP (see 0.3).
+     [ ] Success tick, then the "Welcome / Account Created" screen appears.
+     [ ] Tap "Start Profile Setup" -> the 4-step biodata form opens.
+
+1.5  *** THE ORIGINAL BUG - TEST THIS CAREFULLY ***
+     Finish or skip the profile, then log out completely (0.6).
+     Now tap "Login", enter the SAME parent number, enter the OTP.
+     [ ] You go STRAIGHT to the home dashboard.
+     [ ] You do NOT see "Account Created" and are NOT asked to set up a
+         profile again.  <-- this was the reported bug
+     [ ] The URL is /home, not /account-created.
+
+1.6  Log out. Log in with a number that has NEVER been used.
+     [ ] Treated as a new account and taken through profile setup.
+
+1.7  Log out. Log in with an account that exists but has NO biodata yet.
+     [ ] You land on profile setup, not an empty dashboard.
+
+1.8  On the OTP screen, tap "Change" next to the number.
+     [ ] Returns to the previous screen so you can edit the number.
+
+1.8a *** REFRESH ON THE OTP SCREEN - THIS WAS BROKEN ***
+     Start a login, get to the OTP screen, then press F5 to reload it.
+     [ ] You are sent back to the Login screen to re-enter your number.
+     [ ] The screen does NOT silently switch to some other phone number.
+         (It used to fall back to a hardcoded 9876543210 and sign you into a
+         shared dummy account, which is what produced the "Start Profile
+         Setup" page after logging in.)
+
+1.8b Land on http://localhost:5173/account-created directly while logged in.
+     [ ] You are redirected - to /home if you already have a biodata, or to
+         profile setup if you do not.
+     [ ] You do NOT see "Start Profile Setup" as a returning member.
+     [ ] Log out, then visit that URL again -> redirected to the welcome screen.
+     [ ] Immediately after a genuine SIGNUP the screen still appears normally,
+         and still survives a refresh at that moment.
+
+1.9  Wait for the resend timer to reach 0.
+     [ ] "Resend OTP" becomes tappable and a new code is issued.
+
+================================================================================
+2. BIODATA FORM (4 STEPS)
+================================================================================
+Log in as PARENT and open profile setup.
+
+2.1  Step 1 - Personal details.
+     [ ] Every field accepts input; Gotra is a dropdown of the 18 gotras.
+     [ ] Entering an invalid gotra is rejected (try saving with one blank).
+     [ ] "Next Step" advances to step 2.
+
+2.2  Step 2 - Family details.
+     [ ] Brother/Sister/Tauji/Chacha/Buaji lists let you ADD and REMOVE rows.
+     [ ] Removing the only row leaves one empty row rather than breaking.
+
+2.3  Step 3 - Maternal family and contact.
+     [ ] Mama-ji list behaves like the others.
+     [ ] Address, mobile and email save.
+     [ ] "Next Step" saves to the database (watch for the toast).
+
+2.4  Step 4 - Photo.
+     [ ] Upload a JPG/PNG. Preview appears.
+     [ ] Toast confirms it saved.
+     [ ] "Complete Profile" lands you on the home dashboard.
+
+2.5  Go back into the biodata (Profile tab > My Details / edit) and confirm
+     every value you typed was actually persisted.
+     [ ] Nothing was silently lost.
+     [ ] Reload the page (F5) - values still there.
+
+================================================================================
+3. MULTI-PROFILE  ***THE NEW FEATURE - TEST THOROUGHLY***
+================================================================================
+Scenario: the PARENT account runs biodata for a SON and a DAUGHTER.
+
+3.1  With one profile only, look at the top header bar.
+     [ ] An avatar + name chip appears on the right.
+     [ ] Tapping it opens a dropdown listing your single profile,
+         plus "Add new profile" and "Manage profiles".
+
+3.2  Tap "Add new profile".
+     [ ] The form opens COMPLETELY BLANK - it must NOT be pre-filled with
+         the first profile's details.
+     [ ] Step 1 shows a "This profile is for" dropdown (My Son, My Daughter,
+         My Brother, ...). Choose "My Daughter".
+
+3.3  Fill in the daughter's biodata (different name, gender Female, DOB,
+     gotra) and complete all 4 steps.
+     [ ] Saves successfully.
+     [ ] After finishing, the header chip now shows the DAUGHTER.
+
+3.4  Open the header dropdown.
+     [ ] BOTH profiles are listed, each with its relation label (Son/Daughter).
+     [ ] The active one has a tick.
+
+3.5  Switch to the SON.
+     [ ] The header chip updates to the son.
+     [ ] You land on the dashboard and it reloads.
+     [ ] The biodata shown under Profile is the SON's, not the daughter's.
+
+3.6  Switch back and forth a few times.
+     [ ] No stale data from the other child appears anywhere.
+     [ ] No flicker of the wrong name.
+
+3.7  Reload the browser (F5) while the daughter is active.
+     [ ] The daughter is STILL the active profile after reload.
+
+3.8  Go to "Manage profiles" from the dropdown.
+     [ ] Both profiles listed with photo/initials, relation, profile ID
+         and completion percentage.
+     [ ] The active one is badged ACTIVE.
+     [ ] "Switch to this" works on the inactive one.
+     [ ] "Add another profile" opens the blank form.
+
+3.9  Edit an existing profile's biodata and save.
+     [ ] Its relation (Son/Daughter) is NOT reset to "Myself".
+         (Check in Manage profiles afterwards.)
+
+3.10 Try adding profiles until you hit the limit.
+     [ ] The 6th profile is refused with a clear message about the maximum.
+
+3.11 Log out, then log back in as PARENT.
+     [ ] The switcher reappears with both profiles intact.
+
+3.12 On the login screen (logged out).
+     [ ] The profile switcher is NOT visible - no leftover profiles from
+         the previous session.
+
+================================================================================
+4. SEPARATION BETWEEN PROFILES  ***MOST IMPORTANT SECTION***
+================================================================================
+This is the whole point of the feature. Nothing belonging to one child may
+appear under the other.
+
+SETUP: create the BRIDE account (9000000002) with a female profile, and the
+GROOM account (9000000003) with a male profile. Fill in city/phone/address
+on both so there is something to mask. You now have 3 browsers/accounts:
+PARENT (son + daughter), BRIDE, GROOM.
+TIP: use a normal window for PARENT and an incognito window for the others,
+so you do not have to keep logging in and out.
+
+4.1  As GROOM, find the PARENT's DAUGHTER in Matches or Search and send an
+     Interest to her.
+
+4.2  As BRIDE, find the PARENT's SON and send an Interest to him.
+
+4.3  Back on PARENT, switch to the SON, open the Interests tab.
+     [ ] You see ONLY the BRIDE's interest.
+     [ ] The GROOM's interest (meant for the daughter) is NOT here.
+
+4.4  Switch to the DAUGHTER, open Interests.
+     [ ] You see ONLY the GROOM's interest.
+     [ ] The BRIDE's interest is NOT here.
+
+4.5  *** PRIVACY CHECK - THE SERIOUS ONE ***
+     As the SON, accept the BRIDE's interest.
+     Then open the BRIDE's full profile while still acting as the SON.
+     [ ] Her phone number and address are FULLY VISIBLE (you are connected).
+
+4.6  Now switch to the DAUGHTER and open the SAME bride's profile.
+     [ ] Her phone number is MASKED (e.g. 98290XXXXX).
+     [ ] Her address is hidden / "available on connection".
+     [ ] The daughter must NOT inherit the son's connection.
+     If the daughter can see the full number here, STOP and report it -
+     that is a privacy leak.
+
+4.7  Messaging. As the SON (now connected to the BRIDE), open Chat and send
+     her a message.
+     [ ] The thread appears in the son's Messages tab.
+
+4.8  Switch to the DAUGHTER, open Messages.
+     [ ] Her inbox is EMPTY. The son's conversation is not listed.
+     [ ] The unread badge does not count the son's messages.
+
+4.9  Shortlist a candidate while acting as the SON.
+     [ ] It appears in the son's shortlist.
+     [ ] Switch to the DAUGHTER - her shortlist does NOT contain it.
+     [ ] Remove it from the son's shortlist - the daughter's list is
+         unaffected.
+
+4.10 Notifications. With interests/messages arriving for both children:
+     [ ] As the SON, the feed shows only the son's activity.
+     [ ] As the DAUGHTER, only hers.
+
+4.11 Matches. Acting as the SON:
+     [ ] The PARENT's own DAUGHTER never appears in his matches or search
+         results. (Siblings must never be matched to each other.)
+
+================================================================================
+5. CORE APP - RUN THESE AS A SINGLE ACTIVE PROFILE
+================================================================================
+
+5.1  HOME
+     [ ] Dashboard loads; recommended and today's matches render.
+     [ ] Cards show name, age, city, education, compatibility.
+     [ ] Tapping a card opens the full profile detail.
+
+5.2  MATCHES
+     [ ] Match list loads and scrolls.
+     [ ] Compatibility scores are shown.
+     [ ] Gotra rules respected - no same-gotra match shown as a good match.
+
+5.3  SEARCH
+     [ ] Free-text search returns results.
+     [ ] Filters (city, age, education, verified only) narrow the list.
+     [ ] Recent searches are remembered.
+
+5.4  PROFILE DETAIL
+     [ ] All biodata sections render (personal, astrology, education,
+         family tree, contact).
+     [ ] Masked fields show as masked for non-connections.
+     [ ] Express Interest / Shortlist buttons work and update state.
+
+5.5  INTERESTS
+     [ ] Received and Sent tabs both populate.
+     [ ] Accept moves it to accepted and enables chat.
+     [ ] Decline works and the state persists after reload.
+
+5.6  CHAT
+     [ ] Only connected candidates can be messaged.
+     [ ] Messages send and appear instantly.
+     [ ] Open the same conversation from the OTHER account in a second
+         window - the message arrives live without a refresh.
+     [ ] Unread badge increments, and clears when the thread is opened.
+     [ ] Typing indicator appears.
+
+5.7  NOTIFICATIONS
+     [ ] Feed lists interest/message/visit events.
+     [ ] Category filter works.
+     [ ] Mark-one-read and mark-all-read both work; badge updates.
+
+5.8  MY PROFILE
+     [ ] Own biodata displays fully (nothing masked from yourself).
+     [ ] Edit and save works.
+     [ ] Photo upload / gallery add and delete work (max 6 gallery photos).
+     [ ] PDF / biodata export produces a readable document.
+         NOTE: the profile switcher must NOT appear inside the exported PDF.
+
+5.9  PARTNER PREFERENCES
+     [ ] Set age/height/city/education preferences and save.
+     [ ] Matches feed reflects them (it says when preferences filtered
+         the list).
+     [ ] Preferences are per-profile - the son and daughter have separate
+         preferences.
+
+5.10 MEMBERSHIP AND PAYMENT
+     [ ] Plans page lists the 4 plans with prices.
+     [ ] Selecting a plan opens checkout.
+     [ ] Razorpay is in TEST mode - do not use a real card.
+     [ ] Contact-view quota is shared across all profiles on the account
+         (this is intended - one plan covers the whole family).
+
+5.11 VERIFICATION (KYC)
+     [ ] Upload an ID document from the Verification screen.
+     [ ] Submits successfully.
+     [ ] IMPORTANT: submit while acting as the DAUGHTER, then check in the
+         admin panel that the request is attached to the DAUGHTER, not the son.
+
+5.12 SETTINGS
+     [ ] Account settings - change mobile (this screen DOES show the dev OTP).
+     [ ] Notification preference toggles save.
+     [ ] Blocked users list loads; blocking someone hides them from matches
+         and search, and unblocking restores them.
+     [ ] Privacy settings (phone/address/photo visibility) change what other
+         accounts can see - verify from the BRIDE account.
+     [ ] Logout returns to the login screen.
+
+5.13 STATIC PAGES
+     [ ] About, Terms, Privacy, Community Guidelines, Help & Support all
+         open and render content.
+
+================================================================================
+6. DELETING A PROFILE
+================================================================================
+
+6.1  Manage profiles > Delete on the NON-active profile.
+     [ ] A confirmation step appears first (no instant delete).
+     [ ] Cancel leaves it untouched.
+
+6.2  Confirm the delete.
+     [ ] The profile disappears from the list and the header dropdown.
+     [ ] The remaining profile is still active and works.
+
+6.3  From the account that had sent an interest to the deleted profile,
+     open Interests.
+     [ ] No blank/broken row is left behind where that profile used to be.
+     [ ] Chats with the deleted profile are gone rather than showing an
+         empty name.
+
+6.4  Delete the LAST remaining profile.
+     [ ] You are taken to biodata setup rather than a broken empty screen.
+
+================================================================================
+7. ADMIN PANEL
+================================================================================
+Open http://localhost:5173/admin/login   (a separate login from the user app)
+Credentials:  admin@matrimonyhub.com  /  admin123
+CHANGE THIS PASSWORD BEFORE GOING LIVE.
+
+7.1  [ ] Wrong password is rejected with a clear message.
+7.2  [ ] Correct password logs in and lands on /admin/dashboard.
+7.3  DASHBOARD    - [ ] KPI tiles and charts load with real numbers.
+7.4  USERS        - [ ] List loads, search and filters work.
+                   - [ ] Opening a user shows their details.
+                   - [ ] Suspend / activate changes the status, and a
+                         suspended user cannot log in on the user app.
+                   - [ ] CSV export downloads.
+7.5  VERIFICATION - [ ] Pending KYC queue lists the request from 5.11.
+                   - [ ] It is attached to the correct CHILD profile.
+                   - [ ] Approve sets the verified badge; reject records
+                         the reason.
+7.6  MATCHES      - [ ] Match pairs list loads; export works.
+7.7  SUBSCRIPTIONS- [ ] Subscription records list.
+7.8  PAYMENTS     - [ ] Payment records list.
+7.9  COMPLAINTS   - [ ] Reports list; opening one shows detail; resolve works.
+7.10 LEGAL/CMS    - [ ] The 6 CMS pages load and can be edited; the edit is
+                        visible on the matching user-app page afterwards.
+                   - [ ] Banners can be added, edited and deleted.
+7.11 NOTIFICATIONS- [ ] Admin notification screen loads.
+7.12 SETTINGS     - [ ] Admin settings load and save.
+7.13 [ ] Admin logout works and the admin pages are not reachable afterwards.
+
+7.14 MULTI-PROFILE VISIBILITY IN ADMIN  ***newly added - test this***
+     Find the PARENT account (the one running a son and a daughter).
+     In the USERS LIST:
+     [ ] The Biodata column lists BOTH children, not just one.
+     [ ] Each shows its relation (Son / Daughter) and gotra.
+     [ ] The currently active one is badged ACTIVE.
+     [ ] A line reads "2 profiles on this account".
+     [ ] An account with no biodata shows "No biodata yet" rather than blank.
+     Open that user's DETAIL page:
+     [ ] A selector appears at the top: "2 candidate profiles on this account"
+         with a button per child (name, relation, profile ID, "active").
+     [ ] Clicking a child switches the Overview panel to that child.
+     [ ] The Biodata tab shows THAT child's document.
+     [ ] The header no longer mislabels every child as "Active" - only the
+         genuinely active one says Active.
+     [ ] "Feature Profile" acts on the SELECTED child, not always the first.
+     [ ] Print / Download Biodata prints only the biodata document - the
+         selector must NOT appear in the PDF.
+     [ ] For a single-profile account the selector is hidden entirely.
+     CSV EXPORT:
+     [ ] Export users to CSV. The parent account produces ONE ROW PER CHILD,
+         not a single row. New columns "Profile For" and "Profile ID" are
+         populated.
+
+================================================================================
+8. ROBUSTNESS / EDGE CASES
+================================================================================
+
+8.1  [ ] Refresh the page (F5) on every major tab - state restores, no crash.
+8.2  [ ] Use the browser Back button repeatedly - no loops, no blank screens.
+8.3  [ ] After login, Back must not return to the OTP screen.
+8.4  [ ] Resize to a narrow phone width (F12 > device toolbar > iPhone SE).
+         The header, including the profile switcher, must not overflow or
+         overlap the Hindi title.
+8.5  [ ] Stop the backend, then click around the app - you get readable
+         error messages, not a white screen. Restart it and the app recovers.
+8.6  [ ] Leave the app idle 20+ minutes, then act - the session refreshes
+         silently rather than dumping you to login.
+8.7  [ ] Open the app in two tabs as the SAME account, set a different active
+         profile in each, then use both. Each tab keeps its own profile.
+8.8  [ ] Keep DevTools Console open throughout. Note any red errors.
+
+================================================================================
+9. AFTER TESTING - CLEANING UP
+================================================================================
+Everything you created is in the live Atlas database. When finished, either
+delete the test accounts from the admin panel (Users > delete), or ask me to
+remove them - tell me which mobile numbers you used and I will clean them up
+with all their related interests, chats and notifications.
+
+Do NOT delete the 7 pre-existing users/profiles or the admin account.
+
+================================================================================
+WHAT IS ALREADY VERIFIED (no need to re-check the plumbing)
+================================================================================
+Automated and live-API checks already passing:
+  - 490/490 backend tests
+  - 39/39 live API checks against Atlas (auth, profiles, multi-profile,
+    matches, interests, privacy masking, messaging, shortlists,
+    notifications)
+  - 8/8 admin endpoints against Atlas
+  - 12/12 admin multi-profile checks (list and detail both return every
+    candidate profile, with the active one correctly flagged)
+  - Socket connect/reject, CORS preflight for the profile header
+  - Migration integrity: documents identical, references intact,
+    unique indexes enforced
+Your manual pass is about the UI, the wording, and how it feels to use -
+sections 3, 4 and 6 are where genuine problems are most likely to surface.
+================================================================================

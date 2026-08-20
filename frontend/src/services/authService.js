@@ -133,6 +133,9 @@ export async function logout() {
     try {
       localStorage.removeItem('user');
       localStorage.removeItem('activeProfile');
+      // The "account created" screen belongs to a single registration; a new
+      // sign-in in this tab must not replay it.
+      sessionStorage.removeItem('justSignedUp');
     } catch {
       // Ignore
     }

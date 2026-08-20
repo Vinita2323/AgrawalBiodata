@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { verifyOtp, sendOtp, register } from '../../../services/authService'
+import { markJustSignedUp } from './SignupOnlyRoute'
 
 export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerifySuccess, onChangeNumber }) {
   const navigate = useNavigate()
   const location = useLocation()
   
-  const targetMobile = mobileNumber || location.state?.mobile || '9876543210'
-  const isNew = isNewUser ?? location.state?.isNewUser ?? true
+  // No hardcoded fallback number here. Router state does not survive a page
+  // reload, so a refresh on this screen leaves us with no number at all - and
+  // a default would quietly verify the visitor into a shared dummy account and
+  // then greet them as a brand new signup.
+  const targetMobile = mobileNumber || location.state?.mobile || ''
+
+  // Only a hint. The verify response decides whether this is really a new
+  // account, so the safe default is "returning member".
+  const isNew = isNewUser ?? location.state?.isNewUser ?? false
 
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [timer, setTimer] = useState(30)
@@ -34,6 +42,14 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
     }
     return () => clearInterval(interval)
   }, [timer])
+
+  // Nothing can be verified without knowing the number, so send them back to
+  // enter it rather than guessing one.
+  useEffect(() => {
+    if (!targetMobile) {
+      navigate('/login', { replace: true })
+    }
+  }, [targetMobile, navigate])
 
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return
@@ -97,6 +113,10 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
       const isNewAccount =
         typeof verifyRes?.isNewUser === 'boolean' ? verifyRes.isNewUser : isNew
 
+      // Lets the welcome screen know it was reached by registering, rather
+      // than by a back button or a pasted URL after an ordinary sign-in.
+      if (isNewAccount) markJustSignedUp()
+
       // An existing account that never finished a biodata has nothing to show
       // on the dashboard, so it belongs in profile setup rather than /home.
       const needsProfile = !isNewAccount && !verifyRes?.user?.activeProfileId
@@ -124,6 +144,8 @@ export default function OtpVerificationScreen({ mobileNumber, isNewUser, onVerif
       setIsSubmitting(false)
     }
   }
+
+  if (!targetMobile) return null
 
   return (
     <div className="bg-[#fbf9f5] min-h-screen text-slate-800 font-body flex flex-col justify-between p-5 relative select-none">

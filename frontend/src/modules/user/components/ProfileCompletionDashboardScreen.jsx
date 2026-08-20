@@ -22,6 +22,10 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
   const [isEditing, setIsEditing] = useState(false)
   const [currentProfileId, setCurrentProfileId] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
+  // A photo picked before the profile exists cannot be uploaded yet - posting
+  // it to /profiles/me would attach it to whichever profile is currently
+  // active, which in the add-profile flow is a different candidate entirely.
+  const [pendingPhotoFile, setPendingPhotoFile] = useState(null)
   const [toast, setToast] = useState(null)
 
   const showToast = (message, type = 'success') => {
@@ -96,6 +100,9 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
             setCurrentProfileId(p.profileId || p._id)
             setFormData((prev) => ({
               ...prev,
+              // Carried through so editing an existing biodata does not reset
+              // who it belongs to back to the default.
+              profileFor: p.profileFor || prev.profileFor,
               fullName: p.fullName || prev.fullName,
               gender: p.gender || prev.gender,
               gotra: p.gotra || prev.gotra,
@@ -873,7 +880,19 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
               e.preventDefault();
               setIsSaving(true);
               try {
-                await saveToBackend(formData, true);
+                const saved = await saveToBackend(formData, true);
+
+                // Now that the profile exists, send any photo chosen earlier.
+                const savedId = saved?.profileId || saved?.id || saved?._id || currentProfileId;
+                if (pendingPhotoFile && savedId) {
+                  try {
+                    await uploadProfilePhoto(pendingPhotoFile, savedId);
+                    setPendingPhotoFile(null);
+                  } catch (uploadErr) {
+                    console.warn('Deferred photo upload notice:', uploadErr);
+                  }
+                }
+
                 showToast('Profile completed and saved to database successfully!', 'success');
                 setTimeout(() => {
                   navigate('/home'); 
@@ -920,6 +939,12 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                         setFormData((prev) => ({ ...prev, profilePicture: reader.result }));
                       };
                       reader.readAsDataURL(file);
+
+                      if (!currentProfileId) {
+                        setPendingPhotoFile(file);
+                        showToast('Photo will be saved when you complete the profile.', 'info');
+                        return;
+                      }
 
                       try {
                         showToast('Uploading photo to database...', 'info');

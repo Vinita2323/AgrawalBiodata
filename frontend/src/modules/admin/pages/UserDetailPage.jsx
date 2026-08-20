@@ -197,6 +197,42 @@ export default function UserDetailPage() {
         )}
       </div>
 
+      {/* Candidate selector. An account can run biodata for more than one
+          person - typically a parent with a son and a daughter - and each
+          has its own document, so moderation needs to page between them.
+          Hidden from print so the exported PDF stays a clean biodata. */}
+      {profiles.length > 1 && (
+        <div className="bg-white p-4 rounded-lg border border-amber-900/15 shadow-xs print:hidden">
+          <p className="text-xs font-extrabold text-[#570013] uppercase tracking-wide mb-2.5">
+            {profiles.length} candidate profiles on this account
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {profiles.map((p, index) => (
+              <button
+                key={p._id || p.profileId || index}
+                onClick={() => setSelectedProfileIndex(index)}
+                className={`px-3.5 py-2 rounded-lg text-xs font-bold border transition-all text-left ${
+                  index === selectedProfileIndex
+                    ? 'bg-[#570013] text-amber-100 border-[#570013] shadow-md'
+                    : 'bg-white text-stone-700 border-stone-200 hover:bg-amber-50/70'
+                }`}
+              >
+                <span className="block">{p.fullName || '(unnamed)'}</span>
+                <span
+                  className={`block text-[10px] font-semibold mt-0.5 ${
+                    index === selectedProfileIndex ? 'text-amber-200/90' : 'text-stone-500'
+                  }`}
+                >
+                  {p.profileFor && p.profileFor !== 'Self' ? p.profileFor : 'Self'}
+                  {p.profileId ? ` · ${p.profileId}` : ''}
+                  {p.isActive ? ' · active' : ''}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* TAB CONTENT PANELS */}
 
       {/* TAB 1: OVERVIEW & USER INFO */}
@@ -240,7 +276,10 @@ export default function UserDetailPage() {
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div>
                 <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest bg-amber-50 px-2 py-0.5 rounded-md">
-                  Active Matrimonial Profile
+                  {currentProfile.profileFor && currentProfile.profileFor !== 'Self'
+                    ? `Matrimonial Profile · ${currentProfile.profileFor}`
+                    : 'Matrimonial Profile'}
+                  {currentProfile.isActive ? ' · Active' : ''}
                 </span>
                 <h3 className="font-display font-bold text-lg text-stone-900 mt-1">
                   {currentProfile.fullName} ({currentProfile.profileId})

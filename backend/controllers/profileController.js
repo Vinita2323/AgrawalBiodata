@@ -8,6 +8,15 @@ const mongoose = require('mongoose');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const Block = require('../models/Block');
+const Interest = require('../models/Interest');
+const Shortlist = require('../models/Shortlist');
+const Visitor = require('../models/Visitor');
+const Match = require('../models/Match');
+const Notification = require('../models/Notification');
+const ContactUnlock = require('../models/ContactUnlock');
+const Verification = require('../models/Verification');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 const { calculateProfileCompletion } = require('../services/profileScoreService');
 const { getUserActiveProfile, areProfilesConnected } = require('../utils/profileHelper');
 const { isValidGotra, normalizeGotra } = require('../utils/gotras');
@@ -674,12 +683,45 @@ const deleteProfile = async (req, res, next) => {
     }
 
     const user = await User.findById(req.user.userId);
+
+    // Everything keyed to this candidate goes with it. Left behind, these
+    // records surface as blank rows wherever they are populated.
+    const conversationIds = await Conversation.find({
+      'participants.profileId': profile._id
+    }).distinct('_id');
+
+    await Promise.all([
+      Interest.deleteMany({
+        $or: [{ senderProfileId: profile._id }, { recipientProfileId: profile._id }]
+      }),
+      Shortlist.deleteMany({
+        $or: [{ profileId: profile._id }, { shortlistedProfileId: profile._id }]
+      }),
+      Visitor.deleteMany({
+        $or: [{ visitorProfileId: profile._id }, { visitedProfileId: profile._id }]
+      }),
+      Block.deleteMany({
+        $or: [{ blockerProfileId: profile._id }, { blockedProfileId: profile._id }]
+      }),
+      Match.deleteMany({
+        $or: [{ profileId: profile._id }, { matchedProfileId: profile._id }]
+      }),
+      Notification.deleteMany({
+        $or: [{ profileId: profile._id }, { actorProfileId: profile._id }]
+      }),
+      ContactUnlock.deleteMany({ unlockedProfileId: profile._id }),
+      Verification.deleteMany({ profileId: profile._id }),
+      Message.deleteMany({ conversationId: { $in: conversationIds } }),
+      Conversation.deleteMany({ _id: { $in: conversationIds } })
+    ]);
+
     await Profile.findByIdAndDelete(profile._id);
 
     // Update user's profile list & activeProfileId
     user.profiles = user.profiles.filter(p => p.toString() !== profile._id.toString());
     if (user.activeProfileId && user.activeProfileId.toString() === profile._id.toString()) {
-      user.activeProfileId = user.profiles.length > 0 ? user.profiles[0] : null;
+      const fallback = await Profile.findOne({ userId: user._id }).select('_id');
+      user.activeProfileId = fallback ? fallback._id : null;
     }
     await user.save();
 

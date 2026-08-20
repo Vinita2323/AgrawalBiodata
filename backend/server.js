@@ -38,7 +38,10 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature']
+  // X-Profile-Id names which of the account's candidate profiles a request is
+  // acting as. Without it here the browser preflight rejects every call once
+  // the frontend and API are on different origins.
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature', 'X-Profile-Id']
 }));
 
 // HTTP Request Logger

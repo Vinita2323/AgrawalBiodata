@@ -119,6 +119,8 @@ export default function UserManagementPage() {
       'Contact Mobile',
       'Contact Email',
       'Biodata Profile Name',
+      'Profile For',
+      'Profile ID',
       'Gender',
       'Verification Status',
       'Subscription Plan',
@@ -140,28 +142,35 @@ export default function UserManagementPage() {
       return `"${val}"`
     }
 
-    const rows = dataToExport.map((user) => {
-      const primaryProf = user.profiles && user.profiles[0] ? user.profiles[0] : {}
-      return [
-        escapeCsv(user.id),
-        escapeCsv(user.name),
-        escapeCsv(user.mobile),
-        escapeCsv(user.email),
-        escapeCsv(primaryProf.fullName || user.name || ''),
-        escapeCsv(primaryProf.gender || 'General'),
-        escapeCsv(user.verificationStatus),
-        escapeCsv(user.subscriptionPlan),
-        escapeCsv(user.subscriptionStatus),
-        escapeCsv(user.accountStatus),
-        escapeCsv(user.createdDate || ''),
-        escapeCsv(user.lastActive || ''),
-        escapeCsv(primaryProf.gotra || ''),
-        escapeCsv(primaryProf.motherGotra || ''),
-        escapeCsv(primaryProf.qualification || ''),
-        escapeCsv(primaryProf.workingAt || ''),
-        escapeCsv(primaryProf.income || ''),
-        escapeCsv(primaryProf.pob || '')
-      ].join(',')
+    // One row per candidate profile, not per account: an account running
+    // biodata for a son and a daughter must export both, and exporting only
+    // the first would quietly drop the rest.
+    const rows = dataToExport.flatMap((user) => {
+      const owned = user.profiles && user.profiles.length ? user.profiles : [{}]
+      return owned.map((prof) =>
+        [
+          escapeCsv(user.id),
+          escapeCsv(user.name),
+          escapeCsv(user.mobile),
+          escapeCsv(user.email),
+          escapeCsv(prof.fullName || user.name || ''),
+          escapeCsv(prof.profileFor || ''),
+          escapeCsv(prof.profileId || ''),
+          escapeCsv(prof.gender || 'General'),
+          escapeCsv(user.verificationStatus),
+          escapeCsv(user.subscriptionPlan),
+          escapeCsv(user.subscriptionStatus),
+          escapeCsv(user.accountStatus),
+          escapeCsv(user.createdDate || ''),
+          escapeCsv(user.lastActive || ''),
+          escapeCsv(prof.gotra || ''),
+          escapeCsv(prof.motherGotra || ''),
+          escapeCsv(prof.qualification || ''),
+          escapeCsv(prof.workingAt || ''),
+          escapeCsv(prof.income || ''),
+          escapeCsv(prof.pob || '')
+        ].join(',')
+      )
     })
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n')
@@ -362,10 +371,40 @@ export default function UserManagementPage() {
                       <p className="text-xs text-stone-600 font-medium mt-0.5">{user.email}</p>
                     </td>
 
-                    {/* Biodata Profile */}
+                    {/* Candidate profiles. An account may run several - a parent
+                        operating biodata for a son and a daughter - so every one
+                        is listed rather than only the first. */}
                     <td className="py-4 px-4.5">
-                      <p className="font-bold text-sm text-[#570013]">{user.profiles[0]?.fullName || user.name}</p>
-                      <p className="text-xs text-stone-600 font-medium">{user.profiles[0]?.gender || 'General'}</p>
+                      {user.profiles.length === 0 ? (
+                        <p className="text-xs text-stone-500 font-medium italic">No biodata yet</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {user.profiles.map((p) => (
+                            <div key={p._id || p.profileId} className="flex items-center gap-1.5">
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm text-[#570013] truncate flex items-center gap-1.5">
+                                  <span className="truncate">{p.fullName || '(unnamed)'}</span>
+                                  {p.isActive && user.profiles.length > 1 && (
+                                    <span className="shrink-0 text-[9px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded">
+                                      ACTIVE
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-stone-600 font-medium truncate">
+                                  {p.profileFor && p.profileFor !== 'Self' ? `${p.profileFor} · ` : ''}
+                                  {p.gender || 'General'}
+                                  {p.gotra ? ` · ${p.gotra}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          {user.profiles.length > 1 && (
+                            <p className="text-[10px] font-bold text-[#775a19] pt-0.5">
+                              {user.profiles.length} profiles on this account
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     {/* Verification Status */}

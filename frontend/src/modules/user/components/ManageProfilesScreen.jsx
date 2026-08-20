@@ -53,8 +53,13 @@ export default function ManageProfilesScreen({ onBack }) {
     setErrorMsg('')
     try {
       await deleteProfile(profileId)
-      await refreshProfiles()
+      const remaining = await refreshProfiles()
       setConfirmId(null)
+
+      // With no biodata left there is nothing to manage; go straight to setup.
+      if (remaining.length === 0) {
+        navigate('/profile-completion-dashboard')
+      }
     } catch (err) {
       setErrorMsg(err?.message || 'Could not delete this profile')
     } finally {

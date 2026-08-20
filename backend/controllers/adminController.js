@@ -122,12 +122,44 @@ const getUsers = async (req, res, next) => {
     const total = await User.countDocuments(filter);
     const users = await User.find(filter)
       .populate('activeProfileId', 'fullName profileId gotra verified gender profilePicture completionPercentage')
-      .populate('profiles', 'fullName profileId gotra verified gender')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    return paginate(res, users, page, limit, total, 'Users retrieved successfully');
+    // Candidate profiles are read from the Profile collection rather than the
+    // user's cached `profiles` array, which can be short for profiles created
+    // before that array was maintained. An account may run several candidates -
+    // a parent operating biodata for a son and a daughter - and moderation
+    // needs to see every one of them, not just whichever is active.
+    const userIds = users.map((u) => u._id);
+    const allProfiles = await Profile.find({ userId: { $in: userIds } })
+      .select('userId fullName profileId profileFor gotra motherGotra verified isFeatured gender dob city qualification profilePicture completionPercentage')
+      .sort({ createdAt: 1 });
+
+    const byUser = new Map();
+    for (const profile of allProfiles) {
+      const key = profile.userId.toString();
+      if (!byUser.has(key)) byUser.set(key, []);
+      byUser.get(key).push(profile);
+    }
+
+    const payload = users.map((user) => {
+      const doc = user.toJSON();
+      const owned = byUser.get(user._id.toString()) || [];
+      const activeId = user.activeProfileId
+        ? (user.activeProfileId._id || user.activeProfileId).toString()
+        : null;
+
+      doc.profiles = owned.map((profile) => {
+        const entry = profile.toJSON();
+        entry.isActive = activeId ? entry.id === activeId : false;
+        return entry;
+      });
+      doc.profileCount = doc.profiles.length;
+      return doc;
+    });
+
+    return paginate(res, payload, page, limit, total, 'Users retrieved successfully');
   } catch (error) {
     next(error);
   }
@@ -154,10 +186,21 @@ const getUserById = async (req, res, next) => {
       Complaint.find({ $or: [{ reportedUserId: userId }, { reporterUserId: userId }] }).sort({ createdAt: -1 })
     ]);
 
+    // Flag the account's current candidate so the admin UI can label it; the
+    // rest are still returned in full, since a parent may run biodata for
+    // several children and moderation must see all of them.
+    const activeId = user.activeProfileId ? user.activeProfileId.toString() : null;
+    const profilesPayload = candidateProfiles.map((profile) => {
+      const entry = profile.toJSON();
+      entry.isActive = activeId ? entry.id === activeId : false;
+      return entry;
+    });
+
     return success(res, 'User details retrieved successfully', {
       user,
-      candidateProfiles,
-      profiles: candidateProfiles,
+      candidateProfiles: profilesPayload,
+      profiles: profilesPayload,
+      profileCount: profilesPayload.length,
       subscriptions,
       verifications,
       verificationDocuments: verifications,

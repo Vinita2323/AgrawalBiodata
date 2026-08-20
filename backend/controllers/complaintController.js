@@ -7,6 +7,7 @@ const Complaint = require('../models/Complaint');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const auditService = require('../services/auditService');
+const { getUserActiveProfile } = require('../utils/profileHelper');
 const { success, created, badRequest, notFound, paginate } = require('../utils/apiResponse');
 
 /**
@@ -16,7 +17,12 @@ const { success, created, badRequest, notFound, paginate } = require('../utils/a
 const submitComplaint = async (req, res, next) => {
   try {
     const reporterUserId = req.user.userId;
-    const reporterProfileId = req.user.activeProfileId || null;
+    // Credit the report to the candidate profile actually in use, not the
+    // account's stored default - on a multi-profile account those differ.
+    // Resolved rather than taken raw, since the header may carry a "PRF-xxxxxx"
+    // id which would not cast to the ObjectId this field stores.
+    const acting = await getUserActiveProfile(reporterUserId, req.user.requestedProfileId);
+    const reporterProfileId = acting?.activeProfile?._id || null;
 
     const {
       reportedUserId,

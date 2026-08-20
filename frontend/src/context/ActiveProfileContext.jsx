@@ -42,14 +42,16 @@ export function ActiveProfileProvider({ children }) {
       const list = data?.profiles || []
       setProfiles(list)
 
-      setActiveId((current) => {
-        const stillExists = current && list.some((p) => profileIdOf(p) === current)
-        const next = stillExists
-          ? current
-          : data?.activeProfileId || profileIdOf(list[0]) || null
-        setActiveProfileId(next)
-        return next
-      })
+      // Resolved outside the state updater: React may run updaters more than
+      // once, and writing to storage from inside one would fire repeatedly.
+      const current = getActiveProfileId()
+      const stillExists = current && list.some((p) => profileIdOf(p) === current)
+      const next = stillExists
+        ? current
+        : data?.activeProfileId || profileIdOf(list[0]) || null
+
+      setActiveProfileId(next)
+      setActiveId(next)
 
       return list
     } catch (err) {
@@ -70,6 +72,17 @@ export function ActiveProfileProvider({ children }) {
    * stops any further fetching.
    */
   useEffect(() => {
+    // Signing out must empty the store, or the switcher would keep showing the
+    // previous account's profiles on the login screen.
+    if (!isAuthenticated()) {
+      if (profiles.length > 0) {
+        setProfiles([])
+        setActiveId(null)
+        setActiveProfileId(null)
+      }
+      return
+    }
+
     if (profiles.length > 0 || isLoading) return
     refreshProfiles()
   }, [location.pathname, profiles.length, isLoading, refreshProfiles])

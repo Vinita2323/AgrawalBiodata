@@ -65,6 +65,11 @@ function normalizeProfile(profile) {
     profileId: profile.profileId || profile.id || profile._id,
     _id: profile._id || profile.id,
     fullName: profile.fullName || '',
+    // Who the biodata is for - "Son", "Daughter" and so on. An account can run
+    // several candidates, so this is what tells them apart in the admin UI.
+    profileFor: profile.profileFor === 'Myself' ? 'Self' : (profile.profileFor || 'Self'),
+    isActive: Boolean(profile.isActive),
+    completionPercentage: profile.completionPercentage || 0,
     gender: profile.gender || '',
     age: ageFromDob(profile.dob),
     height: profile.height || '',
@@ -102,6 +107,7 @@ function normalizeUser(user) {
   return {
     id: user.id || user._id,
     name: user.name || '',
+    profileCount: profiles.length,
     mobile: user.mobile || '',
     email: user.email || '',
     gender: user.gender || '',

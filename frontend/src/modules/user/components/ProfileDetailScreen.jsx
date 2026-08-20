@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { sendInterest } from '../../../services/interestService'
+import { sendInterest, getInterestStatus } from '../../../services/interestService'
 import { addToShortlist, recordVisitor } from '../../../services/socialService'
 import { getMatchScore } from '../../../services/matchService'
 import { isAuthenticated } from '../../../services/authService'
+import { handleAvatarError } from '../../../utils/avatar'
 import {
   unlockContact,
   getContactQuota,
@@ -94,6 +95,16 @@ export default function ProfileDetailScreen({ profile, onBack }) {
       } catch {
         // Contact gating is additive; failing to read it leaves the masked view.
       }
+
+      // Check existing interest relationship
+      try {
+        const interestStatusRes = await getInterestStatus(targetId)
+        if (interestStatusRes?.hasInterest || interestStatusRes?.status === 'Pending' || interestStatusRes?.status === 'Accepted') {
+          setIsInterestSent(true)
+        }
+      } catch {
+        // Non-blocking
+      }
     }
     initProfileDetail()
   }, [targetId])
@@ -141,15 +152,17 @@ export default function ProfileDetailScreen({ profile, onBack }) {
   }
 
   const handleExpressInterest = async () => {
-    setIsInterestSent(true)
     if (isAuthenticated() && targetId) {
       try {
+        setIsInterestSent(true)
         await sendInterest(targetId, 'Hello, I liked your profile and would like to connect.')
         showToast(`Express Interest sent to ${displayName}!`, 'success')
       } catch (err) {
-        showToast(err.message || 'Interest already expressed', 'info')
+        setIsInterestSent(false)
+        showToast(err.message || 'Interest already expressed or not permitted', 'info')
       }
     } else {
+      setIsInterestSent(true)
       showToast(`Express Interest sent to ${displayName}'s family!`, 'success')
     }
   }
@@ -229,6 +242,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
             {profileImgSrc ? (
               <img
                 src={profileImgSrc}
+                onError={handleAvatarError}
                 alt={displayName}
                 className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
               />
@@ -251,15 +265,14 @@ export default function ProfileDetailScreen({ profile, onBack }) {
               onClick={() => {
                 if (profileImgSrc) {
                   setIsPreviewOpen(true)
-                  setZoomScale(1)
                 }
               }}
               className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-[3px] border-amber-300 shadow-md flex-shrink-0 bg-amber-50 flex items-center justify-center cursor-pointer hover:opacity-90 hover:scale-[1.02] transition-all group relative"
-              title="Click to view & zoom image"
+              title="Click to view image"
             >
               {profileImgSrc ? (
                 <>
-                  <img src={profileImgSrc} alt={displayName} className="w-full h-full object-cover" />
+                  <img src={profileImgSrc} alt={displayName} onError={handleAvatarError} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="material-symbols-outlined text-white text-[22px]">zoom_in</span>
                   </div>
@@ -417,7 +430,6 @@ export default function ProfileDetailScreen({ profile, onBack }) {
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Mother</span>
               <span className="font-bold text-slate-800">{p.mother || 'Smt. Sunita Garg'}</span>
             </div>
-
           </div>
         </div>
 

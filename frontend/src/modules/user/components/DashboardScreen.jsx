@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import HeaderBar from './HeaderBar'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
+import { avatarSrc, handleAvatarError } from '../../../utils/avatar'
 import { getMyProfile } from '../../../services/profileService'
 import { getMatches, getTodayMatches, searchMatches } from '../../../services/matchService'
 import {
@@ -18,7 +19,12 @@ import {
   acceptInterest,
   declineInterest,
 } from '../../../services/interestService'
-import { addToShortlist, removeFromShortlist } from '../../../services/socialService'
+import {
+  addToShortlist,
+  removeFromShortlist,
+  getShortlists,
+  getVisitors,
+} from '../../../services/socialService'
 import { isAuthenticated } from '../../../services/authService'
 import {
   getNotifications,
@@ -215,8 +221,67 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   // list can explain itself instead of looking like "no one is out there".
   const [preferenceFilter, setPreferenceFilter] = useState(null)
 
-  // Notifications load on demand when the tab opens, and refresh when the
-  // category filter changes, so the feed is never stale on entry.
+  // Contents of the Visitors and Saved modals. Both used to render a
+  // hardcoded cast of people who were not members of the platform.
+  const [visitorsList, setVisitorsList] = useState([])
+  const [savedList, setSavedList] = useState([])
+  const [isLoadingModal, setIsLoadingModal] = useState(false)
+
+  useEffect(() => {
+    if (activeModal !== 'Visitors' && activeModal !== 'Saved') return
+    if (!isAuthenticated()) return
+
+    let cancelled = false
+    setIsLoadingModal(true)
+
+    const load = activeModal === 'Visitors'
+      ? getVisitors({ limit: 20 }).then((res) =>
+          (res?.visitors || []).map((v) => ({
+            id: v.id || v._id,
+            name: v.visitorProfileId?.fullName || 'A member',
+            city: v.visitorProfileId?.city || '',
+            time: relativeTime(v.lastVisitedAt || v.createdAt),
+            image: resolveAssetUrl(v.visitorProfileId?.profilePicture),
+          }))
+        )
+      : getShortlists({ limit: 20 }).then((res) =>
+          (res?.shortlists || []).map((item) => {
+            const prof = item.shortlistedProfileId || {}
+            return {
+              id: item.id || item._id,
+              profileId: prof.profileId || prof._id,
+              name: prof.fullName || 'A member',
+              age: prof.dob
+                ? Math.floor((Date.now() - new Date(prof.dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                : null,
+              city: prof.city || '',
+              profession: prof.occupation || prof.workingAt || '',
+              image: resolveAssetUrl(prof.profilePicture),
+            }
+          })
+        )
+
+    load
+      .then((rows) => {
+        if (cancelled) return
+        if (activeModal === 'Visitors') setVisitorsList(rows)
+        else setSavedList(rows)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          if (activeModal === 'Visitors') setVisitorsList([])
+          else setSavedList([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingModal(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeModal, activeProfileId])
+
   useEffect(() => {
     if (activeTab !== 'Notifications') return
     loadNotifications(notificationsTab)
@@ -265,7 +330,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
   useEffect(() => {
     async function loadDashboardData() {
-      // 1. Initial local profile fallback
       const savedProfile = localStorage.getItem('userProfile')
       if (savedProfile) {
         try {
@@ -273,20 +337,30 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         } catch {}
       }
 
-      // 2. Fetch live data from MongoDB if authenticated
       if (isAuthenticated()) {
         try {
           setIsLoadingLive(true)
-          // Interests are loaded by the Interests tab itself, which needs both
-          // directions; fetching them here as well would duplicate the work.
-          const [profileRes, matchesRes, todayRes] = await Promise.allSettled([
+          setLiveMatches([])
+          setLiveTodayMatches([])
+          const [profileRes, matchesRes, todayRes, sentInterestsRes] = await Promise.allSettled([
             getMyProfile(),
             getMatches({ limit: 20 }),
-            getTodayMatches()
+            getTodayMatches(),
+            getSentInterests({ limit: 100 })
           ])
 
           if (profileRes.status === 'fulfilled' && profileRes.value?.profile) {
             setUserProfile(profileRes.value.profile)
+          }
+
+          if (sentInterestsRes.status === 'fulfilled' && sentInterestsRes.value?.interests) {
+            const intMap = {}
+            sentInterestsRes.value.interests.forEach((item) => {
+              const rec = item.recipientProfileId
+              const recId = rec?.profileId || rec?._id || rec
+              if (recId) intMap[recId] = true
+            })
+            setInterested(intMap)
           }
 
           if (matchesRes.status === 'fulfilled' && matchesRes.value?.matches) {
@@ -307,33 +381,30 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               city: `${m.profile.city || ''}${m.profile.state ? `, ${m.profile.state}` : ''}`,
               profession: m.profile.occupation || m.profile.workingAt || 'Professional',
               education: m.profile.qualification || 'Graduate',
-              compatibility: m.totalScore || 90,
+              compatibility: m.matchScore ?? m.totalScore ?? 0,
               gotra: m.profile.gotra,
               motherGotra: m.profile.motherGotra,
               verified: m.profile.verified,
               isNearby: true,
               image: m.profile.profilePicture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600'
             }))
-            if (formatted.length > 0) {
-              setLiveMatches(formatted)
-            }
+            setLiveMatches(formatted)
           }
 
-          if (todayRes.status === 'fulfilled' && todayRes.value?.todayMatches) {
-            const formattedToday = todayRes.value.todayMatches.map(m => ({
+          if (todayRes.status === 'fulfilled') {
+            const todayRows = todayRes.value?.recommendations || todayRes.value?.todayMatches || []
+            const formattedToday = todayRows.map(m => ({
               id: m.profile.profileId || m.profile._id,
               name: m.profile.fullName,
               age: m.profile.dob ? Math.floor((new Date() - new Date(m.profile.dob)) / (365.25 * 24 * 60 * 60 * 1000)) : 26,
               height: m.profile.height || "5'5\"",
               city: m.profile.city || 'Delhi',
-              matchScore: m.totalScore || 95,
+              matchScore: m.matchScore ?? m.totalScore ?? 0,
               gotra: m.profile.gotra,
               education: m.profile.qualification || 'Graduate',
               image: m.profile.profilePicture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400'
             }))
-            if (formattedToday.length > 0) {
-              setLiveTodayMatches(formattedToday)
-            }
+            setLiveTodayMatches(formattedToday)
           }
 
         } catch (err) {
@@ -345,9 +416,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     }
 
     loadDashboardData()
-    // Re-runs when the account switches candidate profile: matches, interests
-    // and chats all belong to one candidate, so the previous profile's data
-    // must not linger on screen.
   }, [activeProfileId])
 
   useEffect(() => {
@@ -357,7 +425,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     else if (path === '/interests') setActiveTab('Interests')
     else if (path === '/chat' || path === '/messages') setActiveTab('Messages')
     else if (path === '/profile') {
-      // Keep MyProfile active if user clicked My Details, otherwise default to main Profile
       setActiveTab(prev => prev === 'MyProfile' ? 'MyProfile' : 'Profile')
     }
     else if (path === '/notifications') setActiveTab('Notifications')
@@ -424,14 +491,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
   useEffect(() => {
     if (activeTab !== 'Messages') return
-    // Threads belong to a candidate profile, so a switch must clear whatever
-    // thread was open before reloading the other profile's inbox.
     setSelectedChat(null)
     loadConversations()
   }, [activeTab, activeProfileId])
 
-  // Incoming messages arrive on the shared socket whether or not the relevant
-  // thread is open, so both the list and the open thread are updated here.
   useEffect(() => {
     if (!isAuthenticated()) return
 
@@ -538,6 +601,38 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     emitTyping(chatId, true)
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     typingTimeoutRef.current = setTimeout(() => emitTyping(chatId, false), 1200)
+  }
+
+  const toggleFavorite = async (profileId, e) => {
+    e?.stopPropagation()
+    if (!profileId) return
+    const isFav = !!favorites[profileId]
+    setFavorites(prev => ({ ...prev, [profileId]: !isFav }))
+    try {
+      if (isFav) {
+        await removeFromShortlist(profileId)
+        showToast('Removed from shortlist', 'info')
+      } else {
+        await addToShortlist(profileId)
+        showToast('Added to shortlist', 'success')
+      }
+    } catch (err) {
+      showToast(err?.message || 'Updated shortlist', 'info')
+    }
+  }
+
+  const toggleInterest = async (profileId, e) => {
+    e?.stopPropagation()
+    if (!profileId) return
+    if (interested[profileId]) return
+
+    setInterested(prev => ({ ...prev, [profileId]: true }))
+    try {
+      await sendInterest(profileId, 'Hello, I liked your profile and would like to connect.')
+      showToast('Interest expressed successfully!', 'success')
+    } catch (err) {
+      showToast(err?.message || 'Interest already expressed', 'info')
+    }
   }
 
   /* ------------------------- Interests ------------------------- */
@@ -715,135 +810,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     }
   }
 
-  const toggleFavorite = async (id, e) => {
-    e?.stopPropagation()
-    const isFav = !favorites[id]
-    setFavorites((prev) => ({ ...prev, [id]: isFav }))
-    if (isAuthenticated()) {
-      try {
-        if (isFav) {
-          await addToShortlist(id)
-          showToast('Profile added to saved shortlist', 'success')
-        } else {
-          await removeFromShortlist(id)
-          showToast('Profile removed from shortlist', 'info')
-        }
-      } catch (err) {
-        console.warn('Shortlist API note:', err)
-      }
-    }
-  }
-
-  const toggleInterest = async (id, e) => {
-    e?.stopPropagation()
-    const isInt = !interested[id]
-    setInterested((prev) => ({ ...prev, [id]: isInt }))
-    if (isInt && isAuthenticated()) {
-      try {
-        await sendInterest(id, 'Hello, I came across your profile and would like to connect.')
-        showToast('Interest expressed successfully!', 'success')
-      } catch (err) {
-        console.warn('Interest API note:', err)
-        showToast(err.message || 'Interest sent', 'info')
-      }
-    }
-  }
-
-  const matchesList = [
-    {
-      id: 'P101',
-      name: 'Riya Garg',
-      age: 26,
-      height: "5'4\"",
-      city: 'Jaipur, Rajasthan',
-      profession: 'Software Engineer at TCS',
-      education: 'MBA • Hindu, Agarwal',
-      compatibility: 95,
-      isPremium: true,
-      verified: true,
-      isNearby: true,
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600',
-    },
-    {
-      id: 'P102',
-      name: 'Anjali Bansal',
-      age: 28,
-      height: "5'5\"",
-      city: 'Jodhpur, Rajasthan',
-      profession: 'Senior Product Designer',
-      education: 'B.Des • Hindu, Agarwal',
-      compatibility: 93,
-      isPremium: true,
-      verified: true,
-      isNearby: true,
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600',
-    },
-    {
-      id: 'P103',
-      name: 'Kavya Goyal',
-      age: 27,
-      height: "5'3\"",
-      city: 'Ajmer, Rajasthan',
-      profession: 'Chartered Accountant (CA)',
-      education: 'M.Com • Hindu, Agarwal',
-      compatibility: 91,
-      isPremium: false,
-      verified: true,
-      isMockInterested: true,
-      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=600',
-    },
-    {
-      id: 'P104',
-      name: 'Aman Singhal',
-      age: 29,
-      height: "6'0\"",
-      city: 'Delhi NCR',
-      profession: 'MD Internal Medicine',
-      education: 'MBBS • Hindu, Agarwal',
-      compatibility: 90,
-      isPremium: true,
-      verified: true,
-      isNearby: false,
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600',
-    },
-  ]
-
-  const todayMatches = [
-    {
-      id: 'P101',
-      name: 'Priya Garg',
-      age: 26,
-      height: "5'4\"",
-      city: 'Jaipur',
-      matchScore: 95,
-      gotra: 'Garg',
-      education: 'B.Tech CS, Senior Developer',
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
-    },
-    {
-      id: 'P102',
-      name: 'Anjali Bansal',
-      age: 28,
-      height: "5'5\"",
-      city: 'Jodhpur',
-      matchScore: 93,
-      gotra: 'Bansal',
-      education: 'MBA Marketing Lead',
-      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-    },
-    {
-      id: 'P103',
-      name: 'Kavya Goyal',
-      age: 27,
-      height: "5'3\"",
-      city: 'Ajmer',
-      matchScore: 91,
-      gotra: 'Goyal',
-      education: 'Chartered Accountant',
-      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=400',
-    },
-  ]
-
   const popularTags = [
     'Software Engineer',
     'MBA',
@@ -866,8 +832,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     { id: 'more', label: 'More Filters', icon: 'tune' },
   ]
 
-  // Server-side results once a search has run; otherwise the local match feed
-  // is filtered so the tab is never empty before the user types.
+  // The match feeds come straight from the API. There is deliberately no
+  // hardcoded fallback: showing invented people as though they were members
+  // is worse than an empty feed, and tapping one only produced 404s.
+  const matchesList = liveMatches
+  const todayMatches = liveTodayMatches
+
+  // Server-side results once a search has run; otherwise the match feed is
+  // reused so the tab has something to show before the user types.
   const filteredSearchList = searchQuery.trim()
     ? searchResults
     : matchesList
@@ -956,7 +928,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                       </div>
                     ) : (
                       <img
-                        src={item.image}
+                        src={avatarSrc(item.image)} onError={handleAvatarError}
                         alt="Notification avatar"
                         className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100 shadow-2xs"
                       />
@@ -1012,7 +984,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <div className="relative w-20 h-20 rounded-full border-4 border-amber-300/80 shadow-lg overflow-hidden flex-shrink-0 bg-amber-100/20 flex items-center justify-center">
                 {userProfile?.profilePicture ? (
                   <img
-                    src={userProfile.profilePicture}
+                    src={avatarSrc(userProfile.profilePicture)} onError={handleAvatarError}
                     alt={userProfile?.fullName || 'User Profile'}
                     className="w-full h-full object-cover"
                   />
@@ -1176,7 +1148,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 <div className="relative w-9 h-9 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
                   {selectedChat.image ? (
                     <img
-                      src={selectedChat.image}
+                      src={avatarSrc(selectedChat.image)} onError={handleAvatarError}
                       alt={selectedChat.name}
                       className="w-full h-full rounded-full object-cover"
                     />
@@ -1377,7 +1349,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                       <div className="relative w-12 h-12 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
                         {chat.image ? (
                           <img
-                            src={chat.image}
+                            src={avatarSrc(chat.image)} onError={handleAvatarError}
                             alt={chat.name}
                             className="w-full h-full rounded-full object-cover"
                           />
@@ -1481,7 +1453,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     <div className="relative w-14 h-14 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden border border-gray-200">
                       {item.image ? (
                         <img
-                          src={item.image}
+                          src={avatarSrc(item.image)} onError={handleAvatarError}
                           alt={item.name}
                           className="w-full h-full rounded-full object-cover"
                         />
@@ -1632,7 +1604,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     className="bg-white rounded-md p-2.5 border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md transition cursor-pointer"
                   >
                     <img
-                      src={match.image}
+                      src={avatarSrc(match.image)} onError={handleAvatarError}
                       alt={match.name}
                       className="w-12 h-12 rounded-md object-cover flex-shrink-0"
                     />
@@ -1833,7 +1805,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 {/* Candidate Image Card */}
                 <div className="w-full h-64 rounded-md overflow-hidden relative bg-gray-100 mb-4">
                   <img
-                    src={match.image}
+                    src={avatarSrc(match.image)} onError={handleAvatarError}
                     alt={match.name}
                     className="w-full h-full object-cover"
                   />
@@ -2007,7 +1979,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     
                     <div className="w-[100px] h-[130px] bg-gray-100 rounded-md border-2 border-white shadow-sm overflow-hidden shrink-0 hidden pdf-only sm:block print:block">
                       {userProfile.profilePicture ? (
-                        <img src={userProfile.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                        <img src={avatarSrc(userProfile.profilePicture)} onError={handleAvatarError} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
                           <span className="material-symbols-outlined text-4xl">person</span>
@@ -2128,7 +2100,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] to-amber-300 shadow-sm flex items-center justify-center overflow-hidden bg-amber-50">
                 {userProfile?.profilePicture ? (
                   <img
-                    src={userProfile.profilePicture}
+                    src={avatarSrc(userProfile.profilePicture)} onError={handleAvatarError}
                     alt={userProfile?.fullName ? `${userProfile.fullName} Profile` : "User Profile"}
                     className="w-full h-full rounded-full object-cover border-2 border-white"
                   />
@@ -2286,7 +2258,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 >
                   <div className="w-full h-36 rounded-md overflow-hidden relative bg-gray-100 mb-2">
                     <img
-                      src={match.image}
+                      src={avatarSrc(match.image)} onError={handleAvatarError}
                       alt={match.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -2433,15 +2405,17 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             <div className="p-4 overflow-y-auto space-y-4">
               {activeModal === 'Visitors' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-500 font-medium">12 members visited your profile recently:</p>
-                  {[
-                    { name: 'Riya Garg', time: '10 min ago', city: 'Jaipur', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
-                    { name: 'Anjali Bansal', time: '1 hour ago', city: 'Jodhpur', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200' },
-                    { name: 'Kavya Goyal', time: 'Yesterday', city: 'Ajmer', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200' },
-                  ].map((v, i) => (
+                  <p className="text-xs text-slate-500 font-medium">
+                    {isLoadingModal
+                      ? 'Loading recent visitors…'
+                      : visitorsList.length === 0
+                      ? 'No one has viewed this profile yet.'
+                      : `${visitorsList.length} member${visitorsList.length === 1 ? '' : 's'} viewed your profile recently:`}
+                  </p>
+                  {visitorsList.map((v, i) => (
                     <div key={i} className="flex items-center justify-between p-2.5 bg-amber-50/40 rounded-xl border border-amber-100">
                       <div className="flex items-center gap-3">
-                        <img src={v.image} alt={v.name} className="w-10 h-10 rounded-full object-cover border border-amber-200" />
+                        <img src={avatarSrc(v.image)} onError={handleAvatarError} alt={v.name} className="w-10 h-10 rounded-full object-cover border border-amber-200" />
                         <div>
                           <h4 className="text-xs font-bold text-slate-800">{v.name}</h4>
                           <p className="text-[10px] text-slate-500">{v.city} • {v.time}</p>
@@ -2460,14 +2434,17 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
               {activeModal === 'Saved' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-500 font-medium">Your bookmarked & saved profiles:</p>
-                  {[
-                    { name: 'Riya Garg', age: 26, city: 'Jaipur', profession: 'Software Engineer', image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
-                    { name: 'Aman Singhal', age: 29, city: 'Delhi', profession: 'Doctor', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
-                  ].map((s, i) => (
+                  <p className="text-xs text-slate-500 font-medium">
+                    {isLoadingModal
+                      ? 'Loading your shortlist…'
+                      : savedList.length === 0
+                      ? 'You have not shortlisted anyone yet.'
+                      : 'Your bookmarked & saved profiles:'}
+                  </p>
+                  {savedList.map((s, i) => (
                     <div key={i} className="flex items-center justify-between p-2.5 bg-amber-50/40 rounded-xl border border-amber-100">
                       <div className="flex items-center gap-3">
-                        <img src={s.image} alt={s.name} className="w-10 h-10 rounded-full object-cover border border-amber-200" />
+                        <img src={avatarSrc(s.image)} onError={handleAvatarError} alt={s.name} className="w-10 h-10 rounded-full object-cover border border-amber-200" />
                         <div>
                           <h4 className="text-xs font-bold text-slate-800">{s.name}, {s.age}</h4>
                           <p className="text-[10px] text-slate-500">{s.profession} • {s.city}</p>

@@ -9,6 +9,7 @@ const User = require('../models/User');
 const Profile = require('../models/Profile');
 const auditService = require('../services/auditService');
 const notificationService = require('../services/notificationService');
+const { getUserActiveProfile, findProfileByIdOrCustomId } = require('../utils/profileHelper');
 const { VERIFICATION_STATUS } = require('../config/constants');
 const { success, created, badRequest, notFound, paginate } = require('../utils/apiResponse');
 
@@ -47,17 +48,22 @@ const submitVerification = async (req, res, next) => {
       return badRequest(res, 'At least one verification document (ID Proof or Professional Proof) is required');
     }
 
-    // Resolve associated candidate profile
+    // Resolve the candidate profile these documents belong to.
+    //
+    // An account can run several profiles, so an explicitly named one is
+    // honoured only after confirming the caller owns it - otherwise a request
+    // could attach its verification record to a stranger's profile. With none
+    // named we fall back to the profile the request is acting as.
     let targetProfileId = null;
     if (profileId) {
-      targetProfileId = profileId;
-    } else if (req.user.activeProfileId) {
-      targetProfileId = req.user.activeProfileId;
-    } else {
-      const firstProfile = await Profile.findOne({ userId });
-      if (firstProfile) {
-        targetProfileId = firstProfile._id;
+      const named = await findProfileByIdOrCustomId(profileId);
+      if (!named || named.userId.toString() !== userId) {
+        return badRequest(res, 'You do not have permission to verify this profile');
       }
+      targetProfileId = named._id;
+    } else {
+      const acting = await getUserActiveProfile(userId, req.user.requestedProfileId);
+      targetProfileId = acting?.activeProfile?._id || null;
     }
 
     // Create new verification record

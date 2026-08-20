@@ -91,11 +91,8 @@ const MOCK_CANDIDATES = [
         addressVisibility: 'Connected Members Only',
         photoVisibility: 'Visible to All'
       },
-      profilePicture: '/uploads/profiles/mock_rahul_garg.jpg',
-      gallery: [
-        { url: '/uploads/profiles/mock_rahul_garg_1.jpg', caption: 'Traditional Attire', isPrimary: true },
-        { url: '/uploads/profiles/mock_rahul_garg_2.jpg', caption: 'Casual Outing', isPrimary: false }
-      ],
+      profilePicture: '',
+      gallery: [],
       verified: true,
       isFeatured: true
     }
@@ -174,11 +171,8 @@ const MOCK_CANDIDATES = [
         addressVisibility: 'Connected Members Only',
         photoVisibility: 'Visible to All'
       },
-      profilePicture: '/uploads/profiles/mock_priya_bansal.jpg',
-      gallery: [
-        { url: '/uploads/profiles/mock_priya_bansal_1.jpg', caption: 'Festival Celebration', isPrimary: true },
-        { url: '/uploads/profiles/mock_priya_bansal_2.jpg', caption: 'Convocation Ceremony', isPrimary: false }
-      ],
+      profilePicture: '',
+      gallery: [],
       verified: true,
       isFeatured: true
     }
@@ -255,10 +249,8 @@ const MOCK_CANDIDATES = [
         addressVisibility: 'Connected Members Only',
         photoVisibility: 'Visible to All'
       },
-      profilePicture: '/uploads/profiles/mock_amit_goyal.jpg',
-      gallery: [
-        { url: '/uploads/profiles/mock_amit_goyal_1.jpg', caption: 'Corporate Portrait', isPrimary: true }
-      ],
+      profilePicture: '',
+      gallery: [],
       verified: true,
       isFeatured: false
     }
@@ -335,11 +327,8 @@ const MOCK_CANDIDATES = [
         addressVisibility: 'Connected Members Only',
         photoVisibility: 'Visible to All'
       },
-      profilePicture: '/uploads/profiles/mock_sneha_mittal.jpg',
-      gallery: [
-        { url: '/uploads/profiles/mock_sneha_mittal_1.jpg', caption: 'Hospital Clinic', isPrimary: true },
-        { url: '/uploads/profiles/mock_sneha_mittal_2.jpg', caption: 'Family Function', isPrimary: false }
-      ],
+      profilePicture: '',
+      gallery: [],
       verified: true,
       isFeatured: true
     }
@@ -416,10 +405,8 @@ const MOCK_CANDIDATES = [
         addressVisibility: 'Connected Members Only',
         photoVisibility: 'Visible to All'
       },
-      profilePicture: '/uploads/profiles/mock_vikram_singhal.jpg',
-      gallery: [
-        { url: '/uploads/profiles/mock_vikram_singhal_1.jpg', caption: 'Startup Summit', isPrimary: true }
-      ],
+      profilePicture: '',
+      gallery: [],
       verified: true,
       isFeatured: true
     }
@@ -496,10 +483,8 @@ const MOCK_CANDIDATES = [
         addressVisibility: 'Connected Members Only',
         photoVisibility: 'Visible to All'
       },
-      profilePicture: '/uploads/profiles/mock_pooja_jindal.jpg',
-      gallery: [
-        { url: '/uploads/profiles/mock_pooja_jindal_1.jpg', caption: 'Design Showcase', isPrimary: true }
-      ],
+      profilePicture: '',
+      gallery: [],
       verified: true,
       isFeatured: false
     }
