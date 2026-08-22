@@ -18,7 +18,7 @@ const { ACCOUNT_STATUS, VERIFICATION_STATUS, SUBSCRIPTION_STATUS, SUBSCRIPTION_P
 const MOCK_CANDIDATES = [
   {
     user: {
-      mobile: '+919876500001',
+      mobile: '9876500001',
       name: 'Rahul Garg',
       email: 'rahul.garg@example.com',
       gender: GENDER.MALE,
@@ -86,7 +86,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'A-42, Ashok Vihar Phase 1',
       city: 'Delhi',
       state: 'Delhi',
-      mobileNumber: '+919876500001',
+      mobileNumber: '9876500001',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -100,7 +100,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500002',
+      mobile: '9876500002',
       name: 'Priya Bansal',
       email: 'priya.bansal@example.com',
       gender: GENDER.FEMALE,
@@ -166,7 +166,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'B-12, Malviya Nagar',
       city: 'Jaipur',
       state: 'Rajasthan',
-      mobileNumber: '+919876500002',
+      mobileNumber: '9876500002',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -180,7 +180,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500003',
+      mobile: '9876500003',
       name: 'Amit Goyal',
       email: 'amit.goyal@example.com',
       gender: GENDER.MALE,
@@ -244,7 +244,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'Flat 1402, Lodha Bellissimo, Lower Parel',
       city: 'Mumbai',
       state: 'Maharashtra',
-      mobileNumber: '+919876500003',
+      mobileNumber: '9876500003',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -258,7 +258,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500004',
+      mobile: '9876500004',
       name: 'Sneha Mittal',
       email: 'sneha.mittal@example.com',
       gender: GENDER.FEMALE,
@@ -322,7 +322,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'House No. 512, Sector 11-B',
       city: 'Chandigarh',
       state: 'Punjab',
-      mobileNumber: '+919876500004',
+      mobileNumber: '9876500004',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -336,7 +336,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500005',
+      mobile: '9876500005',
       name: 'Vikram Singhal',
       email: 'vikram.singhal@example.com',
       gender: GENDER.MALE,
@@ -400,7 +400,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: '104, Indrapuri Colony',
       city: 'Indore',
       state: 'Madhya Pradesh',
-      mobileNumber: '+919876500005',
+      mobileNumber: '9876500005',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -414,7 +414,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500006',
+      mobile: '9876500006',
       name: 'Pooja Jindal',
       email: 'pooja.jindal@example.com',
       gender: GENDER.FEMALE,
@@ -478,7 +478,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'Tower 4, Flat 903, ATS Greens Village, Sector 93A',
       city: 'Noida',
       state: 'Uttar Pradesh',
-      mobileNumber: '+919876500006',
+      mobileNumber: '9876500006',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -492,7 +492,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500007',
+      mobile: '9876500007',
       name: 'Neeraj Bindal',
       email: 'neeraj.bindal@example.com',
       gender: GENDER.MALE,
@@ -554,7 +554,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: '204, Prestige Lakeside Habitat, Varthur',
       city: 'Bangalore',
       state: 'Karnataka',
-      mobileNumber: '+919876500007',
+      mobileNumber: '9876500007',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -568,7 +568,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500008',
+      mobile: '9876500008',
       name: 'Anjali Tayal',
       email: 'anjali.tayal@example.com',
       gender: GENDER.FEMALE,
@@ -632,7 +632,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: '18/4, Hazratganj',
       city: 'Lucknow',
       state: 'Uttar Pradesh',
-      mobileNumber: '+919876500008',
+      mobileNumber: '9876500008',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -646,7 +646,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500009',
+      mobile: '9876500009',
       name: 'Dr. Rohan Kuchhal',
       email: 'rohan.kuchhal@example.com',
       gender: GENDER.MALE,
@@ -708,7 +708,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'Flat 802, Kumar Paradise, Viman Nagar',
       city: 'Pune',
       state: 'Maharashtra',
-      mobileNumber: '+919876500009',
+      mobileNumber: '9876500009',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -722,7 +722,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500010',
+      mobile: '9876500010',
       name: 'Kirti Nangal',
       email: 'kirti.nangal@example.com',
       gender: GENDER.FEMALE,
@@ -784,7 +784,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: '7, Shantiniketan Society, Satellite',
       city: 'Ahmedabad',
       state: 'Gujarat',
-      mobileNumber: '+919876500010',
+      mobileNumber: '9876500010',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -798,7 +798,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500011',
+      mobile: '9876500011',
       name: 'Saurabh Madhukul',
       email: 'saurabh.madhukul@example.com',
       gender: GENDER.MALE,
@@ -860,7 +860,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'Plot 56, Jubilee Hills',
       city: 'Hyderabad',
       state: 'Telangana',
-      mobileNumber: '+919876500011',
+      mobileNumber: '9876500011',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -874,7 +874,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500012',
+      mobile: '9876500012',
       name: 'Nisha Bhandal',
       email: 'nisha.bhandal@example.com',
       gender: GENDER.FEMALE,
@@ -936,7 +936,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: '22B, Ballygunge Place',
       city: 'Kolkata',
       state: 'West Bengal',
-      mobileNumber: '+919876500012',
+      mobileNumber: '9876500012',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -950,7 +950,7 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500013',
+      mobile: '9876500013',
       name: 'Karan Airan',
       email: 'karan.airan@example.com',
       gender: GENDER.MALE,
@@ -1012,7 +1012,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'B-802, Ganesh Glory, Vesu',
       city: 'Surat',
       state: 'Gujarat',
-      mobileNumber: '+919876500013',
+      mobileNumber: '9876500013',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
@@ -1026,7 +1026,8 @@ const MOCK_CANDIDATES = [
   },
   {
     user: {
-      mobile: '+919876500014',
+      // Fixed test login number for demoing both sides of the app.
+      mobile: '7777777777',
       name: 'Meera Dharan',
       email: 'meera.dharan@example.com',
       gender: GENDER.FEMALE,
@@ -1088,7 +1089,7 @@ const MOCK_CANDIDATES = [
       residentialAddress: 'Flat 6B, Sundar Nagar, Velachery',
       city: 'Chennai',
       state: 'Tamil Nadu',
-      mobileNumber: '+919876500014',
+      mobileNumber: '7777777777',
       privacySettings: {
         phoneVisibility: 'Connected Members Only',
         addressVisibility: 'Connected Members Only',
