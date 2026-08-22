@@ -16,6 +16,7 @@ const {
   getUserActiveProfile,
   areProfilesConnected
 } = require('../utils/profileHelper');
+const { resolveUserPlan } = require('../services/planLimitService');
 const { success, badRequest, notFound, forbidden } = require('../utils/apiResponse');
 
 /**
@@ -49,6 +50,14 @@ const unlockContact = async (req, res, next) => {
       return notFound(res, 'User not found');
     }
 
+    // Resolved live from the user's current plan document rather than the
+    // denormalized User.contactViewLimit field, which only paymentService
+    // keeps in sync - any other path that assigns a plan (admin action,
+    // seed script) would otherwise silently enforce Free-tier limits
+    // despite the account correctly showing its real plan everywhere else.
+    const plan = await resolveUserPlan(user);
+    const limit = typeof plan?.contactViewLimit === 'number' ? plan.contactViewLimit : 0;
+
     // Mobile numbers are never shared between members, regardless of plan -
     // only email and address are ever unlocked here.
     const buildContact = () => ({
@@ -66,7 +75,7 @@ const unlockContact = async (req, res, next) => {
       return success(res, 'Contact details unlocked', {
         alreadyUnlocked: true,
         contact: buildContact(),
-        remainingUnlocks: remaining(user)
+        remainingUnlocks: remaining(user, limit)
       });
     }
 
@@ -86,12 +95,11 @@ const unlockContact = async (req, res, next) => {
       return success(res, 'Contact details unlocked through your accepted interest', {
         viaConnection: true,
         contact: buildContact(),
-        remainingUnlocks: remaining(user)
+        remainingUnlocks: remaining(user, limit)
       });
     }
 
     // Otherwise this costs a plan allowance. -1 means unlimited.
-    const limit = user.contactViewLimit || 0;
     const used = user.contactViewsUsed || 0;
 
     if (limit !== -1 && used >= limit) {
@@ -118,17 +126,17 @@ const unlockContact = async (req, res, next) => {
 
     return success(res, 'Contact details unlocked', {
       contact: buildContact(),
-      remainingUnlocks: remaining(user)
+      remainingUnlocks: remaining(user, limit)
     });
   } catch (error) {
     next(error);
   }
 };
 
-/** Remaining unlocks for a user, or null when the plan is unlimited. */
-function remaining(user) {
-  if (user.contactViewLimit === -1) return null;
-  return Math.max(0, (user.contactViewLimit || 0) - (user.contactViewsUsed || 0));
+/** Remaining unlocks for a user given their resolved plan limit, or null when unlimited. */
+function remaining(user, limit) {
+  if (limit === -1) return null;
+  return Math.max(0, (limit || 0) - (user.contactViewsUsed || 0));
 }
 
 /**
@@ -137,16 +145,21 @@ function remaining(user) {
  */
 const getQuota = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.userId).select('contactViewLimit contactViewsUsed');
+    const user = await User.findById(req.user.userId).select(
+      'contactViewsUsed subscriptionPlanId subscriptionPlan'
+    );
     if (!user) {
       return notFound(res, 'User not found');
     }
 
+    const plan = await resolveUserPlan(user);
+    const limit = typeof plan?.contactViewLimit === 'number' ? plan.contactViewLimit : 0;
+
     return success(res, 'Contact view quota retrieved', {
-      limit: user.contactViewLimit || 0,
+      limit,
       used: user.contactViewsUsed || 0,
-      remaining: remaining(user),
-      unlimited: user.contactViewLimit === -1
+      remaining: remaining(user, limit),
+      unlimited: limit === -1
     });
   } catch (error) {
     next(error);

@@ -1121,8 +1121,14 @@ const seedMockData = async () => {
 
       if (item.user.subscriptionPlan) {
         const matchingPlan = await Plan.findOne({ name: item.user.subscriptionPlan });
-        if (matchingPlan && String(user.subscriptionPlanId) !== String(matchingPlan._id)) {
+        if (matchingPlan) {
+          // Entitlement checks resolve the plan live (see planLimitService),
+          // so this isn't load-bearing for enforcement - but keeping these
+          // denormalized fields in sync avoids a seeded account looking
+          // inconsistent in any admin view that still reads them directly.
           user.subscriptionPlanId = matchingPlan._id;
+          user.dailyMatchLimit = matchingPlan.dailyMatchLimit;
+          user.contactViewLimit = matchingPlan.contactViewLimit;
           await user.save();
         }
       }

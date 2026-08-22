@@ -18,6 +18,7 @@ const Interest = require('../models/Interest');
 const Notification = require('../models/Notification');
 const ContactUnlock = require('../models/ContactUnlock');
 const SavedSearch = require('../models/SavedSearch');
+const Plan = require('../models/Plan');
 const otpService = require('../services/otpService');
 const { signAccessToken } = require('../utils/token');
 
@@ -266,6 +267,24 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
   });
 
   describe('4. Contact unlock', () => {
+    /**
+     * Limits resolve live from the user's linked plan (see planLimitService),
+     * not from a directly-set User.contactViewLimit field - so tests set up
+     * "alice is on a plan with this contact allowance" by linking a real
+     * Plan document, the same way any real plan assignment would.
+     */
+    async function setAliceContactLimit(contactViewLimit) {
+      const plan = await Plan.create({
+        name: `Test Plan ${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        monthlyPrice: 999,
+        yearlyPrice: 4999,
+        contactViewLimit
+      });
+      alice.subscriptionPlanId = plan._id;
+      await alice.save();
+      return plan;
+    }
+
     it('refuses when the plan grants no contact views', async () => {
       const res = await request(app)
         .post('/api/contacts/unlock')
@@ -278,7 +297,7 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
     });
 
     it('reveals the address and consumes one view, but never the mobile number', async () => {
-      await User.findByIdAndUpdate(alice._id, { contactViewLimit: 2, contactViewsUsed: 0 });
+      await setAliceContactLimit(2);
 
       const res = await request(app)
         .post('/api/contacts/unlock')
@@ -293,7 +312,7 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
     });
 
     it('never charges twice for the same profile', async () => {
-      await User.findByIdAndUpdate(alice._id, { contactViewLimit: 2, contactViewsUsed: 0 });
+      await setAliceContactLimit(2);
 
       await request(app)
         .post('/api/contacts/unlock')
@@ -333,7 +352,7 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
     });
 
     it('treats -1 as unlimited', async () => {
-      await User.findByIdAndUpdate(alice._id, { contactViewLimit: -1 });
+      await setAliceContactLimit(-1);
 
       const res = await request(app)
         .post('/api/contacts/unlock')
@@ -346,7 +365,8 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
     });
 
     it('reports the quota', async () => {
-      await User.findByIdAndUpdate(alice._id, { contactViewLimit: 5, contactViewsUsed: 2 });
+      await setAliceContactLimit(5);
+      await User.findByIdAndUpdate(alice._id, { contactViewsUsed: 2 });
 
       const res = await request(app)
         .get('/api/contacts/quota')
@@ -357,7 +377,7 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
     });
 
     it('reports unlock status per profile', async () => {
-      await User.findByIdAndUpdate(alice._id, { contactViewLimit: 1 });
+      await setAliceContactLimit(1);
 
       const before = await request(app)
         .get(`/api/contacts/status/${bobProfile._id}`)

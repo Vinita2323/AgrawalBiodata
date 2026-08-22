@@ -7,8 +7,7 @@
  * detail consumes quota, and re-opening an already-viewed profile is free.
  */
 
-const Plan = require('../models/Plan');
-const { SUBSCRIPTION_PLANS } = require('../config/constants');
+const { resolveUserPlan } = require('./planLimitService');
 
 const FALLBACK_LIMIT = 5;
 
@@ -24,18 +23,14 @@ const rollQuotaIfNeeded = (user) => {
 };
 
 /**
- * Resolves the daily view limit for a user. `user.dailyMatchLimit` is set by
- * paymentService on subscription activation; 0 means "never resolved" (no
- * paid activation yet), in which case we fall back to the Free plan's limit.
+ * Resolves the daily view limit for a user, always live from their current
+ * plan document - see planLimitService for why this never trusts the
+ * denormalized User.dailyMatchLimit field alone.
  */
 const resolveDailyLimit = async (user) => {
-  if (user.dailyMatchLimit && user.dailyMatchLimit !== 0) {
-    return user.dailyMatchLimit;
-  }
-
-  const freePlan = await Plan.findOne({ name: SUBSCRIPTION_PLANS.FREE });
-  if (freePlan && typeof freePlan.dailyMatchLimit === 'number') {
-    return freePlan.dailyMatchLimit;
+  const plan = await resolveUserPlan(user);
+  if (plan && typeof plan.dailyMatchLimit === 'number') {
+    return plan.dailyMatchLimit;
   }
 
   return FALLBACK_LIMIT;
