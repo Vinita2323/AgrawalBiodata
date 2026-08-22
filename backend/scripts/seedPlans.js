@@ -33,7 +33,7 @@ const DEFAULT_PLANS = [
       'Create and manage matrimonial profile',
       'Search and browse matching profiles',
       'View 5 profiles per day',
-      'Send up to 5 interests',
+      'Send interests to profiles you like',
       'Standard Gotra exogamy compatibility scoring'
     ]
   },
@@ -42,7 +42,7 @@ const DEFAULT_PLANS = [
     name: SUBSCRIPTION_PLANS.GOLD,
     nameHindi: 'गोल्ड',
     tagline: 'Most Popular for Active Matchseekers',
-    description: 'Direct contact details, unlimited interests, and verified priority recommendations.',
+    description: 'Higher daily profile views and more contact detail unlocks for active matchseekers.',
     badge: 'Popular',
     monthlyPrice: 999,
     quarterlyPrice: 2499,
@@ -59,20 +59,15 @@ const DEFAULT_PLANS = [
     sortOrder: 2,
     features: [
       'View 25 profiles per day',
-      'Unlock 50 verified member contact details',
-      'Send unlimited interests',
-      'Direct chat and messaging access',
-      'Priority placement in match recommendations',
-      'Kundli & Astrology matching reports',
-      'See profile visitors & contact details'
+      'Unlock 50 verified member contact details'
     ]
   },
   {
     planId: 'platinum',
     name: SUBSCRIPTION_PLANS.PLATINUM,
     nameHindi: 'प्लेटिनम',
-    tagline: 'Premium Matchmaking with High Visibility',
-    description: '150 contact unlocks, top carousel placement, and verified profile highlight.',
+    tagline: 'Premium Matchmaking for Serious Matchseekers',
+    description: 'Unlimited profile views and more contact detail unlocks for serious matchmaking.',
     badge: 'Best Value',
     monthlyPrice: 1999,
     quarterlyPrice: 4999,
@@ -89,20 +84,15 @@ const DEFAULT_PLANS = [
     sortOrder: 3,
     features: [
       'View unlimited profiles per day',
-      'Unlock 150 verified member contact details',
-      'Send unlimited interests & messages',
-      'Top Homepage Carousel spotlight',
-      'Verified Profile badge highlight',
-      'Detailed 3-Generation family tree access',
-      'Advanced multi-parameter filters'
+      'Unlock 150 verified member contact details'
     ]
   },
   {
     planId: 'diamond',
     name: SUBSCRIPTION_PLANS.DIAMOND,
     nameHindi: 'डायमंड',
-    tagline: 'VIP Concierge & Dedicated Relationship Manager',
-    description: 'Exclusive assisted matchmaking, unlimited contact views, and privacy management.',
+    tagline: 'Unlimited Access for the Most Active Matchseekers',
+    description: 'Unlimited profile views and unlimited contact detail unlocks for the most active matchseekers.',
     badge: 'VIP Exclusive',
     monthlyPrice: 3999,
     quarterlyPrice: 9999,
@@ -118,12 +108,8 @@ const DEFAULT_PLANS = [
     isActive: true,
     sortOrder: 4,
     features: [
-      'Unlimited verified member contact detail unlocks',
-      'Dedicated personal Relationship Manager',
-      'Handpicked curated match introductions',
-      'VIP spotlight on homepage and search top',
-      'Confidential and incognito browsing option',
-      'Priority background and Gotra verification'
+      'View unlimited profiles per day',
+      'Unlimited verified member contact detail unlocks'
     ]
   }
 ];
