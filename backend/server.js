@@ -21,6 +21,12 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+// Trust the first hop only (the nginx reverse proxy on this same VPS), so
+// req.ip resolves to the real visitor's address from X-Forwarded-For instead
+// of nginx's loopback IP. Without this every visitor shares one IP-keyed
+// rate-limit bucket, so a burst of traffic from anyone locks out everyone.
+app.set('trust proxy', 1);
+
 // Security HTTP Headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
