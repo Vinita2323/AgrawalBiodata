@@ -7,7 +7,7 @@
  * 2. Subscription listing
  * 3. Block record listing
  * 4. Featured profile placement toggle
- * 5. Computed match pair listing with reciprocal de-duplication
+ * 5. Matched pair listing (accepted interests, live-computed score)
  */
 
 const request = require('supertest');
@@ -17,8 +17,8 @@ const Profile = require('../models/Profile');
 const Admin = require('../models/Admin');
 const Plan = require('../models/Plan');
 const Block = require('../models/Block');
-const Match = require('../models/Match');
 const Interest = require('../models/Interest');
+const { calculateMatchScore } = require('../services/matchEngine');
 const Subscription = require('../models/Subscription');
 const AuditLog = require('../models/AuditLog');
 const { signAdminToken } = require('../utils/token');
@@ -261,19 +261,21 @@ describe('Admin Extended Operations', () => {
   });
 
   describe('5. Match pairs', () => {
-    it('collapses reciprocal rows into a single pair', async () => {
-      await Match.create({
-        profileId: aliceProfile._id,
-        matchedProfileId: bobProfile._id,
-        userId: alice._id,
-        matchScore: 92
+    /** A mutually accepted interest - the real definition of "matched" the app uses everywhere else. */
+    async function acceptInterest() {
+      return Interest.create({
+        senderUserId: alice._id,
+        senderProfileId: aliceProfile._id,
+        recipientUserId: bob._id,
+        recipientProfileId: bobProfile._id,
+        status: 'Accepted',
+        respondedAt: new Date()
       });
-      await Match.create({
-        profileId: bobProfile._id,
-        matchedProfileId: aliceProfile._id,
-        userId: bob._id,
-        matchScore: 88
-      });
+    }
+
+    it('lists an accepted interest as a matched pair with a live-computed score', async () => {
+      await acceptInterest();
+      const expectedScore = calculateMatchScore(aliceProfile, bobProfile).totalScore;
 
       const res = await request(app)
         .get('/api/admin/matches')
@@ -281,17 +283,28 @@ describe('Admin Extended Operations', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.items).toHaveLength(1);
-      // The higher of the two directional scores wins.
-      expect(res.body.data.items[0].matchScore).toBe(92);
+      expect(res.body.data.items[0].matchScore).toBe(expectedScore);
+    });
+
+    it('does not list a pending (unaccepted) interest', async () => {
+      await Interest.create({
+        senderUserId: alice._id,
+        senderProfileId: aliceProfile._id,
+        recipientUserId: bob._id,
+        recipientProfileId: bobProfile._id,
+        status: 'Pending'
+      });
+
+      const res = await request(app)
+        .get('/api/admin/matches')
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.items).toHaveLength(0);
     });
 
     it('includes the owning account name for each side', async () => {
-      await Match.create({
-        profileId: aliceProfile._id,
-        matchedProfileId: bobProfile._id,
-        userId: alice._id,
-        matchScore: 90
-      });
+      await acceptInterest();
 
       const res = await request(app)
         .get('/api/admin/matches')
@@ -302,19 +315,20 @@ describe('Admin Extended Operations', () => {
     });
 
     it('applies the minimum score filter', async () => {
-      await Match.create({
-        profileId: aliceProfile._id,
-        matchedProfileId: bobProfile._id,
-        userId: alice._id,
-        matchScore: 55
-      });
+      await acceptInterest();
+      const actualScore = calculateMatchScore(aliceProfile, bobProfile).totalScore;
 
-      const res = await request(app)
-        .get('/api/admin/matches?minScore=80')
+      const tooHigh = await request(app)
+        .get(`/api/admin/matches?minScore=${actualScore + 1}`)
         .set('Authorization', `Bearer ${superToken}`);
+      expect(tooHigh.status).toBe(200);
+      expect(tooHigh.body.data.items).toHaveLength(0);
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.items).toHaveLength(0);
+      const atThreshold = await request(app)
+        .get(`/api/admin/matches?minScore=${actualScore}`)
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(atThreshold.status).toBe(200);
+      expect(atThreshold.body.data.items).toHaveLength(1);
     });
 
     it('requires admin authentication', async () => {

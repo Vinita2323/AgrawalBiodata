@@ -16,6 +16,8 @@ const Visitor = require('../models/Visitor');
 const Block = require('../models/Block');
 const Match = require('../models/Match');
 const auditService = require('../services/auditService');
+const { calculateMatchScore } = require('../services/matchEngine');
+const { INTEREST_STATUS } = require('../config/constants');
 const { success, badRequest, notFound, paginate } = require('../utils/apiResponse');
 
 /**
@@ -515,12 +517,17 @@ const setProfileFeatured = async (req, res, next) => {
 };
 
 /**
- * 10. List Computed Match Pairs
+ * 10. List Matched (Mutually Connected) Pairs
  * GET /api/admin/matches
  *
- * The Match collection stores one row per (profile -> matchedProfile) direction.
- * Only rows above the score threshold are surfaced, and reciprocal duplicates
- * are collapsed so each pair appears once.
+ * "Matched" here means the same thing it means everywhere else in the app -
+ * a mutually accepted interest (the same relationship that unlocks free
+ * messaging and contact details for the pair). There is no separate
+ * precomputed match cache in real use: the candidate feed scores matches
+ * on demand per request rather than persisting them, so a collection keyed
+ * on stored scores would always be empty in production. The compatibility
+ * score shown here is computed live with the same engine the user-facing
+ * feed uses, for consistency.
  */
 const getMatchPairs = async (req, res, next) => {
   try {
@@ -528,42 +535,33 @@ const getMatchPairs = async (req, res, next) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const minScore = parseInt(req.query.minScore, 10) || 0;
 
-    const filter = {};
-    if (minScore > 0) {
-      filter.matchScore = { $gte: minScore };
-    }
-
-    const matches = await Match.find(filter)
-      .populate('profileId', 'fullName profileId gender dob gotra profilePicture userId')
-      .populate('matchedProfileId', 'fullName profileId gender dob gotra profilePicture userId')
-      .sort({ matchScore: -1, createdAt: -1 })
+    const accepted = await Interest.find({ status: INTEREST_STATUS.ACCEPTED })
+      .populate('senderProfileId', 'fullName profileId gender dob gotra motherGotra city state qualification educationLevel income manglik profilePicture userId')
+      .populate('recipientProfileId', 'fullName profileId gender dob gotra motherGotra city state qualification educationLevel income manglik profilePicture userId')
+      .sort({ respondedAt: -1, createdAt: -1 })
       .limit(1000);
 
-    // Collapse A->B and B->A into a single pair, keeping the higher score.
-    const pairs = new Map();
-    matches.forEach((m) => {
-      if (!m.profileId || !m.matchedProfileId) return;
+    const all = [];
+    accepted.forEach((interest) => {
+      const a = interest.senderProfileId;
+      const b = interest.recipientProfileId;
+      if (!a || !b) return;
 
-      const a = m.profileId._id.toString();
-      const b = m.matchedProfileId._id.toString();
-      const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      const scoreResult = calculateMatchScore(a, b);
+      if (minScore > 0 && scoreResult.totalScore < minScore) return;
 
-      const existing = pairs.get(key);
-      if (existing && existing.matchScore >= m.matchScore) return;
-
-      pairs.set(key, {
-        id: m._id,
-        matchScore: m.matchScore,
-        isSagotra: m.isSagotra,
-        hasMaternalConflict: m.hasMaternalConflict,
-        createdAt: m.createdAt,
-        lastCalculatedAt: m.lastCalculatedAt,
-        profile: m.profileId,
-        matchedProfile: m.matchedProfileId
+      all.push({
+        id: interest._id,
+        matchScore: scoreResult.totalScore,
+        isSagotra: scoreResult.isSagotra,
+        hasMaternalConflict: scoreResult.hasMaternalConflict,
+        createdAt: interest.respondedAt || interest.createdAt,
+        lastCalculatedAt: interest.respondedAt || interest.createdAt,
+        profile: a,
+        matchedProfile: b
       });
     });
 
-    const all = Array.from(pairs.values());
     const total = all.length;
     const start = (page - 1) * limit;
     const items = all.slice(start, start + limit);
