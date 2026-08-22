@@ -397,7 +397,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               motherGotra: m.profile.motherGotra,
               verified: m.profile.verified,
               isNearby: true,
-              image: m.profile.profilePicture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=600'
+              image: resolveAssetUrl(m.profile.profilePicture)
             }))
             setLiveMatches(formatted)
           }
@@ -413,7 +413,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               matchScore: m.matchScore ?? m.totalScore ?? 0,
               gotra: m.profile.gotra,
               education: m.profile.qualification || 'Graduate',
-              image: m.profile.profilePicture || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400'
+              image: resolveAssetUrl(m.profile.profilePicture)
             }))
             setLiveTodayMatches(formattedToday)
           }

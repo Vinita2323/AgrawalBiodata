@@ -6,6 +6,7 @@ import { getMatchScore } from '../../../services/matchService'
 import { getProfileById } from '../../../services/profileService'
 import { isAuthenticated } from '../../../services/authService'
 import { handleAvatarError } from '../../../utils/avatar'
+import { resolveAssetUrl } from '../../../services/api'
 import {
   unlockContact,
   getContactQuota,
@@ -68,7 +69,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
     city: 'Jaipur, Rajasthan',
     matchScore: 95,
     verified: true,
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
+    image: '',
   }
 
   useEffect(() => {
@@ -194,7 +195,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
   const displayMotherGotra = p.motherGotra || p.subGotra || 'Bansal'
   const displayHeight = p.height || "5'4\""
   const displayCity = p.city || p.pob || 'Rajasthan'
-  const profileImgSrc = p.image || p.profilePicture
+  const profileImgSrc = resolveAssetUrl(p.image || p.profilePicture)
 
   const handleShare = async () => {
     const shareData = {
@@ -394,7 +395,11 @@ export default function ProfileDetailScreen({ profile, onBack }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[11px]">
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Date of Birth</span>
-              <span className="font-bold text-slate-800">{p.dob || '14 May 1998'}</span>
+              <span className="font-bold text-slate-800">
+                {p.dob
+                  ? new Date(p.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : '14 May 1998'}
+              </span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Time of Birth</span>
