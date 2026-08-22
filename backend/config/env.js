@@ -11,7 +11,12 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || '5000', 10),
-  
+
+  // Demo mode: every OTP request/verify uses the fixed code below instead of
+  // dispatching real SMS. For launch before a real SMS gateway is configured.
+  DEMO_MODE: process.env.DEMO_MODE === 'true',
+  DEMO_OTP_CODE: process.env.DEMO_OTP_CODE || '123456',
+
   // Database
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/agrawal_matrimony',
   

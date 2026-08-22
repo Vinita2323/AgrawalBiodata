@@ -14,6 +14,7 @@ class OtpService {
    * @returns {string}
    */
   generate6DigitOtp() {
+    if (env.DEMO_MODE) return env.DEMO_OTP_CODE;
     return crypto.randomInt(100000, 1000000).toString();
   }
 
@@ -43,6 +44,11 @@ class OtpService {
    * @returns {Promise<{ success: boolean, error?: string, code?: string }>}
    */
   async dispatchOtp(mobile, otpCode) {
+    if (env.DEMO_MODE) {
+      logger.info(`[DEMO MODE] OTP for ${mobile} is ${otpCode} (no SMS sent)`);
+      return { success: true };
+    }
+
     const result = await smsService.sendOtpSms(
       mobile,
       otpCode,
