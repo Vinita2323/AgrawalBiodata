@@ -19,12 +19,16 @@ import {
   acceptInterest,
   declineInterest,
   cancelInterest,
+  getInterestStatus,
 } from '../../../services/interestService'
 import {
   addToShortlist,
   removeFromShortlist,
   getShortlists,
   getVisitors,
+  blockUser,
+  unblockUser,
+  checkBlockStatus,
 } from '../../../services/socialService'
 import { isAuthenticated, logout } from '../../../services/authService'
 import {
@@ -204,12 +208,15 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [selectedChat, setSelectedChat] = useState(null)
   const [chatMessages, setChatMessages] = useState({})
   const [newMessageText, setNewMessageText] = useState('')
+  const [chatMenuOpen, setChatMenuOpen] = useState(false)
+  const [chatPartnerBlocked, setChatPartnerBlocked] = useState(false)
+  const [chatInterestId, setChatInterestId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState(null)
   const [favorites, setFavorites] = useState({})
   const [interested, setInterested] = useState({})
 
-  const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Blocked' | 'Help & Support'
+  const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Help & Support'
   const [notificationsTab, setNotificationsTab] = useState('All')
   const [userProfile, setUserProfile] = useState(null)
   const [liveMatches, setLiveMatches] = useState([])
@@ -550,6 +557,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const handleOpenChat = async (chat) => {
     setSelectedChat(chat)
     setChatError('')
+    setChatMenuOpen(false)
+    setChatPartnerBlocked(false)
+    setChatInterestId(null)
     joinConversation(chat.id)
 
     try {
@@ -563,11 +573,59 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     } catch (err) {
       setChatError(err?.message || 'Could not open this conversation.')
     }
+
+    if (chat.profileId) {
+      checkBlockStatus(chat.profileId)
+        .then((res) => setChatPartnerBlocked(Boolean(res?.isBlockedByMe)))
+        .catch(() => {})
+      getInterestStatus(chat.profileId)
+        .then((res) => setChatInterestId(res?.interestId || null))
+        .catch(() => {})
+    }
   }
 
   const handleCloseChat = () => {
     if (selectedChat) leaveConversation(selectedChat.id)
     setSelectedChat(null)
+    setChatMenuOpen(false)
+  }
+
+  /** Withdraws the interest connecting this thread - ends the match. */
+  const handleUndoInterestFromChat = async () => {
+    if (!selectedChat || !chatInterestId) return
+    setChatMenuOpen(false)
+
+    try {
+      await cancelInterest(chatInterestId)
+      showToast('Interest withdrawn. This match has ended.', 'info')
+      setChatsList((prev) => prev.filter((c) => c.id !== selectedChat.id))
+      handleCloseChat()
+    } catch (err) {
+      showToast(err?.message || 'Could not withdraw interest. Please try again.', 'error')
+    }
+  }
+
+  /** Blocks or unblocks the person on the other end of this thread. */
+  const handleToggleBlockFromChat = async () => {
+    if (!selectedChat?.profileId) return
+    setChatMenuOpen(false)
+    const wasBlocked = chatPartnerBlocked
+
+    try {
+      if (wasBlocked) {
+        await unblockUser(selectedChat.profileId)
+        setChatPartnerBlocked(false)
+        showToast('Profile unblocked.', 'success')
+      } else {
+        await blockUser(selectedChat.profileId)
+        setChatPartnerBlocked(true)
+        showToast('Profile blocked. This conversation is now closed.', 'info')
+        setChatsList((prev) => prev.filter((c) => c.id !== selectedChat.id))
+        handleCloseChat()
+      }
+    } catch (err) {
+      showToast(err?.message || 'Could not update block status. Please try again.', 'error')
+    }
   }
 
   const handleSendMessage = async (chatId) => {
@@ -1136,7 +1194,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     else if (item.id === 'interests') handleTabNavigate('Interests')
                     else if (item.id === 'visitors') setActiveModal('Visitors')
                     else if (item.id === 'saved') setActiveModal('Saved')
-                    else if (item.id === 'blocked') setActiveModal('Blocked')
+                    else if (item.id === 'blocked') navigate('/blocked')
                     else if (item.id === 'settings') navigate('/settings')
                     else if (item.id === 'help') navigate('/help-support')
                   }}
@@ -1181,38 +1239,88 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         /* MESSAGES / CHATS PAGE VIEW */
         selectedChat ? (
           /* CONVERSATION THREAD VIEW */
-          <div className="absolute inset-0 w-full h-full bg-[#fff8ee] z-50 flex flex-col overflow-hidden">
+          <div className="fixed inset-0 w-full max-w-[480px] mx-auto bg-[#fff8ee] z-50 flex flex-col overflow-hidden">
             {/* Thread Header (Fixed Top) */}
-            <div className="flex-shrink-0 bg-white border-b border-gray-200/70 px-4 py-3 flex items-center justify-between z-30 shadow-2xs">
-              <div className="flex items-center gap-2.5">
+            <div className="flex-shrink-0 bg-white border-b border-gray-200/70 px-4 py-3 flex items-center justify-between z-30 shadow-2xs relative">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   onClick={handleCloseChat}
-                  className="p-1 rounded-full hover:bg-gray-100 transition text-slate-800"
+                  className="p-1 rounded-full hover:bg-gray-100 transition text-slate-800 flex-shrink-0"
                   aria-label="Back to chats"
                 >
                   <span className="material-symbols-outlined text-2xl block">arrow_back</span>
                 </button>
-                <div className="relative w-9 h-9 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
-                  {selectedChat.image ? (
-                    <img
-                      src={avatarSrc(selectedChat.image)} onError={handleAvatarError}
-                      alt={selectedChat.name}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="material-symbols-outlined text-lg text-[#570013]">person</span>
-                  )}
-                </div>
-                <div>
-                  <h2 className="font-bold text-xs md:text-sm text-slate-900 leading-tight">
-                    {selectedChat.name}
-                  </h2>
-                  {typingConversationId === selectedChat.id && (
-                    <p className="text-[10px] text-emerald-600 font-semibold">Typing...</p>
-                  )}
-                </div>
+                <button
+                  onClick={() =>
+                    selectedChat.profileId &&
+                    onSelectProfile &&
+                    onSelectProfile({ id: selectedChat.profileId, name: selectedChat.name, image: selectedChat.image })
+                  }
+                  className="flex items-center gap-2.5 min-w-0 text-left"
+                >
+                  <div className="relative w-9 h-9 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
+                    {selectedChat.image ? (
+                      <img
+                        src={avatarSrc(selectedChat.image)} onError={handleAvatarError}
+                        alt={selectedChat.name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="material-symbols-outlined text-lg text-[#570013]">person</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-xs md:text-sm text-slate-900 leading-tight truncate">
+                      {selectedChat.name}
+                    </h2>
+                    {typingConversationId === selectedChat.id && (
+                      <p className="text-[10px] text-emerald-600 font-semibold">Typing...</p>
+                    )}
+                  </div>
+                </button>
+              </div>
+
+              {/* Thread Options Menu */}
+              <div className="flex-shrink-0">
+                <button
+                  onClick={() => setChatMenuOpen((v) => !v)}
+                  className="p-1.5 rounded-full hover:bg-gray-100 transition text-slate-800"
+                  aria-label="Chat options"
+                >
+                  <span className="material-symbols-outlined text-xl block">more_vert</span>
+                </button>
+
+                {chatMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setChatMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-md border border-gray-200 shadow-lg z-50 overflow-hidden">
+                      {chatInterestId && (
+                        <button
+                          onClick={handleUndoInterestFromChat}
+                          className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-amber-50 transition text-left"
+                        >
+                          <span className="material-symbols-outlined text-base">undo</span>
+                          Undo Interest
+                        </button>
+                      )}
+                      <button
+                        onClick={handleToggleBlockFromChat}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-red-600 hover:bg-red-50 transition text-left"
+                      >
+                        <span className="material-symbols-outlined text-base">block</span>
+                        {chatPartnerBlocked ? 'Unblock Profile' : 'Block Profile'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
+
+            {chatPartnerBlocked && (
+              <div className="flex-shrink-0 px-4 py-2 bg-slate-100 border-b border-slate-200 text-[11px] text-slate-600 font-bold text-center">
+                You have blocked this profile.
+              </div>
+            )}
 
             {chatError && (
               <div className="flex-shrink-0 px-4 py-2 bg-red-50 border-b border-red-200 text-[11px] text-red-800 font-bold flex items-center justify-between">
@@ -1281,25 +1389,27 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             {/* Message Input Box (Fixed Bottom) */}
             <div className="flex-shrink-0 p-3 bg-[#fff8ee] border-t border-amber-200/40 flex items-center gap-2 z-30">
               <div className="flex-1 bg-white border border-amber-200/80 rounded-full px-3 py-1.5 flex items-center gap-2 shadow-2xs focus-within:border-[#570013]">
-                <button type="button" className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+                <button type="button" disabled={chatPartnerBlocked} className="text-slate-400 hover:text-slate-600 flex-shrink-0 disabled:opacity-40">
                   <span className="material-symbols-outlined text-lg block">attach_file</span>
                 </button>
                 <input
                   type="text"
-                  placeholder="Type a message..."
+                  disabled={chatPartnerBlocked}
+                  placeholder={chatPartnerBlocked ? 'Unblock to send a message' : 'Type a message...'}
                   value={newMessageText}
                   onChange={(e) => handleMessageInputChange(e.target.value, selectedChat.id)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(selectedChat.id)}
-                  className="flex-1 bg-transparent text-xs font-medium text-slate-900 focus:outline-none placeholder-gray-400 min-w-0"
+                  className="flex-1 bg-transparent text-xs font-medium text-slate-900 focus:outline-none placeholder-gray-400 min-w-0 disabled:cursor-not-allowed"
                 />
-                <button type="button" className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+                <button type="button" disabled={chatPartnerBlocked} className="text-slate-400 hover:text-slate-600 flex-shrink-0 disabled:opacity-40">
                   <span className="material-symbols-outlined text-lg block">photo_camera</span>
                 </button>
               </div>
 
               <button
                 onClick={() => handleSendMessage(selectedChat.id)}
-                className="w-9 h-9 rounded-full bg-[#570013] text-white flex items-center justify-center shadow hover:bg-[#72001a] active:scale-95 transition flex-shrink-0"
+                disabled={chatPartnerBlocked}
+                className="w-9 h-9 rounded-full bg-[#570013] text-white flex items-center justify-center shadow hover:bg-[#72001a] active:scale-95 transition flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-base block">
                   {newMessageText.trim() ? 'send' : 'mic'}
@@ -2472,7 +2582,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         </nav>
       )}
 
-      {/* Full Modal Overlay Views (Visitors, Saved, Blocked, Help & Support) */}
+      {/* Full Modal Overlay Views (Visitors, Saved, Help & Support) */}
       {activeModal && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
@@ -2480,7 +2590,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             <div className="bg-[#570013] text-white px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-300 text-xl">
-                  {activeModal === 'Visitors' ? 'group' : activeModal === 'Saved' ? 'bookmark' : activeModal === 'Blocked' ? 'block' : 'support_agent'}
+                  {activeModal === 'Visitors' ? 'group' : activeModal === 'Saved' ? 'bookmark' : 'support_agent'}
                 </span>
                 <h3 className="font-extrabold text-sm uppercase tracking-wide font-display">{activeModal}</h3>
               </div>
@@ -2549,16 +2659,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                       </button>
                     </div>
                   ))}
-                </div>
-              )}
-
-              {activeModal === 'Blocked' && (
-                <div className="text-center py-6 space-y-2">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                    <span className="material-symbols-outlined text-2xl">block</span>
-                  </div>
-                  <h4 className="text-xs font-bold text-slate-700">No Blocked Members</h4>
-                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">You have not blocked any profiles yet. Blocked profiles will appear here.</p>
                 </div>
               )}
 
