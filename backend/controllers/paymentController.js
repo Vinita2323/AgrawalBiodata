@@ -6,7 +6,7 @@
 
 const paymentService = require('../services/paymentService');
 const Payment = require('../models/Payment');
-const { success, created, badRequest, notFound, paginate } = require('../utils/apiResponse');
+const { success, created, badRequest, notFound, paginate, error: errorResponse } = require('../utils/apiResponse');
 const logger = require('../utils/logger');
 
 /**
@@ -46,6 +46,9 @@ const createOrder = async (req, res, next) => {
   } catch (error) {
     if (error.message.includes('not found') || error.message.includes('inactive')) {
       return badRequest(res, error.message);
+    }
+    if (error.message.includes('Payment gateway is temporarily unavailable')) {
+      return errorResponse(res, error.message, 503, 'PAYMENT_GATEWAY_UNAVAILABLE');
     }
     next(error);
   }

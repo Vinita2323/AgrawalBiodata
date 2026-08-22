@@ -130,8 +130,22 @@ class PaymentService {
       try {
         order = await razorpayInstance.orders.create(orderPayload);
       } catch (err) {
-        logger.warn(`Razorpay SDK order creation failed (${err.message}). Using fallback order generator for test/dev.`);
-        order = this.generateMockOrder(amountInPaise, orderPayload.notes);
+        // The Razorpay SDK rejects with a plain {statusCode, error} object,
+        // not an Error, so err.message is always undefined - pull the real
+        // reason out of err.error.description instead.
+        const reason = err?.error?.description || err?.message || JSON.stringify(err);
+        logger.error(`Razorpay order creation failed: ${reason}`);
+
+        // A mock order can never work with the real client-side Razorpay
+        // checkout widget - it always calls Razorpay's live API for the
+        // given order_id, which 401s for an order Razorpay never created.
+        // Outside tests, a real gateway failure must surface as an error,
+        // not silently hand the frontend a checkout that's guaranteed to fail.
+        if (env.NODE_ENV === 'test') {
+          order = this.generateMockOrder(amountInPaise, orderPayload.notes);
+        } else {
+          throw new Error('Payment gateway is temporarily unavailable. Please try again shortly.');
+        }
       }
     } else {
       order = this.generateMockOrder(amountInPaise, orderPayload.notes);
