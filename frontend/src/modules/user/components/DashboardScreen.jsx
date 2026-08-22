@@ -2401,6 +2401,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     if (action.id === 'search') handleTabNavigate('Search')
                     else if (action.id === 'interests') handleTabNavigate('Interests')
                     else if (action.id === 'messages') handleTabNavigate('Messages')
+                    else if (action.id === 'visitors') setActiveModal('Visitors')
                   }}
                   className="flex flex-col items-center justify-center p-3 bg-white rounded-md border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/40 transition active:scale-95"
                 >
