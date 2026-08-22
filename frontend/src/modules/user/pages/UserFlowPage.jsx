@@ -26,6 +26,7 @@ import WelcomeScreen from '../components/WelcomeScreen'
 import HeaderBar from '../components/HeaderBar'
 import ManageProfilesScreen from '../components/ManageProfilesScreen'
 import SignupOnlyRoute, { clearJustSignedUp } from '../components/SignupOnlyRoute'
+import GuestOnlyRoute from '../components/GuestOnlyRoute'
 import { ActiveProfileProvider } from '../../../context/ActiveProfileContext'
 import { isAuthenticated } from '../../../services/authService'
 
@@ -64,21 +65,25 @@ export default function UserFlowPage() {
           <Route
             path="/welcome"
             element={
-              <AuthLandingScreen
-                onStartCreate={() => navigate('/create-account')}
-                onStartLogin={() => navigate('/login')}
-                onGuestBrowse={() => navigate('/home')}
-              />
+              <GuestOnlyRoute>
+                <AuthLandingScreen
+                  onStartCreate={() => navigate('/create-account')}
+                  onStartLogin={() => navigate('/login')}
+                  onGuestBrowse={() => navigate('/home')}
+                />
+              </GuestOnlyRoute>
             }
           />
           <Route
             path="/auth-landing"
             element={
-              <AuthLandingScreen
-                onStartCreate={() => navigate('/create-account')}
-                onStartLogin={() => navigate('/login')}
-                onGuestBrowse={() => navigate('/home')}
-              />
+              <GuestOnlyRoute>
+                <AuthLandingScreen
+                  onStartCreate={() => navigate('/create-account')}
+                  onStartLogin={() => navigate('/login')}
+                  onGuestBrowse={() => navigate('/home')}
+                />
+              </GuestOnlyRoute>
             }
           />
 
@@ -86,10 +91,12 @@ export default function UserFlowPage() {
           <Route
             path="/welcome-legacy"
             element={
-              <WelcomeScreen
-                onStartOnboarding={() => navigate('/create-account')}
-                onStartAuth={() => navigate('/login')}
-              />
+              <GuestOnlyRoute>
+                <WelcomeScreen
+                  onStartOnboarding={() => navigate('/create-account')}
+                  onStartAuth={() => navigate('/login')}
+                />
+              </GuestOnlyRoute>
             }
           />
 
@@ -97,12 +104,14 @@ export default function UserFlowPage() {
           <Route
             path="/login"
             element={
-              <LoginScreen
-                onBack={() => navigate('/auth-landing')}
-                onSendOtp={(mobile) =>
-                  navigate('/otp-verification', { state: { mobile, isNewUser: false } })
-                }
-              />
+              <GuestOnlyRoute>
+                <LoginScreen
+                  onBack={() => navigate('/auth-landing')}
+                  onSendOtp={(mobile) =>
+                    navigate('/otp-verification', { state: { mobile, isNewUser: false } })
+                  }
+                />
+              </GuestOnlyRoute>
             }
           />
           <Route path="/auth" element={<Navigate to="/login" replace />} />
@@ -111,14 +120,16 @@ export default function UserFlowPage() {
           <Route
             path="/create-account"
             element={
-              <CreateAccountScreen
-                onBack={() => navigate('/auth-landing')}
-                onCreateAccount={(formData) =>
-                  navigate('/otp-verification', {
-                    state: { mobile: formData.mobile, isNewUser: true, formData },
-                  })
-                }
-              />
+              <GuestOnlyRoute>
+                <CreateAccountScreen
+                  onBack={() => navigate('/auth-landing')}
+                  onCreateAccount={(formData) =>
+                    navigate('/otp-verification', {
+                      state: { mobile: formData.mobile, isNewUser: true, formData },
+                    })
+                  }
+                />
+              </GuestOnlyRoute>
             }
           />
           <Route path="/register" element={<Navigate to="/create-account" replace />} />
