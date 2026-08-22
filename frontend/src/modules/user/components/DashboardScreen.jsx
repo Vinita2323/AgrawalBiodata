@@ -44,6 +44,7 @@ import {
   sendMessage as sendMessageApi,
   editMessage as editMessageApi,
   deleteMessage as deleteMessageApi,
+  getUnreadMessageCount,
 } from '../../../services/messageService'
 import {
   onSocketEvent,
@@ -206,7 +207,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [activeTab, setActiveTab] = useState(initialTab || 'Home') // 'Home' | 'Matches' | 'Search' | 'Interests' | 'Messages' | 'Notifications' | 'Profile'
   const [matchesCategory, setMatchesCategory] = useState('All')
   const [interestsTab, setInterestsTab] = useState('Received')
-  const [chatsTab, setChatsTab] = useState('Chats') // 'Chats' | 'Calls'
   const [selectedChat, setSelectedChat] = useState(null)
   const [chatMessages, setChatMessages] = useState({})
   const [newMessageText, setNewMessageText] = useState('')
@@ -214,6 +214,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [messageActionsView, setMessageActionsView] = useState('menu') // 'menu' | 'delete' | 'info'
   const [editingMessage, setEditingMessage] = useState(null)
   const [editText, setEditText] = useState('')
+  const [totalUnreadMessages, setTotalUnreadMessages] = useState(0)
   const longPressTimerRef = useRef(null)
   const [replyingTo, setReplyingTo] = useState(null)
   const swipeStateRef = useRef({ id: null, startX: 0, startY: 0, pointerId: null, dragging: false })
@@ -445,6 +446,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     }
 
     loadDashboardData()
+    refreshUnreadCount()
   }, [activeProfileId])
 
   useEffect(() => {
@@ -518,6 +520,17 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     }
   }
 
+  /** Keeps the Messages badge honest - re-fetched on load and on any event that could change it. */
+  const refreshUnreadCount = async () => {
+    if (!isAuthenticated()) return
+    try {
+      const res = await getUnreadMessageCount()
+      setTotalUnreadMessages(res?.unreadCount || 0)
+    } catch {
+      // Leave the last known count showing rather than blank it on a transient error.
+    }
+  }
+
   useEffect(() => {
     if (activeTab !== 'Messages') return
     setSelectedChat(null)
@@ -549,6 +562,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       // Reading the open thread immediately keeps the badge honest.
       if (selectedChat?.id === conversationId) {
         emitConversationRead(conversationId)
+      } else {
+        setTotalUnreadMessages((prev) => prev + 1)
       }
     })
 
@@ -635,6 +650,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       setChatMessages((prev) => ({ ...prev, [chat.id]: res?.messages || [] }))
 
       await markConversationRead(chat.id)
+      if (chat.unreadCount > 0) {
+        setTotalUnreadMessages((prev) => Math.max(0, prev - chat.unreadCount))
+      }
       setChatsList((prev) =>
         prev.map((c) => (c.id === chat.id ? { ...c, unreadCount: 0 } : c))
       )
@@ -1870,26 +1888,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               </button>
             </div>
 
-            {/* Category Tabs (Chats / Calls) */}
-            <div className="flex border-b border-gray-200/80 mb-4">
-              {['Chats', 'Calls'].map((tab) => {
-                const isActive = chatsTab === tab
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setChatsTab(tab)}
-                    className={`flex-1 pb-2.5 text-xs md:text-sm font-semibold transition-all relative ${
-                      isActive
-                        ? 'text-[#570013] font-bold border-b-2 border-[#570013]'
-                        : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                )
-              })}
-            </div>
-
             {chatError && (
               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-800 font-bold flex items-center justify-between">
                 <span>{chatError}</span>
@@ -1900,8 +1898,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             )}
 
             {/* Chats List */}
-            {chatsTab === 'Chats' ? (
-              <div className="divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 shadow-2xs overflow-hidden">
+            <div className="divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 shadow-2xs overflow-hidden">
                 {isLoadingChats && chatsList.length === 0 && (
                   <div className="text-center py-12 text-xs text-slate-400 font-semibold">
                     Loading conversations...
@@ -1982,15 +1979,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-12 bg-white rounded-lg border border-gray-100 px-6">
-                <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">call</span>
-                <p className="text-sm font-semibold text-slate-700">Calling is not available yet</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Audio and video calling are planned for a future release.
-                </p>
-              </div>
-            )}
           </div>
         )
       ) : activeTab === 'Interests' ? (
@@ -2934,7 +2922,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               {[
                 { id: 'search', label: 'Search', icon: 'search' },
                 { id: 'interests', label: 'Interests', icon: 'person_search' },
-                { id: 'messages', label: 'Messages', icon: 'chat', badge: '5' },
+                {
+                  id: 'messages',
+                  label: 'Messages',
+                  icon: 'chat',
+                  badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
+                },
                 { id: 'visitors', label: 'Visitors', icon: 'group' },
               ].map((action) => (
                 <button
@@ -2969,7 +2962,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           {[
             { id: 'Home', label: 'Home', icon: 'home' },
             { id: 'Matches', label: 'Matches', icon: 'favorite' },
-            { id: 'Messages', label: 'Messages', icon: 'chat', badge: '5' },
+            {
+              id: 'Messages',
+              label: 'Messages',
+              icon: 'chat',
+              badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
+            },
             { id: 'Membership', label: 'Premium', icon: 'workspace_premium' },
             { id: 'Profile', label: 'Profile', icon: 'account_circle' },
           ].map((tab) => {
