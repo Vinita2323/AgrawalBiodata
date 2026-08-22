@@ -96,7 +96,7 @@ export default function WelcomeScreen({ onStartOnboarding, onStartAuth }) {
           {[
             { icon: 'verified_user', title: 'Manual Verification', desc: 'Every profile and family detail is manually verified by our team.' },
             { icon: 'auto_awesome', title: 'Gotra & Horoscope Match', desc: 'Filter matches seamlessly by 18 Agarwal Gotras and horoscope details.' },
-            { icon: 'lock', title: 'Strict Privacy Controls', desc: 'Your photos and contact numbers are protected with strict multi-layer permissions.' },
+            { icon: 'lock', title: 'Strict Privacy Controls', desc: 'Your photos and personal details are protected with strict multi-layer permissions. Your phone number is never shared with other members.' },
           ].map((f, idx) => (
             <div key={idx} className="bg-white p-6 rounded-md border border-amber-200/60 shadow-sm hover:shadow-md transition">
               <div className="w-12 h-12 rounded-md bg-amber-100 text-[#570013] flex items-center justify-center mb-4">

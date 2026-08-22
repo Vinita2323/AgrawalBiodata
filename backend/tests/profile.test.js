@@ -602,7 +602,7 @@ describe('Milestone 2: Candidate Biodata & Multi-Profile Management Test Suite',
 
       expect(res.status).toBe(200);
       expect(res.body.data.isOwner).toBe(false);
-      expect(res.body.data.profile.mobileNumber).toContain('XXXXX');
+      expect(res.body.data.profile.mobileNumber).toBe('Protected');
       expect(res.body.data.profile.phoneMasked).toBe(true);
       expect(res.body.data.profile.residentialAddress).toContain('Protected');
       expect(res.body.data.profile.addressMasked).toBe(true);
@@ -778,7 +778,7 @@ describe('Milestone 2: Candidate Biodata & Multi-Profile Management Test Suite',
 
       expect(publicRes.status).toBe(200);
       expect(publicRes.body.data.isOwner).toBe(false);
-      expect(publicRes.body.data.profile.mobileNumber).toContain('XXXXX');
+      expect(publicRes.body.data.profile.mobileNumber).toBe('Protected');
       expect(publicRes.body.data.profile.residentialAddress).toContain('Protected');
     });
 

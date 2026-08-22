@@ -464,7 +464,7 @@ describe('Milestone 3: Matchmaking Engine & Candidate Discovery Test Suite', () 
       expect(beforeRes.status).toBe(200);
       expect(beforeRes.body.data.profile.phoneMasked).toBe(true);
       expect(beforeRes.body.data.profile.addressMasked).toBe(true);
-      expect(beforeRes.body.data.profile.mobileNumber).toContain('XXXXX');
+      expect(beforeRes.body.data.profile.mobileNumber).toBe('Protected');
       expect(beforeRes.body.data.isConnected).toBe(false);
 
       // 3. User 2 accepts interest
@@ -476,15 +476,15 @@ describe('Milestone 3: Matchmaking Engine & Candidate Discovery Test Suite', () 
       expect(acceptRes.body.success).toBe(true);
       expect(acceptRes.body.data.interest.status).toBe('Accepted');
 
-      // 4. After acceptance, User 1 checks User 2's profile -> Phone & Address MUST be unmasked
+      // 4. After acceptance, User 1 checks User 2's profile -> Address unmasks, phone stays protected
       const afterRes = await request(app)
         .get(`/api/profiles/${profile2.profileId}`)
         .set('Authorization', `Bearer ${token1}`);
 
       expect(afterRes.status).toBe(200);
-      expect(afterRes.body.data.profile.phoneMasked).toBe(false);
+      expect(afterRes.body.data.profile.phoneMasked).toBe(true);
       expect(afterRes.body.data.profile.addressMasked).toBe(false);
-      expect(afterRes.body.data.profile.mobileNumber).toBe('9876500002');
+      expect(afterRes.body.data.profile.mobileNumber).toBe('Protected');
       expect(afterRes.body.data.profile.residentialAddress).toBe('456, Vaishali Nagar, Jaipur');
       expect(afterRes.body.data.isConnected).toBe(true);
     });

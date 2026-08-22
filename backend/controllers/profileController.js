@@ -426,30 +426,10 @@ const getProfileById = async (req, res, next) => {
       // Apply Privacy Protections for non-owners
       const privacy = profile.privacySettings || {};
 
-      // 1. Phone number visibility
-      if (privacy.phoneVisibility === 'Hidden') {
-        profileData.mobileNumber = 'Protected';
-        profileData.phoneMasked = true;
-      } else if (
-        privacy.phoneVisibility === 'Connected Members Only' ||
-        privacy.phoneVisibility === 'Connected Only' ||
-        privacy.phoneVisibility === 'Premium Members Only'
-      ) {
-        if (isConnected) {
-          profileData.phoneMasked = false;
-        } else {
-          // Mask mobile number: e.g. +91 98290 XXXXX
-          if (profileData.mobileNumber && profileData.mobileNumber.length >= 8) {
-            const raw = profileData.mobileNumber;
-            profileData.mobileNumber = raw.slice(0, raw.length - 5) + 'XXXXX';
-          } else {
-            profileData.mobileNumber = 'Protected (Connected Only)';
-          }
-          profileData.phoneMasked = true;
-        }
-      } else {
-        profileData.phoneMasked = false;
-      }
+      // 1. Phone number visibility - mobile numbers are never shared between
+      // members, regardless of connection status, privacy setting, or plan.
+      profileData.mobileNumber = 'Protected';
+      profileData.phoneMasked = true;
 
       // 2. Address visibility
       if (privacy.addressVisibility === 'Hidden') {

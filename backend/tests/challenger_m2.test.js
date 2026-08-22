@@ -511,7 +511,7 @@ describe('Milestone 2 Challenger Adversarial & Boundary Test Suite', () => {
       expect(res.body.data.profile.addressMasked).toBeUndefined();
     });
 
-    it('4.2 Authenticated non-owner receives masked phone (+91 98290 XXXXX) and protected address', async () => {
+    it('4.2 Authenticated non-owner receives Protected phone and protected address', async () => {
       const res = await request(app)
         .get(`/api/profiles/${privateProfileId}`)
         .set('Authorization', `Bearer ${token1}`);
@@ -519,8 +519,7 @@ describe('Milestone 2 Challenger Adversarial & Boundary Test Suite', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.isOwner).toBe(false);
       expect(res.body.data.profile.phoneMasked).toBe(true);
-      expect(res.body.data.profile.mobileNumber).toMatch(/XXXXX$/);
-      expect(res.body.data.profile.mobileNumber).toContain('+91 98290');
+      expect(res.body.data.profile.mobileNumber).toBe('Protected');
       expect(res.body.data.profile.addressMasked).toBe(true);
       expect(res.body.data.profile.residentialAddress).toContain('Protected');
       // City and State should remain unmasked
@@ -535,7 +534,7 @@ describe('Milestone 2 Challenger Adversarial & Boundary Test Suite', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.isOwner).toBe(false);
       expect(res.body.data.profile.phoneMasked).toBe(true);
-      expect(res.body.data.profile.mobileNumber).toMatch(/XXXXX$/);
+      expect(res.body.data.profile.mobileNumber).toBe('Protected');
       expect(res.body.data.profile.addressMasked).toBe(true);
       expect(res.body.data.profile.residentialAddress).toContain('Protected');
     });

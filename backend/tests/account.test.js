@@ -277,7 +277,7 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
       expect(await ContactUnlock.countDocuments({})).toBe(0);
     });
 
-    it('reveals the contact and consumes one view', async () => {
+    it('reveals the address and consumes one view, but never the mobile number', async () => {
       await User.findByIdAndUpdate(alice._id, { contactViewLimit: 2, contactViewsUsed: 0 });
 
       const res = await request(app)
@@ -286,7 +286,8 @@ describe('Account Lifecycle, Contacts & Preferences', () => {
         .send({ targetProfileId: bobProfile._id.toString() });
 
       expect(res.status).toBe(200);
-      expect(res.body.data.contact.mobileNumber).toBe('9833300002');
+      expect(res.body.data.contact.residentialAddress).toBe('B-42 South Extension, Delhi');
+      expect(res.body.data.contact.mobileNumber).toBeUndefined();
       expect(res.body.data.remainingUnlocks).toBe(1);
       expect((await User.findById(alice._id)).contactViewsUsed).toBe(1);
     });

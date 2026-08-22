@@ -20,11 +20,11 @@ export default function HelpSupportScreen({ onBack }) {
     },
     {
       question: 'How do Premium Membership plans work?',
-      answer: 'Premium plans give you unlimited interest requests, direct access to verified contact numbers, priority listing in candidate searches, and personalized matchmaking support.',
+      answer: 'Premium plans give you unlimited interest requests, priority listing in candidate searches, unlocked email and address details for verified members, and personalized matchmaking support.',
     },
     {
       question: 'Is my contact phone number hidden from public view?',
-      answer: 'Yes! Your mobile number is kept private and secure. It is only shared when mutual interest is accepted or through verified premium access.',
+      answer: 'Yes! Your mobile number is always kept private. It is never shared with or shown to any other member, regardless of connections or membership plan.',
     },
     {
       question: 'How do I contact customer support?',

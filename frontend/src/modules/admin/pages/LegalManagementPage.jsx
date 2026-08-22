@@ -64,7 +64,7 @@ export default function LegalManagementPage() {
   function getDefaultPrivacyPoints() {
     return [
       'Agrawal Biodata values your privacy and strictly safeguards all member biodatas, photos, and identity proof documents using end-to-end encryption.',
-      'Your personal contact number and residential address are kept confidential and are never disclosed to non-connected members without your explicit permission.',
+      'Your personal mobile number is never disclosed to any other member, regardless of connections or membership plan. Your residential address is kept confidential and is only disclosed to connected members through your explicit unlock.',
       'Government identity documents (Aadhaar/Passport) uploaded for verification are reviewed exclusively by authorized administration personnel and are never publicly displayed.',
       'Members retain full ownership of their profile data and can update or request deletion of their matrimonial profile at any time.'
     ]

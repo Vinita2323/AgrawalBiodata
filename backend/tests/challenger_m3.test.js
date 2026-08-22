@@ -896,7 +896,7 @@ describe('Milestone 3 Challenger Adversarial & Stress Test Suite', () => {
       expect(res.body.data.isConnected).toBe(false);
       expect(res.body.data.isOwner).toBe(false);
       expect(res.body.data.profile.phoneMasked).toBe(true);
-      expect(res.body.data.profile.mobileNumber).toContain('XXXXX');
+      expect(res.body.data.profile.mobileNumber).toBe('Protected');
       expect(res.body.data.profile.addressMasked).toBe(true);
       expect(res.body.data.profile.residentialAddress).toContain('Protected');
     });
@@ -909,11 +909,11 @@ describe('Milestone 3 Challenger Adversarial & Stress Test Suite', () => {
       expect(res.body.data.isConnected).toBe(false);
       expect(res.body.data.isOwner).toBe(false);
       expect(res.body.data.profile.phoneMasked).toBe(true);
-      expect(res.body.data.profile.mobileNumber).toContain('XXXXX');
+      expect(res.body.data.profile.mobileNumber).toBe('Protected');
       expect(res.body.data.profile.addressMasked).toBe(true);
     });
 
-    it('6.3 Upon mutual interest acceptance, contacts are fully unmasked for both parties', async () => {
+    it('6.3 Upon mutual interest acceptance, address unmasks for both parties but phone stays protected', async () => {
       // 1. User A sends interest to User B
       const interestRes = await request(app)
         .post('/api/interests')
@@ -934,20 +934,20 @@ describe('Milestone 3 Challenger Adversarial & Stress Test Suite', () => {
 
       expect(viewB.status).toBe(200);
       expect(viewB.body.data.isConnected).toBe(true);
-      expect(viewB.body.data.profile.phoneMasked).toBe(false);
-      expect(viewB.body.data.profile.mobileNumber).toBe('+91 98765 22222');
+      expect(viewB.body.data.profile.phoneMasked).toBe(true);
+      expect(viewB.body.data.profile.mobileNumber).toBe('Protected');
       expect(viewB.body.data.profile.addressMasked).toBe(false);
       expect(viewB.body.data.profile.residentialAddress).toBe('202, Civil Lines, Jaipur');
 
-      // 4. User B views User A's profile -> Unmasked
+      // 4. User B views User A's profile -> Address unmasked, phone still protected
       const viewA = await request(app)
         .get(`/api/profiles/${profileA.profileId}`)
         .set('Authorization', `Bearer ${tokenB}`);
 
       expect(viewA.status).toBe(200);
       expect(viewA.body.data.isConnected).toBe(true);
-      expect(viewA.body.data.profile.phoneMasked).toBe(false);
-      expect(viewA.body.data.profile.mobileNumber).toBe('+91 98765 11111');
+      expect(viewA.body.data.profile.phoneMasked).toBe(true);
+      expect(viewA.body.data.profile.mobileNumber).toBe('Protected');
       expect(viewA.body.data.profile.addressMasked).toBe(false);
       expect(viewA.body.data.profile.residentialAddress).toBe('101, C-Scheme, Jaipur');
     });

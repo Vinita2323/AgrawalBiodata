@@ -49,8 +49,9 @@ const unlockContact = async (req, res, next) => {
       return notFound(res, 'User not found');
     }
 
+    // Mobile numbers are never shared between members, regardless of plan -
+    // only email and address are ever unlocked here.
     const buildContact = () => ({
-      mobileNumber: profile.mobileNumber || '',
       email: profile.email || '',
       residentialAddress: profile.residentialAddress || ''
     });
@@ -185,7 +186,7 @@ const getUnlockStatus = async (req, res, next) => {
 const getUnlockedContacts = async (req, res, next) => {
   try {
     const unlocks = await ContactUnlock.find({ userId: req.user.userId })
-      .populate('unlockedProfileId', 'fullName profileId profilePicture mobileNumber email city')
+      .populate('unlockedProfileId', 'fullName profileId profilePicture email city')
       .sort({ createdAt: -1 });
 
     return success(res, 'Unlocked contacts retrieved', {

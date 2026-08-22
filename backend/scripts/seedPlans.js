@@ -59,7 +59,7 @@ const DEFAULT_PLANS = [
     sortOrder: 2,
     features: [
       'View 25 profiles per day',
-      'View 50 verified contact numbers',
+      'Unlock 50 verified member contact details',
       'Send unlimited interests',
       'Direct chat and messaging access',
       'Priority placement in match recommendations',
@@ -89,7 +89,7 @@ const DEFAULT_PLANS = [
     sortOrder: 3,
     features: [
       'View unlimited profiles per day',
-      'View 150 verified contact numbers',
+      'Unlock 150 verified member contact details',
       'Send unlimited interests & messages',
       'Top Homepage Carousel spotlight',
       'Verified Profile badge highlight',
@@ -118,7 +118,7 @@ const DEFAULT_PLANS = [
     isActive: true,
     sortOrder: 4,
     features: [
-      'Unlimited verified contact number views',
+      'Unlimited verified member contact detail unlocks',
       'Dedicated personal Relationship Manager',
       'Handpicked curated match introductions',
       'VIP spotlight on homepage and search top',

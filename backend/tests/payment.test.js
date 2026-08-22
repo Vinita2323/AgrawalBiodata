@@ -120,7 +120,7 @@ describe('Milestone 4: Plans, Subscriptions & Razorpay Payments Test Suite', () 
         yearlyPrice: 2499,
         contactViewLimit: 25,
         interestSendLimit: 30,
-        features: ['View 25 contact numbers', 'Send 30 interests', 'Standard support']
+        features: ['Unlock 25 contact details', 'Send 30 interests', 'Standard support']
       };
 
       const res = await request(app)

@@ -220,7 +220,7 @@ describe('Multi-Profile Accounts', () => {
       await acceptedInterest(parent, son, suitressCtx.user, suitressCtx.profile);
     });
 
-    it('reveals the contact number to the connected son', async () => {
+    it('keeps the number masked even for the connected son - mobile numbers are never shared', async () => {
       const res = await request(app)
         .get(`/api/profiles/${suitressCtx.profile._id}`)
         .set('Authorization', `Bearer ${parentToken}`)
@@ -228,8 +228,8 @@ describe('Multi-Profile Accounts', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.isConnected).toBe(true);
-      expect(res.body.data.profile.phoneMasked).toBe(false);
-      expect(res.body.data.profile.mobileNumber).toBe('9800000000');
+      expect(res.body.data.profile.phoneMasked).toBe(true);
+      expect(res.body.data.profile.mobileNumber).not.toBe('9800000000');
     });
 
     it('keeps the number masked for the unconnected daughter', async () => {

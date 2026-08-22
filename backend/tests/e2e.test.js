@@ -269,7 +269,7 @@ describe('Master E2E Integration Test Suite — Agrawal Matrimony Platform', () 
     expect(beforeAcceptViewRes.status).toBe(200);
     expect(beforeAcceptViewRes.body.data.profile.phoneMasked).toBe(true);
     expect(beforeAcceptViewRes.body.data.profile.addressMasked).toBe(true);
-    expect(beforeAcceptViewRes.body.data.profile.mobileNumber).toContain('XXXXX');
+    expect(beforeAcceptViewRes.body.data.profile.mobileNumber).toBe('Protected');
     expect(beforeAcceptViewRes.body.data.profile.residentialAddress).toContain('Protected');
     expect(beforeAcceptViewRes.body.data.isConnected).toBe(false);
 
@@ -282,27 +282,27 @@ describe('Master E2E Integration Test Suite — Agrawal Matrimony Platform', () 
     expect(acceptRes.body.success).toBe(true);
     expect(acceptRes.body.data.interest.status).toBe('Accepted');
 
-    // 11. After acceptance, Bride contact & address are completely unmasked for Groom
+    // 11. After acceptance, Bride's address unmasks for Groom but phone stays protected
     const afterAcceptViewRes = await request(app)
       .get(`/api/profiles/${brideProfileId}`)
       .set('Authorization', `Bearer ${groomToken}`);
 
     expect(afterAcceptViewRes.status).toBe(200);
-    expect(afterAcceptViewRes.body.data.profile.phoneMasked).toBe(false);
+    expect(afterAcceptViewRes.body.data.profile.phoneMasked).toBe(true);
     expect(afterAcceptViewRes.body.data.profile.addressMasked).toBe(false);
-    expect(afterAcceptViewRes.body.data.profile.mobileNumber).toBe(brideMobile);
+    expect(afterAcceptViewRes.body.data.profile.mobileNumber).toBe('Protected');
     expect(afterAcceptViewRes.body.data.profile.residentialAddress).toBe('B-14, Model Town, Delhi');
     expect(afterAcceptViewRes.body.data.isConnected).toBe(true);
 
-    // Also verify Bride viewing Groom gets unmasked contact & address
+    // Also verify Bride viewing Groom gets unmasked address but protected phone
     const groomViewRes = await request(app)
       .get(`/api/profiles/${groomProfileId}`)
       .set('Authorization', `Bearer ${brideToken}`);
 
     expect(groomViewRes.status).toBe(200);
-    expect(groomViewRes.body.data.profile.phoneMasked).toBe(false);
+    expect(groomViewRes.body.data.profile.phoneMasked).toBe(true);
     expect(groomViewRes.body.data.profile.addressMasked).toBe(false);
-    expect(groomViewRes.body.data.profile.mobileNumber).toBe(groomMobile);
+    expect(groomViewRes.body.data.profile.mobileNumber).toBe('Protected');
     expect(groomViewRes.body.data.profile.residentialAddress).toBe('A-42, Ashok Vihar Phase 1');
     expect(groomViewRes.body.data.isConnected).toBe(true);
   });
@@ -841,7 +841,7 @@ describe('Master E2E Integration Test Suite — Agrawal Matrimony Platform', () 
     expect(beforeViewRes.body.data.profile.addressMasked).toBe(true);
     expect(beforeViewRes.body.data.profile.phoneMasked).toBe(true);
     expect(beforeViewRes.body.data.profile.residentialAddress).toContain('Protected');
-    expect(beforeViewRes.body.data.profile.mobileNumber).toContain('XXXXX');
+    expect(beforeViewRes.body.data.profile.mobileNumber).toBe('Protected');
     expect(beforeViewRes.body.data.isConnected).toBe(false);
 
     // 5. Seeker sends interest to Sister profile
@@ -867,16 +867,16 @@ describe('Master E2E Integration Test Suite — Agrawal Matrimony Platform', () 
     expect(acceptRes.body.success).toBe(true);
     expect(acceptRes.body.data.interest.status).toBe('Accepted');
 
-    // 7. After acceptance, Seeker views Sister profile -> Address & Phone are unmasked and fully visible
+    // 7. After acceptance, Seeker views Sister profile -> Address unmasks, phone stays protected
     const afterViewRes = await request(app)
       .get(`/api/profiles/${profileSister.profileId}`)
       .set('Authorization', `Bearer ${seekerToken}`);
 
     expect(afterViewRes.status).toBe(200);
     expect(afterViewRes.body.data.profile.addressMasked).toBe(false);
-    expect(afterViewRes.body.data.profile.phoneMasked).toBe(false);
+    expect(afterViewRes.body.data.profile.phoneMasked).toBe(true);
     expect(afterViewRes.body.data.profile.residentialAddress).toBe('Tower 3, Flat 502, Lotus Boulevard, Sector 100, Noida');
-    expect(afterViewRes.body.data.profile.mobileNumber).toBe('9876550001');
+    expect(afterViewRes.body.data.profile.mobileNumber).toBe('Protected');
     expect(afterViewRes.body.data.isConnected).toBe(true);
 
     // 8. Multi-profile active switcher switches active profile seamlessly
