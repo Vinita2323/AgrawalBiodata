@@ -57,13 +57,14 @@ const SUBSCRIPTION_STATUS = {
   FREE: 'Free'
 };
 
+// These must stay in sync with the `name` field of the plans seeded in
+// scripts/seedPlans.js — subscriptionPlan is a display string copied from
+// Plan.name at purchase time (see services/paymentService.js), not an enum.
 const SUBSCRIPTION_PLANS = {
-  FREE: 'Free Tier',
-  GOLD_MONTHLY: 'Gold Monthly',
-  GOLD_QUARTERLY: 'Gold Quarterly',
-  GOLD_YEARLY: 'Gold Annual Premium',
-  PLATINUM: 'Premium Platinum',
-  DIAMOND: 'Premium Diamond'
+  FREE: 'Free',
+  GOLD: 'Gold',
+  PLATINUM: 'Platinum',
+  DIAMOND: 'Diamond'
 };
 
 const MANGLIK_STATUS = {

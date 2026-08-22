@@ -42,11 +42,20 @@ export async function getMatchScore(targetProfileId) {
   return api.get(`/matches/score/${targetProfileId}`);
 }
 
+/**
+ * 5. Get the caller's daily profile-view quota status
+ * GET /api/matches/quota
+ */
+export async function getMatchQuota() {
+  return api.get('/matches/quota');
+}
+
 export const matchService = {
   getMatches,
   getTodayMatches,
   searchMatches,
-  getMatchScore
+  getMatchScore,
+  getMatchQuota
 };
 
 export default matchService;

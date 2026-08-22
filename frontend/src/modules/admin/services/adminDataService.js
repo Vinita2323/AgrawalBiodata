@@ -114,11 +114,18 @@ function normalizeUser(user) {
     accountStatus: user.accountStatus || 'Active',
     verificationStatus: user.verificationStatus || 'Unverified',
     subscriptionPlan: user.subscriptionPlan || 'Free',
+    subscriptionPlanId: user.subscriptionPlanId || null,
     subscriptionStatus: user.subscriptionStatus || 'Free',
     subscriptionExpiresAt: formatDate(user.subscriptionExpiresAt),
     createdDate: formatDate(user.createdAt),
     lastActive: relativeTime(user.lastLoginAt || user.updatedAt),
     profiles,
+    dailyMatchLimit: user.dailyMatchLimit ?? 0,
+    // profilesViewedToday only reflects "today" once matchQuotaDate matches
+    // the current date; a stale date means the counter hasn't rolled over yet.
+    profilesViewedToday: user.matchQuotaDate === new Date().toISOString().slice(0, 10)
+      ? asArray(user.profilesViewedToday).length
+      : 0,
   }
 }
 
@@ -232,19 +239,26 @@ function normalizePlan(plan) {
     id: plan.id || plan._id,
     planId: plan.planId || '',
     name: plan.name || '',
+    nameHindi: plan.nameHindi || '',
+    description: plan.description || '',
+    tagline: plan.tagline || '',
     price: plan.monthlyPrice || 0,
     monthlyPrice: plan.monthlyPrice || 0,
     quarterlyPrice: plan.quarterlyPrice || 0,
     yearlyPrice: plan.yearlyPrice || 0,
+    discountPercent: plan.discountPercent ?? 0,
     currency: 'INR',
-    durationDays: 30,
-    durationType: '1 Month',
     status: plan.isActive ? 'Active' : 'Inactive',
     badge: plan.badge || '',
+    sortOrder: plan.sortOrder ?? 0,
     benefits: asArray(plan.features),
     contactViewLimit: plan.contactViewLimit ?? 0,
     interestSendLimit: plan.interestSendLimit ?? 0,
+    dailyMatchLimit: plan.dailyMatchLimit ?? 5,
+    verifiedPriority: Boolean(plan.verifiedPriority),
     chatAccess: Boolean(plan.chatAccess),
+    relationshipManager: Boolean(plan.relationshipManager),
+    profileBoost: Boolean(plan.profileBoost),
     activeSubscribers: plan.activeSubscribers || 0,
     createdDate: formatDate(plan.createdAt),
   }
@@ -367,14 +381,23 @@ export const adminDataService = {
   async saveSubscriptionPlan(plan) {
     const payload = {
       name: plan.name,
+      nameHindi: plan.nameHindi || '',
+      description: plan.description || '',
+      tagline: plan.tagline || '',
       badge: plan.badge || '',
       monthlyPrice: Number(plan.price ?? plan.monthlyPrice ?? 0),
       quarterlyPrice: Number(plan.quarterlyPrice ?? 0),
       yearlyPrice: Number(plan.yearlyPrice ?? Number(plan.price ?? 0) * 12),
+      discountPercent: Number(plan.discountPercent ?? 0),
+      sortOrder: Number(plan.sortOrder ?? 0),
       features: asArray(plan.benefits),
       contactViewLimit: Number(plan.contactViewLimit ?? 0),
       interestSendLimit: Number(plan.interestSendLimit ?? 0),
+      dailyMatchLimit: Number(plan.dailyMatchLimit ?? 5),
+      verifiedPriority: Boolean(plan.verifiedPriority),
       chatAccess: Boolean(plan.chatAccess),
+      relationshipManager: Boolean(plan.relationshipManager),
+      profileBoost: Boolean(plan.profileBoost),
       isActive: plan.status !== 'Inactive',
     }
 

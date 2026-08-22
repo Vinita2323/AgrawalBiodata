@@ -3,6 +3,7 @@
  * Agrawal Matrimony Platform
  */
 
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const Verification = require('../models/Verification');
@@ -16,6 +17,20 @@ const Block = require('../models/Block');
 const Match = require('../models/Match');
 const auditService = require('../services/auditService');
 const { success, badRequest, notFound, paginate } = require('../utils/apiResponse');
+
+/**
+ * Applies a plan filter to a User query filter object. Prefers the stable
+ * `subscriptionPlanId` (a Plan ObjectId) so renaming a plan never breaks
+ * admin filtering; falls back to matching the legacy `subscriptionPlan`
+ * display-name string for older records that predate that field.
+ */
+const applyPlanFilter = (filter, { subscriptionPlanId, subscriptionPlan }) => {
+  if (typeof subscriptionPlanId === 'string' && subscriptionPlanId !== 'All' && mongoose.isValidObjectId(subscriptionPlanId)) {
+    filter.subscriptionPlanId = subscriptionPlanId;
+  } else if (typeof subscriptionPlan === 'string' && subscriptionPlan !== 'All') {
+    filter.subscriptionPlan = subscriptionPlan;
+  }
+};
 
 /**
  * 1. Admin Dashboard Metrics & Real-time KPIs
@@ -82,7 +97,7 @@ const getUsers = async (req, res, next) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, q, status, accountStatus, verificationStatus, subscriptionPlan, subscriptionStatus } = req.query;
+    const { search, q, status, accountStatus, verificationStatus, subscriptionPlan, subscriptionPlanId, subscriptionStatus } = req.query;
 
     const filter = {};
 
@@ -110,9 +125,7 @@ const getUsers = async (req, res, next) => {
     }
 
     // Subscription Plan filter
-    if (typeof subscriptionPlan === 'string' && subscriptionPlan !== 'All') {
-      filter.subscriptionPlan = subscriptionPlan;
-    }
+    applyPlanFilter(filter, { subscriptionPlanId, subscriptionPlan });
 
     // Subscription Status filter
     if (typeof subscriptionStatus === 'string' && subscriptionStatus !== 'All') {
@@ -273,7 +286,7 @@ const updateUserStatus = async (req, res, next) => {
  */
 const exportUsersCSV = async (req, res, next) => {
   try {
-    const { search, q, status, accountStatus, verificationStatus, subscriptionPlan } = req.query;
+    const { search, q, status, accountStatus, verificationStatus, subscriptionPlan, subscriptionPlanId } = req.query;
 
     const filter = {};
 
@@ -297,9 +310,7 @@ const exportUsersCSV = async (req, res, next) => {
       filter.verificationStatus = verificationStatus;
     }
 
-    if (typeof subscriptionPlan === 'string' && subscriptionPlan !== 'All') {
-      filter.subscriptionPlan = subscriptionPlan;
-    }
+    applyPlanFilter(filter, { subscriptionPlanId, subscriptionPlan });
 
     const users = await User.find(filter).sort({ createdAt: -1 });
 

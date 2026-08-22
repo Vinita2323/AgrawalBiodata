@@ -7,6 +7,28 @@ const Plan = require('../models/Plan');
 const auditService = require('../services/auditService');
 const { success, created, badRequest, notFound } = require('../utils/apiResponse');
 
+/** A plan quota field is either a non-negative number or -1 (unlimited). */
+const isValidQuota = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) && (num === -1 || num >= 0);
+};
+
+const QUOTA_FIELDS = [
+  { key: 'contactViewLimit', label: 'Contact view limit' },
+  { key: 'interestSendLimit', label: 'Interest send limit' },
+  { key: 'dailyMatchLimit', label: 'Daily profile view limit' }
+];
+
+/** Validates the quota fields present in `body`. Returns an error message, or null. */
+const validateQuotaFields = (body) => {
+  for (const { key, label } of QUOTA_FIELDS) {
+    if (body[key] !== undefined && !isValidQuota(body[key])) {
+      return `${label} must be a non-negative number, or -1 for unlimited`;
+    }
+  }
+  return null;
+};
+
 /**
  * 1. Get all subscription plans
  * GET /api/plans
@@ -82,6 +104,7 @@ const createPlan = async (req, res, next) => {
       features,
       contactViewLimit,
       interestSendLimit,
+      dailyMatchLimit,
       verifiedPriority,
       chatAccess,
       relationshipManager,
@@ -92,6 +115,11 @@ const createPlan = async (req, res, next) => {
 
     if (!name || monthlyPrice === undefined || yearlyPrice === undefined) {
       return badRequest(res, 'Plan name, monthlyPrice, and yearlyPrice are required');
+    }
+
+    const quotaError = validateQuotaFields(req.body);
+    if (quotaError) {
+      return badRequest(res, quotaError);
     }
 
     const existingPlan = await Plan.findOne({ name: new RegExp(`^${name}$`, 'i') });
@@ -112,6 +140,7 @@ const createPlan = async (req, res, next) => {
       features: Array.isArray(features) ? features : [],
       contactViewLimit: contactViewLimit !== undefined ? Number(contactViewLimit) : 0,
       interestSendLimit: interestSendLimit !== undefined ? Number(interestSendLimit) : 10,
+      dailyMatchLimit: dailyMatchLimit !== undefined ? Number(dailyMatchLimit) : 5,
       verifiedPriority: Boolean(verifiedPriority),
       chatAccess: Boolean(chatAccess),
       relationshipManager: Boolean(relationshipManager),
@@ -130,7 +159,7 @@ const createPlan = async (req, res, next) => {
         adminRole: req.admin.role,
         action: 'Created Subscription Plan',
         target: plan._id.toString(),
-        details: `Created plan "${plan.name}" (Monthly: ₹${plan.monthlyPrice}, Yearly: ₹${plan.yearlyPrice})`
+        details: `Created plan "${plan.name}" (Monthly: ₹${plan.monthlyPrice}, Quarterly: ₹${plan.quarterlyPrice}, Yearly: ₹${plan.yearlyPrice}, Daily match limit: ${plan.dailyMatchLimit}, Contact views: ${plan.contactViewLimit})`
       });
     }
 
@@ -160,11 +189,17 @@ const updatePlan = async (req, res, next) => {
       return notFound(res, `Subscription plan not found for ID: ${id}`);
     }
 
+    const quotaError = validateQuotaFields(req.body);
+    if (quotaError) {
+      return badRequest(res, quotaError);
+    }
+
     const updateFields = [
       'name', 'nameHindi', 'description', 'tagline', 'badge',
       'monthlyPrice', 'quarterlyPrice', 'yearlyPrice', 'discountPercent',
-      'features', 'contactViewLimit', 'interestSendLimit', 'verifiedPriority',
-      'chatAccess', 'relationshipManager', 'profileBoost', 'isActive', 'sortOrder'
+      'features', 'contactViewLimit', 'interestSendLimit', 'dailyMatchLimit',
+      'verifiedPriority', 'chatAccess', 'relationshipManager', 'profileBoost',
+      'isActive', 'sortOrder'
     ];
 
     updateFields.forEach(field => {
@@ -182,7 +217,7 @@ const updatePlan = async (req, res, next) => {
         adminRole: req.admin.role,
         action: 'Updated Subscription Plan',
         target: plan._id.toString(),
-        details: `Updated plan "${plan.name}"`
+        details: `Updated plan "${plan.name}" (Monthly: ₹${plan.monthlyPrice}, Quarterly: ₹${plan.quarterlyPrice}, Yearly: ₹${plan.yearlyPrice}, Daily match limit: ${plan.dailyMatchLimit}, Contact views: ${plan.contactViewLimit})`
       });
     }
 

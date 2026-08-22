@@ -8,6 +8,7 @@ export default function UserManagementPage() {
   const initialSearch = searchParams.get('search') || ''
 
   const [users, setUsers] = useState([])
+  const [plans, setPlans] = useState([])
   const [searchTerm, setSearchTerm] = useState(initialSearch)
   const [statusFilter, setStatusFilter] = useState('All')
   const [verificationFilter, setVerificationFilter] = useState('All')
@@ -29,6 +30,7 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     loadUsers()
+    adminDataService.getSubscriptions().then(setPlans).catch(() => {})
   }, [])
 
   const loadUsers = async () => {
@@ -89,10 +91,7 @@ export default function UserManagementPage() {
       verificationFilter === 'All' || user.verificationStatus === verificationFilter
 
     const matchesSubscription =
-      subscriptionFilter === 'All' ||
-      (subscriptionFilter === 'Gold'
-        ? !/^free/i.test(String(user.subscriptionPlan))
-        : /^free/i.test(String(user.subscriptionPlan)))
+      subscriptionFilter === 'All' || user.subscriptionPlan === subscriptionFilter
 
     return matchesSearch && matchesStatus && matchesVerification && matchesSubscription
   })
@@ -315,8 +314,9 @@ export default function UserManagementPage() {
               className="w-full px-3.5 py-2.5 bg-amber-50/40 border border-amber-900/20 rounded-md text-sm text-[#570013] font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40 focus:bg-white"
             >
               <option value="All">All Subscription Tiers</option>
-              <option value="Gold">Gold / Paid Plans</option>
-              <option value="Free">Free Tier</option>
+              {plans.map((plan) => (
+                <option key={plan.id} value={plan.name}>{plan.name}</option>
+              ))}
             </select>
           </div>
         </div>

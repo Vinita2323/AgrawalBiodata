@@ -10,6 +10,7 @@ const mongoose = require('mongoose');
 const { connectDB, disconnectDB } = require('../config/db');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
+const Plan = require('../models/Plan');
 const logger = require('../utils/logger');
 const { calculateProfileCompletion } = require('../services/profileScoreService');
 const { ACCOUNT_STATUS, VERIFICATION_STATUS, SUBSCRIPTION_STATUS, SUBSCRIPTION_PLANS, MANGLIK_STATUS, GENDER } = require('../config/constants');
@@ -23,7 +24,7 @@ const MOCK_CANDIDATES = [
       gender: GENDER.MALE,
       accountStatus: ACCOUNT_STATUS.ACTIVE,
       verificationStatus: VERIFICATION_STATUS.APPROVED,
-      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD_YEARLY,
+      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD,
       subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE
     },
     profile: {
@@ -185,7 +186,7 @@ const MOCK_CANDIDATES = [
       gender: GENDER.MALE,
       accountStatus: ACCOUNT_STATUS.ACTIVE,
       verificationStatus: VERIFICATION_STATUS.APPROVED,
-      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD_MONTHLY,
+      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD,
       subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE
     },
     profile: {
@@ -341,7 +342,7 @@ const MOCK_CANDIDATES = [
       gender: GENDER.MALE,
       accountStatus: ACCOUNT_STATUS.ACTIVE,
       verificationStatus: VERIFICATION_STATUS.APPROVED,
-      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD_YEARLY,
+      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD,
       subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE
     },
     profile: {
@@ -419,7 +420,7 @@ const MOCK_CANDIDATES = [
       gender: GENDER.FEMALE,
       accountStatus: ACCOUNT_STATUS.ACTIVE,
       verificationStatus: VERIFICATION_STATUS.APPROVED,
-      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD_YEARLY,
+      subscriptionPlan: SUBSCRIPTION_PLANS.GOLD,
       subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE
     },
     profile: {
@@ -505,6 +506,14 @@ const seedMockData = async () => {
       } else {
         Object.assign(user, item.user);
         await user.save();
+      }
+
+      if (item.user.subscriptionPlan) {
+        const matchingPlan = await Plan.findOne({ name: item.user.subscriptionPlan });
+        if (matchingPlan && String(user.subscriptionPlanId) !== String(matchingPlan._id)) {
+          user.subscriptionPlanId = matchingPlan._id;
+          await user.save();
+        }
       }
 
       // 2. Check/upsert Profile

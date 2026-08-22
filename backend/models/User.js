@@ -60,6 +60,12 @@ const userSchema = new mongoose.Schema(
       default: SUBSCRIPTION_PLANS.FREE,
       index: true
     },
+    subscriptionPlanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Plan',
+      default: null,
+      index: true
+    },
     subscriptionStatus: {
       type: String,
       enum: [SUBSCRIPTION_STATUS.ACTIVE, SUBSCRIPTION_STATUS.EXPIRED, SUBSCRIPTION_STATUS.CANCELLED, SUBSCRIPTION_STATUS.FREE],
@@ -75,6 +81,19 @@ const userSchema = new mongoose.Schema(
     contactViewsUsed: {
       type: Number,
       default: 0
+    },
+    dailyMatchLimit: {
+      type: Number,
+      default: 0 // Resolved from plan on activation; 0 falls back to the Free plan's limit
+    },
+    matchQuotaDate: {
+      type: String,
+      default: '' // 'YYYY-MM-DD' the counters below were last reset for
+    },
+    profilesViewedToday: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'Profile',
+      default: []
     },
     // Delivery preferences. In-app notifications are always recorded; these
     // flags gate push/email/SMS fan-out for the matching categories.

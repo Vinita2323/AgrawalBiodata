@@ -6,6 +6,7 @@
 const Subscription = require('../models/Subscription');
 const User = require('../models/User');
 const Plan = require('../models/Plan');
+const matchQuotaService = require('../services/matchQuotaService');
 const { success, badRequest, notFound, paginate } = require('../utils/apiResponse');
 
 /**
@@ -29,6 +30,8 @@ const getCurrentSubscription = async (req, res, next) => {
       .populate('planId')
       .sort({ createdAt: -1 });
 
+    const matchQuota = await matchQuotaService.getQuotaStatus(user);
+
     const subscriptionData = {
       planName: user.subscriptionPlan || 'Free',
       status: user.subscriptionStatus || 'Free',
@@ -36,6 +39,7 @@ const getCurrentSubscription = async (req, res, next) => {
       contactViewLimit: user.contactViewLimit || 0,
       contactViewsUsed: user.contactViewsUsed || 0,
       remainingContactViews: Math.max(0, (user.contactViewLimit || 0) - (user.contactViewsUsed || 0)),
+      matchQuota,
       activeSubscription: activeSubscription || null
     };
 

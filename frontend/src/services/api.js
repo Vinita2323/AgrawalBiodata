@@ -40,6 +40,24 @@ export function resolveAssetUrl(path) {
 export function getAuthToken() {
   if (typeof window === 'undefined' || !window.localStorage) return null;
   
+  // If currently in the admin section, prioritize admin tokens
+  const isAdminRoute = typeof window !== 'undefined' && window.location?.pathname?.startsWith('/admin');
+
+  if (isAdminRoute) {
+    const adminToken = localStorage.getItem('adminToken') || localStorage.getItem('admin_token');
+    if (adminToken) return adminToken;
+
+    try {
+      const adminSession = localStorage.getItem('admin_session');
+      if (adminSession) {
+        const parsed = JSON.parse(adminSession);
+        if (parsed?.token || parsed?.accessToken) {
+          return parsed.token || parsed.accessToken;
+        }
+      }
+    } catch {}
+  }
+
   // Check standard user token keys
   const token = localStorage.getItem('token') || 
                 localStorage.getItem('accessToken') || 

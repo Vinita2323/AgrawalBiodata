@@ -619,6 +619,14 @@ export default function UserDetailPage() {
               <p className="text-xs text-stone-600 mt-1">
                 Status: <span className="font-semibold text-emerald-700">{user.subscriptionStatus}</span>
               </p>
+              <p className="text-xs text-stone-600 mt-1">
+                Profile views today:{' '}
+                <span className="font-semibold text-stone-900">
+                  {user.dailyMatchLimit === -1
+                    ? `${user.profilesViewedToday} viewed (Unlimited plan)`
+                    : `${user.profilesViewedToday} / ${user.dailyMatchLimit || 'plan default'}`}
+                </span>
+              </p>
             </div>
 
             <Link

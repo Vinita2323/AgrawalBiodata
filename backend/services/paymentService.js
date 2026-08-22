@@ -429,7 +429,8 @@ class PaymentService {
       orderId,
       amountPaid: amountPaid || (billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice),
       features: plan.features,
-      contactViewLimit: plan.contactViewLimit
+      contactViewLimit: plan.contactViewLimit,
+      dailyMatchLimit: plan.dailyMatchLimit
     });
 
     await subscription.save();
@@ -438,6 +439,7 @@ class PaymentService {
     const user = await User.findById(userId);
     if (user) {
       user.subscriptionPlan = plan.name;
+      user.subscriptionPlanId = plan._id;
       user.subscriptionStatus = 'Active';
       user.subscriptionExpiresAt = endDate;
 
@@ -447,6 +449,12 @@ class PaymentService {
       } else {
         user.contactViewLimit = Math.max(user.contactViewLimit || 0, plan.contactViewLimit);
       }
+
+      // Daily view quota reflects the current plan directly (not cumulative,
+      // unlike contactViewLimit) and resets so an upgrade applies today.
+      user.dailyMatchLimit = plan.dailyMatchLimit;
+      user.matchQuotaDate = '';
+      user.profilesViewedToday = [];
 
       await user.save();
     }

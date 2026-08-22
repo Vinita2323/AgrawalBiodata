@@ -18,6 +18,7 @@ const Verification = require('../models/Verification');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const { calculateProfileCompletion } = require('../services/profileScoreService');
+const matchQuotaService = require('../services/matchQuotaService');
 const { getUserActiveProfile, areProfilesConnected } = require('../utils/profileHelper');
 const { isValidGotra, normalizeGotra } = require('../utils/gotras');
 const { success, created, badRequest, notFound, forbidden } = require('../utils/apiResponse');
@@ -404,6 +405,23 @@ const getProfileById = async (req, res, next) => {
       }
     }
 
+    // Full profile detail is a plan-metered view (search and the match feed
+    // stay unlimited). Owners and already-connected matches never pay for it.
+    let matchQuota = null;
+    if (req.user && !isOwner && !isConnected) {
+      const viewer = await User.findById(req.user.userId);
+      if (viewer) {
+        matchQuota = await matchQuotaService.consumeView(viewer, profile._id);
+        if (!matchQuota.allowed) {
+          return forbidden(
+            res,
+            `You have viewed all ${matchQuota.limit} profiles included in your plan today. Upgrade your membership or come back tomorrow.`,
+            'MATCH_VIEW_LIMIT_REACHED'
+          );
+        }
+      }
+    }
+
     if (!isOwner) {
       // Apply Privacy Protections for non-owners
       const privacy = profile.privacySettings || {};
@@ -467,7 +485,8 @@ const getProfileById = async (req, res, next) => {
     return success(res, 'Profile fetched successfully', {
       profile: profileData,
       isOwner: Boolean(isOwner),
-      isConnected: Boolean(isConnected)
+      isConnected: Boolean(isConnected),
+      matchQuota
     });
   } catch (error) {
     next(error);

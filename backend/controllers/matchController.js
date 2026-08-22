@@ -6,6 +6,8 @@
 
 const Profile = require('../models/Profile');
 const Match = require('../models/Match');
+const User = require('../models/User');
+const matchQuotaService = require('../services/matchQuotaService');
 const { calculateMatchScore, calculateAge } = require('../services/matchEngine');
 const { getUserActiveProfile, findProfileByIdOrCustomId, getBlockedIds } = require('../utils/profileHelper');
 const { normalizeGotra } = require('../utils/gotras');
@@ -20,6 +22,35 @@ const {
 const { success, badRequest, notFound, forbidden } = require('../utils/apiResponse');
 
 const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Card-level projection for match/search listings. Full profile detail
+ * (contact info, family tree, bio, etc.) is a plan-metered view gated in
+ * profileController.getProfileById — listings must never leak it, or the
+ * daily view quota would be trivially bypassable by reading it off the feed.
+ */
+const toMatchCard = (candidate) => {
+  const c = candidate.toJSON ? candidate.toJSON() : candidate;
+  return {
+    id: c.id,
+    _id: c._id,
+    profileId: c.profileId,
+    fullName: c.fullName,
+    gender: c.gender,
+    dob: c.dob,
+    height: c.height,
+    city: c.city,
+    state: c.state,
+    occupation: c.occupation,
+    workingAt: c.workingAt,
+    qualification: c.qualification,
+    gotra: c.gotra,
+    motherGotra: c.motherGotra,
+    verified: c.verified,
+    profilePicture: c.profilePicture,
+    createdAt: c.createdAt
+  };
+};
 
 /**
  * Records which preference dimensions the request filtered explicitly, so the
@@ -172,7 +203,7 @@ const getMatches = async (req, res, next) => {
     // Calculate match scores
     let scoredMatches = candidates.map(candidate => {
       const scoreResult = calculateMatchScore(activeProfile, candidate);
-      const candidateObj = candidate.toJSON();
+      const candidateObj = toMatchCard(candidate);
       const age = calculateAge(candidate.dob);
       const preferenceFit = evaluatePreferenceFit(preferences, candidate, age);
 
@@ -283,7 +314,7 @@ const getTodayMatches = async (req, res, next) => {
         const scoreResult = calculateMatchScore(activeProfile, candidate);
         const age = calculateAge(candidate.dob);
         return {
-          profile: candidate.toJSON(),
+          profile: toMatchCard(candidate),
           matchScore: scoreResult.totalScore,
           isSagotra: scoreResult.isSagotra,
           hasMaternalConflict: scoreResult.hasMaternalConflict,
@@ -474,7 +505,7 @@ const searchMatches = async (req, res, next) => {
     }
 
     let results = candidates.map(candidate => {
-      const candidateObj = candidate.toJSON();
+      const candidateObj = toMatchCard(candidate);
       const age = calculateAge(candidate.dob);
 
       if (activeProfile) {
@@ -566,9 +597,28 @@ const getMatchScore = async (req, res, next) => {
   }
 };
 
+/**
+ * 5. Daily profile-view quota status for the current user
+ * GET /api/matches/quota
+ */
+const getMatchQuota = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return notFound(res, 'User not found');
+    }
+
+    const quota = await matchQuotaService.getQuotaStatus(user);
+    return success(res, 'Daily profile view quota retrieved', { quota });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMatches,
   getTodayMatches,
   searchMatches,
-  getMatchScore
+  getMatchScore,
+  getMatchQuota
 };

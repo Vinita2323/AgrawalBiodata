@@ -3,6 +3,12 @@ import AdminLayout from '../components/AdminLayout'
 import { adminDataService } from '../services/adminDataService'
 import { useAdminAuth } from '../context/AdminAuthContext'
 
+const describeLimit = (value, unit) => {
+  const num = Number(value)
+  if (num === -1) return `Unlimited ${unit}`
+  return `${num} ${unit}`
+}
+
 export default function SubscriptionManagementPage() {
   // Plan pricing is a Super Admin responsibility; the API rejects writes from
   // other roles, so the edit controls are hidden rather than left to 403.
@@ -16,15 +22,35 @@ export default function SubscriptionManagementPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
 
-  // Form State
+  // Identity
   const [name, setName] = useState('')
-  const [price, setPrice] = useState('')
-  const [yearlyPrice, setYearlyPrice] = useState('')
-  const [durationDays, setDurationDays] = useState('30')
-  const [durationType, setDurationType] = useState('1 Month')
-  const [badge, setBadge] = useState('Popular')
+  const [nameHindi, setNameHindi] = useState('')
+  const [tagline, setTagline] = useState('')
+  const [description, setDescription] = useState('')
+  const [badge, setBadge] = useState('')
+  const [sortOrder, setSortOrder] = useState('0')
   const [status, setStatus] = useState('Active')
+
+  // Pricing
+  const [price, setPrice] = useState('')
+  const [quarterlyPrice, setQuarterlyPrice] = useState('')
+  const [yearlyPrice, setYearlyPrice] = useState('')
+  const [discountPercent, setDiscountPercent] = useState('0')
+
+  // Entitlements
+  const [contactViewLimit, setContactViewLimit] = useState('0')
+  const [contactViewUnlimited, setContactViewUnlimited] = useState(false)
+  const [interestSendLimit, setInterestSendLimit] = useState('10')
+  const [interestSendUnlimited, setInterestSendUnlimited] = useState(false)
+  const [dailyMatchLimit, setDailyMatchLimit] = useState('5')
+  const [dailyMatchUnlimited, setDailyMatchUnlimited] = useState(false)
+  const [verifiedPriority, setVerifiedPriority] = useState(false)
+  const [chatAccess, setChatAccess] = useState(false)
+  const [relationshipManager, setRelationshipManager] = useState(false)
+  const [profileBoost, setProfileBoost] = useState(false)
+
   const [benefitsList, setBenefitsList] = useState([''])
 
   useEffect(() => {
@@ -45,13 +71,28 @@ export default function SubscriptionManagementPage() {
 
   const handleOpenCreate = () => {
     setEditingPlan(null)
+    setFieldErrors({})
     setName('')
-    setPrice('999')
-    setYearlyPrice('9999')
-    setDurationDays('30')
-    setDurationType('1 Month')
+    setNameHindi('')
+    setTagline('')
+    setDescription('')
     setBadge('Popular')
+    setSortOrder('0')
     setStatus('Active')
+    setPrice('999')
+    setQuarterlyPrice('2499')
+    setYearlyPrice('9999')
+    setDiscountPercent('0')
+    setContactViewLimit('0')
+    setContactViewUnlimited(false)
+    setInterestSendLimit('10')
+    setInterestSendUnlimited(false)
+    setDailyMatchLimit('5')
+    setDailyMatchUnlimited(false)
+    setVerifiedPriority(false)
+    setChatAccess(false)
+    setRelationshipManager(false)
+    setProfileBoost(false)
     setBenefitsList([
       'Unlimited Profile Views',
       'Send Unlimited Direct Interest Requests',
@@ -63,13 +104,35 @@ export default function SubscriptionManagementPage() {
 
   const handleOpenEdit = (plan) => {
     setEditingPlan(plan)
+    setFieldErrors({})
     setName(plan.name)
-    setPrice(plan.price)
-    setYearlyPrice(plan.yearlyPrice || plan.price * 12)
-    setDurationDays(plan.durationDays)
-    setDurationType(plan.durationType)
-    setBadge(plan.badge || 'Popular')
+    setNameHindi(plan.nameHindi || '')
+    setTagline(plan.tagline || '')
+    setDescription(plan.description || '')
+    setBadge(plan.badge || '')
+    setSortOrder(String(plan.sortOrder ?? 0))
     setStatus(plan.status)
+    setPrice(String(plan.price))
+    setQuarterlyPrice(String(plan.quarterlyPrice ?? 0))
+    setYearlyPrice(String(plan.yearlyPrice || plan.price * 12))
+    setDiscountPercent(String(plan.discountPercent ?? 0))
+
+    const cvl = plan.contactViewLimit ?? 0
+    setContactViewUnlimited(cvl === -1)
+    setContactViewLimit(cvl === -1 ? '' : String(cvl))
+
+    const isl = plan.interestSendLimit ?? 10
+    setInterestSendUnlimited(isl === -1)
+    setInterestSendLimit(isl === -1 ? '' : String(isl))
+
+    const dml = plan.dailyMatchLimit ?? 5
+    setDailyMatchUnlimited(dml === -1)
+    setDailyMatchLimit(dml === -1 ? '' : String(dml))
+
+    setVerifiedPriority(Boolean(plan.verifiedPriority))
+    setChatAccess(Boolean(plan.chatAccess))
+    setRelationshipManager(Boolean(plan.relationshipManager))
+    setProfileBoost(Boolean(plan.profileBoost))
     setBenefitsList(plan.benefits && plan.benefits.length > 0 ? [...plan.benefits] : [''])
     setShowPlanModal(true)
   }
@@ -90,24 +153,66 @@ export default function SubscriptionManagementPage() {
     setBenefitsList(updated)
   }
 
+  const validate = () => {
+    const errors = {}
+
+    if (!name.trim()) errors.name = 'Plan name is required.'
+    if (price === '' || Number(price) < 0) errors.price = 'Enter a valid monthly price.'
+    if (yearlyPrice === '' || Number(yearlyPrice) < 0) errors.yearlyPrice = 'Enter a valid yearly price.'
+    if (quarterlyPrice !== '' && Number(quarterlyPrice) < 0) errors.quarterlyPrice = 'Quarterly price cannot be negative.'
+
+    const discountNum = Number(discountPercent)
+    if (discountPercent !== '' && (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100)) {
+      errors.discountPercent = 'Discount must be between 0 and 100.'
+    }
+
+    if (!contactViewUnlimited && (contactViewLimit === '' || Number(contactViewLimit) < 0)) {
+      errors.contactViewLimit = 'Enter a non-negative number, or mark unlimited.'
+    }
+    if (!interestSendUnlimited && (interestSendLimit === '' || Number(interestSendLimit) < 0)) {
+      errors.interestSendLimit = 'Enter a non-negative number, or mark unlimited.'
+    }
+    if (!dailyMatchUnlimited && (dailyMatchLimit === '' || Number(dailyMatchLimit) < 0)) {
+      errors.dailyMatchLimit = 'Enter a non-negative number, or mark unlimited.'
+    }
+
+    return errors
+  }
+
   const handleSavePlan = async (e) => {
     e.preventDefault()
+
+    const errors = validate()
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
+
     const cleanedBenefits = benefitsList.map((b) => b.trim()).filter(Boolean)
 
     const planObj = {
       id: editingPlan?.id,
-      name,
+      name: name.trim(),
+      nameHindi: nameHindi.trim(),
+      tagline: tagline.trim(),
+      description: description.trim(),
+      badge: badge.trim(),
+      sortOrder: Number(sortOrder) || 0,
       price: Number(price),
+      quarterlyPrice: Number(quarterlyPrice) || 0,
       yearlyPrice: Number(yearlyPrice) || Number(price) * 12,
+      discountPercent: Number(discountPercent) || 0,
       currency: 'INR',
-      durationDays: Number(durationDays),
-      durationType,
       status,
-      badge,
       benefits: cleanedBenefits.length > 0 ? cleanedBenefits : ['Standard Membership Benefits'],
-      contactViewLimit: editingPlan?.contactViewLimit ?? 0,
-      interestSendLimit: editingPlan?.interestSendLimit ?? 0,
-      chatAccess: editingPlan?.chatAccess ?? false,
+      contactViewLimit: contactViewUnlimited ? -1 : Number(contactViewLimit),
+      interestSendLimit: interestSendUnlimited ? -1 : Number(interestSendLimit),
+      dailyMatchLimit: dailyMatchUnlimited ? -1 : Number(dailyMatchLimit),
+      verifiedPriority,
+      chatAccess,
+      relationshipManager,
+      profileBoost,
     }
 
     setIsSaving(true)
@@ -141,6 +246,12 @@ export default function SubscriptionManagementPage() {
       setIsSaving(false)
     }
   }
+
+  const inputClass = "w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
+  const errorInputClass = "w-full px-3 py-2 bg-red-50 border border-red-300 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-300"
+  const fieldError = (key) => fieldErrors[key] && (
+    <p className="text-[10px] text-red-700 font-bold mt-1">{fieldErrors[key]}</p>
+  )
 
   return (
     <AdminLayout title="Subscription Management">
@@ -217,7 +328,7 @@ export default function SubscriptionManagementPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-0.5 bg-amber-100/80 text-[#570013] border border-amber-300 text-[10px] font-extrabold rounded-md uppercase tracking-wider shadow-2xs">
-                  {plan.badge}
+                  {plan.badge || 'Plan'}
                 </span>
                 <span
                   className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-md shadow-2xs border ${
@@ -232,14 +343,29 @@ export default function SubscriptionManagementPage() {
 
               <div>
                 <h3 className="font-display text-lg font-extrabold text-[#570013]">{plan.name}</h3>
-                <p className="text-xs text-[#775a19] font-bold mt-0.5">{plan.durationType}</p>
+                {plan.tagline && (
+                  <p className="text-xs text-[#775a19] font-bold mt-0.5">{plan.tagline}</p>
+                )}
               </div>
 
               <div className="flex items-baseline gap-1 bg-amber-50/50 p-2 rounded-md border border-amber-200/60">
                 <span className="font-display text-2xl font-extrabold text-[#570013]">
                   ₹{plan.price.toLocaleString('en-IN')}
                 </span>
-                <span className="text-xs text-stone-600 font-bold">/ {plan.durationDays} days</span>
+                <span className="text-xs text-stone-600 font-bold">/ month</span>
+              </div>
+
+              {/* Entitlements strip */}
+              <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
+                <span className="px-2 py-1 bg-stone-100 text-stone-700 rounded-md border border-stone-200">
+                  {describeLimit(plan.dailyMatchLimit, 'profiles/day')}
+                </span>
+                <span className="px-2 py-1 bg-stone-100 text-stone-700 rounded-md border border-stone-200">
+                  {describeLimit(plan.contactViewLimit, 'contacts')}
+                </span>
+                <span className="px-2 py-1 bg-stone-100 text-stone-700 rounded-md border border-stone-200">
+                  {describeLimit(plan.interestSendLimit, 'interests')}
+                </span>
               </div>
 
               {/* Benefits Checklist */}
@@ -291,7 +417,7 @@ export default function SubscriptionManagementPage() {
       {/* CREATE / EDIT PLAN MODAL */}
       {showPlanModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-scale-fade">
-          <div className="bg-white rounded-lg max-w-lg w-full p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh] border border-amber-900/20">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 space-y-5 shadow-2xl overflow-y-auto max-h-[90vh] border border-amber-900/20">
             <div className="flex items-center justify-between border-b border-amber-900/10 pb-3">
               <h3 className="font-display font-extrabold text-lg text-[#570013]">
                 {editingPlan ? 'Edit Subscription Plan' : 'Create New Subscription Plan'}
@@ -304,98 +430,253 @@ export default function SubscriptionManagementPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Plan Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Gold Quarterly VIP"
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  />
-                </div>
+            <form onSubmit={handleSavePlan} className="space-y-5 text-xs">
+              {/* IDENTITY */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-[#570013] uppercase tracking-wider text-[11px]">Identity</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Plan Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Gold"
+                      className={fieldErrors.name ? errorInputClass : inputClass}
+                    />
+                    {fieldError('name')}
+                  </div>
 
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Monthly Price (INR)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="2499"
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  />
-                </div>
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Plan Name (Hindi)</label>
+                    <input
+                      type="text"
+                      value={nameHindi}
+                      onChange={(e) => setNameHindi(e.target.value)}
+                      placeholder="e.g. गोल्ड"
+                      className={inputClass}
+                    />
+                  </div>
 
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Yearly Price (INR)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={yearlyPrice}
-                    onChange={(e) => setYearlyPrice(e.target.value)}
-                    placeholder="19999"
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  />
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Badge Tag</label>
+                    <input
+                      type="text"
+                      value={badge}
+                      onChange={(e) => setBadge(e.target.value)}
+                      placeholder="e.g. Popular, Best Value, VIP"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Sort Order</label>
+                    <input
+                      type="number"
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      placeholder="0"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Tagline</label>
+                    <input
+                      type="text"
+                      value={tagline}
+                      onChange={(e) => setTagline(e.target.value)}
+                      placeholder="Short marketing line"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Plan Status</label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block font-bold text-stone-800 mb-1">Description</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Longer plan description shown on the membership page"
+                      rows={2}
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Duration Tag</label>
-                  <input
-                    type="text"
-                    required
-                    value={durationType}
-                    onChange={(e) => setDurationType(e.target.value)}
-                    placeholder="e.g. 3 Months"
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  />
-                </div>
+              {/* PRICING */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-[#570013] uppercase tracking-wider text-[11px]">Pricing</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Monthly Price (INR)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="999"
+                      className={fieldErrors.price ? errorInputClass : inputClass}
+                    />
+                    {fieldError('price')}
+                  </div>
 
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Duration Days</label>
-                  <input
-                    type="number"
-                    required
-                    value={durationDays}
-                    onChange={(e) => setDurationDays(e.target.value)}
-                    placeholder="90"
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  />
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Quarterly Price (INR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quarterlyPrice}
+                      onChange={(e) => setQuarterlyPrice(e.target.value)}
+                      placeholder="2499"
+                      className={fieldErrors.quarterlyPrice ? errorInputClass : inputClass}
+                    />
+                    {fieldError('quarterlyPrice')}
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Yearly Price (INR)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={yearlyPrice}
+                      onChange={(e) => setYearlyPrice(e.target.value)}
+                      placeholder="9999"
+                      className={fieldErrors.yearlyPrice ? errorInputClass : inputClass}
+                    />
+                    {fieldError('yearlyPrice')}
+                    {yearlyPrice !== '' && !Number.isNaN(Number(yearlyPrice)) && (
+                      <p className="text-[10px] text-[#775a19] font-bold mt-1">
+                        ≈ ₹{Math.round(Number(yearlyPrice) / 12).toLocaleString('en-IN')} / month effective
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Discount %</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(e.target.value)}
+                      placeholder="0"
+                      className={fieldErrors.discountPercent ? errorInputClass : inputClass}
+                    />
+                    {fieldError('discountPercent')}
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Badge Tag</label>
-                  <select
-                    value={badge}
-                    onChange={(e) => setBadge(e.target.value)}
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  >
-                    <option value="Basic">Basic</option>
-                    <option value="Popular">Popular</option>
-                    <option value="Best Value">Best Value</option>
-                    <option value="VIP">VIP</option>
-                  </select>
+              {/* ENTITLEMENTS */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-[#570013] uppercase tracking-wider text-[11px]">Entitlements</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Profiles Viewable / Day</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={dailyMatchUnlimited}
+                        value={dailyMatchLimit}
+                        onChange={(e) => setDailyMatchLimit(e.target.value)}
+                        placeholder="25"
+                        className={`${fieldErrors.dailyMatchLimit ? errorInputClass : inputClass} disabled:opacity-40`}
+                      />
+                      <label className="flex items-center gap-1 text-[10px] font-bold text-stone-700 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={dailyMatchUnlimited}
+                          onChange={(e) => setDailyMatchUnlimited(e.target.checked)}
+                        />
+                        Unlimited
+                      </label>
+                    </div>
+                    {fieldError('dailyMatchLimit')}
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Contact Views</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={contactViewUnlimited}
+                        value={contactViewLimit}
+                        onChange={(e) => setContactViewLimit(e.target.value)}
+                        placeholder="50"
+                        className={`${fieldErrors.contactViewLimit ? errorInputClass : inputClass} disabled:opacity-40`}
+                      />
+                      <label className="flex items-center gap-1 text-[10px] font-bold text-stone-700 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={contactViewUnlimited}
+                          onChange={(e) => setContactViewUnlimited(e.target.checked)}
+                        />
+                        Unlimited
+                      </label>
+                    </div>
+                    {fieldError('contactViewLimit')}
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-800 mb-1">Interests Sendable</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={interestSendUnlimited}
+                        value={interestSendLimit}
+                        onChange={(e) => setInterestSendLimit(e.target.value)}
+                        placeholder="10"
+                        className={`${fieldErrors.interestSendLimit ? errorInputClass : inputClass} disabled:opacity-40`}
+                      />
+                      <label className="flex items-center gap-1 text-[10px] font-bold text-stone-700 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={interestSendUnlimited}
+                          onChange={(e) => setInterestSendUnlimited(e.target.checked)}
+                        />
+                        Unlimited
+                      </label>
+                    </div>
+                    {fieldError('interestSendLimit')}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-stone-800 mb-1">Plan Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-3 py-2 bg-stone-50 border border-amber-900/20 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#775a19]/40"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <label className="flex items-center gap-2 text-stone-800 font-bold">
+                    <input type="checkbox" checked={verifiedPriority} onChange={(e) => setVerifiedPriority(e.target.checked)} />
+                    Verified Priority Placement
+                  </label>
+                  <label className="flex items-center gap-2 text-stone-800 font-bold">
+                    <input type="checkbox" checked={chatAccess} onChange={(e) => setChatAccess(e.target.checked)} />
+                    Chat Access
+                  </label>
+                  <label className="flex items-center gap-2 text-stone-800 font-bold">
+                    <input type="checkbox" checked={relationshipManager} onChange={(e) => setRelationshipManager(e.target.checked)} />
+                    Relationship Manager
+                  </label>
+                  <label className="flex items-center gap-2 text-stone-800 font-bold">
+                    <input type="checkbox" checked={profileBoost} onChange={(e) => setProfileBoost(e.target.checked)} />
+                    Profile Boost
+                  </label>
                 </div>
               </div>
 

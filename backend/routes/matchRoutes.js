@@ -14,6 +14,7 @@ router.use(auth);
 router.get('/', matchController.getMatches);
 router.get('/today', matchController.getTodayMatches);
 router.get('/search', matchController.searchMatches);
+router.get('/quota', matchController.getMatchQuota);
 router.get('/score/:targetProfileId', matchController.getMatchScore);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '../context/AdminAuthContext'
 
@@ -14,24 +14,24 @@ export default function AdminLoginPage() {
 
   const from = location.state?.from?.pathname || '/admin/dashboard'
 
-  if (isAuthenticated) {
-    navigate(from, { replace: true })
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true })
+    }
+  }, [isAuthenticated, navigate, from])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
 
-    setTimeout(() => {
-      const res = login(email, password)
-      setIsLoading(false)
-      if (res.success) {
-        navigate(from, { replace: true })
-      } else {
-        setError(res.error || 'Invalid credentials. Please try again.')
-      }
-    }, 400)
+    const res = await login(email, password)
+    setIsLoading(false)
+    if (res.success) {
+      navigate(from, { replace: true })
+    } else {
+      setError(res.error || 'Invalid credentials. Please try again.')
+    }
   }
 
   const handleFillDemo = (type) => {

@@ -6,7 +6,7 @@ import HeaderBar from './HeaderBar'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
 import { avatarSrc, handleAvatarError } from '../../../utils/avatar'
 import { getMyProfile } from '../../../services/profileService'
-import { getMatches, getTodayMatches, searchMatches } from '../../../services/matchService'
+import { getMatches, getTodayMatches, searchMatches, getMatchQuota } from '../../../services/matchService'
 import {
   getSavedSearches,
   recordSearch,
@@ -220,6 +220,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   // Set when saved partner preferences filtered the feed, so an empty or short
   // list can explain itself instead of looking like "no one is out there".
   const [preferenceFilter, setPreferenceFilter] = useState(null)
+  const [matchQuota, setMatchQuota] = useState(null)
 
   // Contents of the Visitors and Saved modals. Both used to render a
   // hardcoded cast of people who were not members of the platform.
@@ -342,12 +343,17 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           setIsLoadingLive(true)
           setLiveMatches([])
           setLiveTodayMatches([])
-          const [profileRes, matchesRes, todayRes, sentInterestsRes] = await Promise.allSettled([
+          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes] = await Promise.allSettled([
             getMyProfile(),
             getMatches({ limit: 20 }),
             getTodayMatches(),
-            getSentInterests({ limit: 100 })
+            getSentInterests({ limit: 100 }),
+            getMatchQuota()
           ])
+
+          if (quotaRes.status === 'fulfilled' && quotaRes.value?.quota) {
+            setMatchQuota(quotaRes.value.quota)
+          }
 
           if (profileRes.status === 'fulfilled' && profileRes.value?.profile) {
             setUserProfile(profileRes.value.profile)
@@ -1074,18 +1080,19 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             <div className="grid grid-cols-4 gap-2">
               {[
                 { id: 'my-profile', label: 'My Profile', icon: 'person_pin' },
+                { id: 'verification', label: 'Verification', icon: 'verified_user' },
                 { id: 'premium', label: 'Premium', icon: 'workspace_premium', isGold: true },
                 { id: 'interests', label: 'Interests', icon: 'favorite', badge: '5' },
                 { id: 'visitors', label: 'Visitors', icon: 'group' },
                 { id: 'saved', label: 'Saved', icon: 'bookmark' },
                 { id: 'blocked', label: 'Blocked', icon: 'block' },
                 { id: 'settings', label: 'Settings', icon: 'settings' },
-                { id: 'help', label: 'Help & Support', icon: 'support_agent' },
               ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => {
                     if (item.id === 'my-profile') handleTabNavigate('MyProfile')
+                    else if (item.id === 'verification') navigate('/verification')
                     else if (item.id === 'premium') navigate('/membership')
                     else if (item.id === 'interests') handleTabNavigate('Interests')
                     else if (item.id === 'visitors') setActiveModal('Visitors')
@@ -1716,7 +1723,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <span className="material-symbols-outlined text-2xl block">arrow_back</span>
             </button>
             <h1 className="text-lg font-display font-extrabold text-[#570013] flex-1">Matches</h1>
-            <button 
+            <button
               onClick={() => handleTabNavigate('Notifications')}
               className="p-1 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013]"
               aria-label="Notifications"
@@ -1724,6 +1731,28 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <span className="material-symbols-outlined text-xl block">notifications</span>
             </button>
           </div>
+
+          {/* Daily profile-view quota indicator */}
+          {matchQuota && !matchQuota.unlimited && (
+            <div className={`mb-4 p-2.5 rounded-md border text-[11px] font-bold flex items-center justify-between gap-2 ${
+              matchQuota.remaining === 0
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-amber-50 border-amber-200 text-[#775a19]'
+            }`}>
+              <span className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm">visibility</span>
+                {matchQuota.remaining === 0
+                  ? 'You have viewed all profiles included in your plan today.'
+                  : `${matchQuota.remaining} of ${matchQuota.limit} profile views left today`}
+              </span>
+              <button
+                onClick={() => navigate('/membership')}
+                className="px-2.5 py-1 bg-[#570013] text-amber-100 rounded-md text-[10px] font-extrabold shrink-0"
+              >
+                Upgrade
+              </button>
+            </div>
+          )}
 
           {/* Sub-navigation Tabs */}
           <div className="flex border-b border-gray-200/80 mb-5">

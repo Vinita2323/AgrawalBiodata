@@ -74,6 +74,10 @@ const planSchema = new mongoose.Schema(
       type: Number,
       default: 10 // -1 for unlimited
     },
+    dailyMatchLimit: {
+      type: Number,
+      default: 5 // Profiles a user on this plan can VIEW (open) per day; -1 for unlimited
+    },
     verifiedPriority: {
       type: Boolean,
       default: false

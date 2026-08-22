@@ -6,11 +6,12 @@
 const { connectDB, disconnectDB } = require('../config/db');
 const Plan = require('../models/Plan');
 const logger = require('../utils/logger');
+const { SUBSCRIPTION_PLANS } = require('../config/constants');
 
 const DEFAULT_PLANS = [
   {
     planId: 'free',
-    name: 'Free',
+    name: SUBSCRIPTION_PLANS.FREE,
     nameHindi: 'मुफ़्त',
     tagline: 'Get started and explore matches',
     description: 'Basic access to candidate profiles and community discovery.',
@@ -21,6 +22,7 @@ const DEFAULT_PLANS = [
     discountPercent: 0,
     contactViewLimit: 0,
     interestSendLimit: 5,
+    dailyMatchLimit: 5,
     verifiedPriority: false,
     chatAccess: false,
     relationshipManager: false,
@@ -30,13 +32,14 @@ const DEFAULT_PLANS = [
     features: [
       'Create and manage matrimonial profile',
       'Search and browse matching profiles',
+      'View 5 profiles per day',
       'Send up to 5 interests',
       'Standard Gotra exogamy compatibility scoring'
     ]
   },
   {
     planId: 'gold',
-    name: 'Gold',
+    name: SUBSCRIPTION_PLANS.GOLD,
     nameHindi: 'गोल्ड',
     tagline: 'Most Popular for Active Matchseekers',
     description: 'Direct contact details, unlimited interests, and verified priority recommendations.',
@@ -47,6 +50,7 @@ const DEFAULT_PLANS = [
     discountPercent: 58,
     contactViewLimit: 50,
     interestSendLimit: -1,
+    dailyMatchLimit: 25,
     verifiedPriority: true,
     chatAccess: true,
     relationshipManager: false,
@@ -54,6 +58,7 @@ const DEFAULT_PLANS = [
     isActive: true,
     sortOrder: 2,
     features: [
+      'View 25 profiles per day',
       'View 50 verified contact numbers',
       'Send unlimited interests',
       'Direct chat and messaging access',
@@ -64,7 +69,7 @@ const DEFAULT_PLANS = [
   },
   {
     planId: 'platinum',
-    name: 'Platinum',
+    name: SUBSCRIPTION_PLANS.PLATINUM,
     nameHindi: 'प्लेटिनम',
     tagline: 'Premium Matchmaking with High Visibility',
     description: '150 contact unlocks, top carousel placement, and verified profile highlight.',
@@ -75,6 +80,7 @@ const DEFAULT_PLANS = [
     discountPercent: 62,
     contactViewLimit: 150,
     interestSendLimit: -1,
+    dailyMatchLimit: -1,
     verifiedPriority: true,
     chatAccess: true,
     relationshipManager: false,
@@ -82,6 +88,7 @@ const DEFAULT_PLANS = [
     isActive: true,
     sortOrder: 3,
     features: [
+      'View unlimited profiles per day',
       'View 150 verified contact numbers',
       'Send unlimited interests & messages',
       'Top Homepage Carousel spotlight',
@@ -92,7 +99,7 @@ const DEFAULT_PLANS = [
   },
   {
     planId: 'diamond',
-    name: 'Diamond',
+    name: SUBSCRIPTION_PLANS.DIAMOND,
     nameHindi: 'डायमंड',
     tagline: 'VIP Concierge & Dedicated Relationship Manager',
     description: 'Exclusive assisted matchmaking, unlimited contact views, and privacy management.',
@@ -103,6 +110,7 @@ const DEFAULT_PLANS = [
     discountPercent: 62,
     contactViewLimit: -1,
     interestSendLimit: -1,
+    dailyMatchLimit: -1,
     verifiedPriority: true,
     chatAccess: true,
     relationshipManager: true,

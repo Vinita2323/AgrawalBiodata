@@ -71,6 +71,10 @@ const subscriptionSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    dailyMatchLimit: {
+      type: Number,
+      default: 5
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}

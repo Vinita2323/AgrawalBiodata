@@ -58,12 +58,21 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
       // Yearly plans are quoted per-month to keep the comparison honest.
       return Math.round((plan.yearlyPrice || 0) / 12)
     }
+    if (billingCycle === 'quarterly') {
+      return Math.round((plan.quarterlyPrice || plan.monthlyPrice * 3 || 0) / 3)
+    }
     return plan.monthlyPrice || 0
   }
 
   const hasYearlySaving = plans.some(
     (p) => p.yearlyPrice > 0 && p.yearlyPrice < (p.monthlyPrice || 0) * 12
   )
+
+  const describeDailyLimit = (plan) => {
+    const limit = plan.dailyMatchLimit
+    if (limit === undefined || limit === null) return null
+    return limit === -1 ? 'Unlimited profile views every day' : `View up to ${limit} profiles per day`
+  }
 
   return (
     <div className="bg-[#fbf9f5] text-[#1b1c1a] font-body min-h-screen flex flex-col justify-between pb-6 selection:bg-[#775a19] selection:text-white">
@@ -104,6 +113,16 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
             }`}
           >
             Monthly
+          </button>
+          <button
+            onClick={() => setBillingCycle('quarterly')}
+            className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
+              billingCycle === 'quarterly'
+                ? 'bg-[#570013] text-white shadow'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-gray-50'
+            }`}
+          >
+            Quarterly
           </button>
           <button
             onClick={() => setBillingCycle('yearly')}
@@ -179,12 +198,21 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
                     <p className="text-[11px] font-semibold text-slate-600 mb-2">{plan.tagline}</p>
                   )}
 
-                  <div className="flex items-baseline gap-1 mb-4">
+                  <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-[26px] font-black text-[#570013]">
                       ₹{priceFor(plan).toLocaleString('en-IN')}
                     </span>
-                    <span className="text-xs font-semibold text-slate-600">/ Month</span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      / Month{billingCycle !== 'monthly' ? ` (billed ${billingCycle})` : ''}
+                    </span>
                   </div>
+
+                  {describeDailyLimit(plan) && (
+                    <p className="text-[11px] font-bold text-emerald-700 mb-4 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">visibility</span>
+                      {describeDailyLimit(plan)}
+                    </p>
+                  )}
 
                   <ul className="space-y-2.5 text-[11px] font-medium text-slate-800 mb-5">
                     {(plan.features || []).map((feature, i) => (

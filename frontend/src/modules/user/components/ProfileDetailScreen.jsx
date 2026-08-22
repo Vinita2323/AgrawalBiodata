@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { sendInterest, getInterestStatus } from '../../../services/interestService'
 import { addToShortlist, recordVisitor } from '../../../services/socialService'
 import { getMatchScore } from '../../../services/matchService'
+import { getProfileById } from '../../../services/profileService'
 import { isAuthenticated } from '../../../services/authService'
 import { handleAvatarError } from '../../../utils/avatar'
 import {
@@ -11,6 +13,7 @@ import {
 } from '../../../services/accountService'
 
 export default function ProfileDetailScreen({ profile, onBack }) {
+  const navigate = useNavigate()
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isShortlisted, setIsShortlisted] = useState(false)
   const [isInterestSent, setIsInterestSent] = useState(false)
@@ -19,13 +22,19 @@ export default function ProfileDetailScreen({ profile, onBack }) {
   const [revealedContact, setRevealedContact] = useState(null)
   const [contactQuota, setContactQuota] = useState(null)
   const [isUnlocking, setIsUnlocking] = useState(false)
+  const [fullDetail, setFullDetail] = useState(null)
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+  const [viewLimitReached, setViewLimitReached] = useState(false)
+  const [viewLimitMessage, setViewLimitMessage] = useState('')
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
   }
 
-  const p = profile || {
+  const cardProfile = profile
+  const targetId = cardProfile?.profileId || cardProfile?._id || cardProfile?.id
+  const p = fullDetail || cardProfile || {
     fullName: 'Priya Garg',
     name: 'Priya Garg',
     gender: 'Female',
@@ -42,21 +51,18 @@ export default function ProfileDetailScreen({ profile, onBack }) {
     workingAt: 'TCS Digital',
     income: '15-20 LPA',
     hobbies: 'Classical Dance, Reading, Travelling',
-    // Family
     grandfather: 'Late Sh. Ramcharan Garg',
     grandmother: 'Smt. Shanti Devi',
     father: 'Sh. Rameshwar Garg',
     fatherOccupation: 'Business',
     fatherOccupationDetails: 'Owner, Garg Textile Mills',
     mother: 'Smt. Sunita Garg',
-    // Relatives
     brotherList: [{ name: 'Aman Garg', status: 'Married', spouseName: 'Pooja Garg', homePlace: 'Delhi' }],
     sisterList: [{ name: 'Neha Garg', status: 'Married', spouseName: 'Rahul Agrawal', homePlace: 'Indore' }],
     taujiList: [{ name: 'Sh. Suresh Garg', status: 'Married', spouseName: 'Smt. Anita Garg', homePlace: 'Jaipur' }],
     chachaList: [{ name: 'Sh. Dinesh Garg', status: 'Married', spouseName: 'Smt. Meena Garg', homePlace: 'Ahmedabad' }],
     buajiList: [{ name: 'Smt. Rekha Agrawal', status: 'Married', spouseName: 'Sh. Mohan Agrawal', homePlace: 'Udaipur' }],
     mamajiList: [{ name: 'Sh. Vijay Bansal', status: 'Married', spouseName: 'Smt. Geeta Bansal', homePlace: 'Kota' }],
-    // Contact
     residentialAddress: '104, Agrasen Nagar, Gopalpura Bypass, Jaipur, Rajasthan',
     mobileNumber: '+91 98290 XXXXX',
     city: 'Jaipur, Rajasthan',
@@ -65,11 +71,27 @@ export default function ProfileDetailScreen({ profile, onBack }) {
     image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
   }
 
-  const targetId = p.profileId || p._id || p.id
-
   useEffect(() => {
     async function initProfileDetail() {
       if (!targetId || !isAuthenticated()) return
+
+      // Match/search listings only carry card-level fields; the full biodata
+      // (family tree, contact block, bio, etc.) is a plan-metered view.
+      setIsLoadingDetail(true)
+      try {
+        const res = await getProfileById(targetId)
+        setFullDetail(res?.profile || null)
+        setViewLimitReached(false)
+      } catch (err) {
+        if (err?.code === 'MATCH_VIEW_LIMIT_REACHED') {
+          setViewLimitReached(true)
+          setViewLimitMessage(err.message || 'You have reached your daily profile view limit.')
+          return
+        }
+        console.warn('Profile detail fetch note:', err)
+      } finally {
+        setIsLoadingDetail(false)
+      }
 
       try {
         recordVisitor(targetId).catch(() => {})
@@ -255,7 +277,25 @@ export default function ProfileDetailScreen({ profile, onBack }) {
         </div>
       )}
 
+      {/* Daily profile-view limit reached: no biodata detail to show */}
+      {viewLimitReached && (
+        <main className="max-w-3xl mx-auto px-3.5 pt-3.5">
+          <div className="bg-white rounded-xl border border-amber-200/80 p-6 shadow-md text-center space-y-3">
+            <span className="material-symbols-outlined text-4xl text-amber-500">lock_clock</span>
+            <h2 className="font-display text-lg font-bold text-[#570013]">Daily Profile View Limit Reached</h2>
+            <p className="text-xs text-slate-600 font-medium">{viewLimitMessage}</p>
+            <button
+              onClick={() => navigate('/membership')}
+              className="mt-2 px-5 py-2.5 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow-md active:scale-95 transition"
+            >
+              Upgrade Membership
+            </button>
+          </div>
+        </main>
+      )}
+
       {/* Main Container */}
+      {!viewLimitReached && (
       <main className="max-w-3xl mx-auto px-3.5 pt-3.5 space-y-3.5">
         {/* Candidate Hero Card */}
         <div className="bg-white rounded-xl border border-amber-200/80 p-4 shadow-md relative overflow-hidden">
@@ -582,6 +622,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
           </div>
         </div>
       </main>
+      )}
 
       {/* Fixed Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-amber-200 py-2.5 px-4 shadow-2xl">
