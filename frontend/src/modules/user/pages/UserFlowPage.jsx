@@ -27,6 +27,13 @@ import HeaderBar from '../components/HeaderBar'
 import ManageProfilesScreen from '../components/ManageProfilesScreen'
 import SignupOnlyRoute, { clearJustSignedUp } from '../components/SignupOnlyRoute'
 import { ActiveProfileProvider } from '../../../context/ActiveProfileContext'
+import { isAuthenticated } from '../../../services/authService'
+
+// A returning visitor with a valid stored session should land on their
+// dashboard, not be sent through the login screen again on every visit.
+const RootRedirect = () => (
+  <Navigate to={isAuthenticated() ? '/home' : '/auth-landing'} replace />
+)
 
 export default function UserFlowPage() {
   const navigate = useNavigate()
@@ -49,9 +56,9 @@ export default function UserFlowPage() {
           <HeaderBar />
         )}
         <Routes>
-          {/* Redirect root and splash directly to auth landing */}
-          <Route path="/" element={<Navigate to="/auth-landing" replace />} />
-          <Route path="/splash" element={<Navigate to="/auth-landing" replace />} />
+          {/* Root and splash go to the dashboard if already logged in, otherwise auth landing */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/splash" element={<RootRedirect />} />
 
           {/* 1. Authentication Landing Page */}
           <Route
