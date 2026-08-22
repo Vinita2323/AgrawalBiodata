@@ -20,6 +20,16 @@ const notificationService = require('./services/notificationService');
 const logger = require('./utils/logger');
 const env = require('./config/env');
 
+/** Groups a flat list of {senderUserId, ...} rows by senderUserId. */
+function groupBySender(rows) {
+  const bySender = {};
+  for (const row of rows) {
+    if (!bySender[row.senderUserId]) bySender[row.senderUserId] = [];
+    bySender[row.senderUserId].push(row);
+  }
+  return bySender;
+}
+
 let io = null;
 
 /** Room name for a user's devices. */
@@ -97,10 +107,25 @@ function init(httpServer) {
 
   io.use(authenticateSocket);
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     const { userId } = socket.data;
     socket.join(userRoom(userId));
     logger.info(`Socket connected: user ${userId} (${socket.id})`);
+
+    // Coming online delivers anything that was sent while this user was
+    // offline - each sender's tick moves from single to double right away
+    // instead of waiting for the recipient to open that specific thread.
+    try {
+      const delivered = await chatService.markDelivered(userId);
+      Object.entries(groupBySender(delivered)).forEach(([senderId, rows]) => {
+        emitToUser(senderId, 'message:delivered', {
+          messageIds: rows.map((r) => r.id),
+          deliveredAt: rows[0].deliveredAt
+        });
+      });
+    } catch (error) {
+      logger.warn(`Delivery backfill failed for user ${userId}: ${error.message}`);
+    }
 
     // Subscribe to a specific thread for typing/read receipts.
     socket.on('conversation:join', async (conversationId, ack) => {
@@ -131,6 +156,13 @@ function init(httpServer) {
           senderUserId: userId,
           body
         });
+
+        // The recipient's room is about to receive this in the same tick, so
+        // if they are connected the message is delivered right now.
+        if (isUserOnline(result.recipient.userId.toString())) {
+          result.message.deliveredAt = new Date();
+          await result.message.save();
+        }
 
         const payload = {
           conversationId: conversation._id.toString(),
@@ -170,12 +202,13 @@ function init(httpServer) {
     socket.on('conversation:read', async ({ conversationId } = {}) => {
       try {
         const conversation = await Conversation.findById(conversationId);
-        chatService.assertParticipant(conversation, userId);
+        const { them } = chatService.assertParticipant(conversation, userId);
         await chatService.markRead(conversation, userId);
-        socket.to(`conversation:${conversationId}`).emit('conversation:read', {
-          conversationId,
-          readerUserId: userId
-        });
+        const readPayload = { conversationId, readerUserId: userId };
+        socket.to(`conversation:${conversationId}`).emit('conversation:read', readPayload);
+        // Also reach the other side directly - they may not have this
+        // specific thread open (and thus not be in its room) right now.
+        if (them?.userId) emitToUser(them.userId.toString(), 'conversation:read', readPayload);
       } catch {
         // A failed read receipt is not worth surfacing to the client.
       }
@@ -213,6 +246,13 @@ function emitToConversation(conversationId, event, payload) {
   io.to(`conversation:${conversationId}`).emit(event, payload);
 }
 
+/** Whether any of a user's devices currently hold an open socket. */
+function isUserOnline(userId) {
+  if (!io || !userId) return false;
+  const room = io.sockets.adapter.rooms.get(userRoom(userId.toString()));
+  return Boolean(room && room.size > 0);
+}
+
 function getIo() {
   return io;
 }
@@ -228,6 +268,7 @@ module.exports = {
   init,
   emitToUser,
   emitToConversation,
+  isUserOnline,
   getIo,
   close
 };

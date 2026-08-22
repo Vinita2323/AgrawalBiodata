@@ -323,4 +323,146 @@ describe('Messaging', () => {
       expect(res.body.data.conversations).toHaveLength(0);
     });
   });
+
+  describe('4. Delivery, edit, and delete', () => {
+    let conversationId;
+
+    beforeEach(async () => {
+      await connect(aliceCtx, bobCtx);
+      const res = await request(app)
+        .post('/api/messages/conversations')
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ targetProfileId: bobProfile._id.toString() });
+      conversationId = res.body.data.conversation.id;
+    });
+
+    it('stamps deliveredAt once the recipient opens the thread', async () => {
+      const sendRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Are you there?' });
+
+      expect(sendRes.body.data.message.deliveredAt).toBeFalsy();
+
+      await request(app)
+        .get(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${bobToken}`);
+
+      const message = await Message.findOne({ recipientUserId: bob._id });
+      expect(message.deliveredAt).toBeTruthy();
+    });
+
+    it('lets the sender edit a message within the window', async () => {
+      const sendRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Oiginal typo' });
+      const messageId = sendRes.body.data.message.id;
+
+      const res = await request(app)
+        .put(`/api/messages/${messageId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Original fixed' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.message.body).toBe('Original fixed');
+      expect(res.body.data.message.editedAt).toBeTruthy();
+    });
+
+    it('refuses to let the recipient edit the sender message', async () => {
+      const sendRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Hello' });
+      const messageId = sendRes.body.data.message.id;
+
+      const res = await request(app)
+        .put(`/api/messages/${messageId}`)
+        .set('Authorization', `Bearer ${bobToken}`)
+        .send({ body: 'Hijacked' });
+
+      expect(res.status).toBe(403);
+      expect((await Message.findById(messageId)).body).toBe('Hello');
+    });
+
+    it('refuses to edit a message older than 15 minutes', async () => {
+      const sendRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Old message' });
+      const messageId = sendRes.body.data.message.id;
+
+      // Mongoose's timestamps plugin silently ignores an explicit createdAt
+      // passed to findByIdAndUpdate, so backdating requires the raw driver.
+      await Message.collection.updateOne(
+        { _id: new (require('mongoose').Types.ObjectId)(messageId) },
+        { $set: { createdAt: new Date(Date.now() - 16 * 60 * 1000) } }
+      );
+
+      const res = await request(app)
+        .put(`/api/messages/${messageId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Too late' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('EDIT_WINDOW_EXPIRED');
+    });
+
+    it('"delete for me" hides the message only from the deleter own thread', async () => {
+      const sendRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Only I will hide this' });
+      const messageId = sendRes.body.data.message.id;
+
+      const delRes = await request(app)
+        .delete(`/api/messages/${messageId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ scope: 'me' });
+      expect(delRes.status).toBe(200);
+
+      const aliceThread = await request(app)
+        .get(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`);
+      expect(aliceThread.body.data.messages.map((m) => m.id)).not.toContain(messageId);
+
+      const bobThread = await request(app)
+        .get(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${bobToken}`);
+      expect(bobThread.body.data.messages.map((m) => m.id)).toContain(messageId);
+    });
+
+    it('"delete for everyone" blanks the body for both participants, sender only', async () => {
+      const sendRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'Everyone loses this' });
+      const messageId = sendRes.body.data.message.id;
+
+      const forbidden = await request(app)
+        .delete(`/api/messages/${messageId}`)
+        .set('Authorization', `Bearer ${bobToken}`)
+        .send({ scope: 'everyone' });
+      expect(forbidden.status).toBe(403);
+
+      const delRes = await request(app)
+        .delete(`/api/messages/${messageId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ scope: 'everyone' });
+      expect(delRes.status).toBe(200);
+
+      // The body is preserved in the database (the schema requires it to be
+      // non-empty) but is never serialized once deletedForEveryone is set.
+      const stored = await Message.findById(messageId);
+      expect(stored.deletedForEveryone).toBe(true);
+      expect(stored.body).toBe('Everyone loses this');
+
+      const bobThread = await request(app)
+        .get(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${bobToken}`);
+      const inBobThread = bobThread.body.data.messages.find((m) => m.id === messageId);
+      expect(inBobThread.deletedForEveryone).toBe(true);
+      expect(inBobThread.body).toBe('');
+    });
+  });
 });

@@ -19,4 +19,7 @@ router.get('/conversations/:conversationId', messageController.getMessages);
 router.post('/conversations/:conversationId', messageController.sendMessage);
 router.put('/conversations/:conversationId/read', messageController.markConversationRead);
 
+router.put('/:messageId', messageController.editMessage);
+router.delete('/:messageId', messageController.deleteMessage);
+
 module.exports = router;

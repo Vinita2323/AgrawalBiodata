@@ -42,6 +42,8 @@ import {
   markConversationRead,
   openConversation,
   sendMessage as sendMessageApi,
+  editMessage as editMessageApi,
+  deleteMessage as deleteMessageApi,
 } from '../../../services/messageService'
 import {
   onSocketEvent,
@@ -208,6 +210,11 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [selectedChat, setSelectedChat] = useState(null)
   const [chatMessages, setChatMessages] = useState({})
   const [newMessageText, setNewMessageText] = useState('')
+  const [messageActionsFor, setMessageActionsFor] = useState(null)
+  const [messageActionsView, setMessageActionsView] = useState('menu') // 'menu' | 'delete' | 'info'
+  const [editingMessage, setEditingMessage] = useState(null)
+  const [editText, setEditText] = useState('')
+  const longPressTimerRef = useRef(null)
   const [chatMenuOpen, setChatMenuOpen] = useState(false)
   const [chatPartnerBlocked, setChatPartnerBlocked] = useState(false)
   const [chatInterestId, setChatInterestId] = useState(null)
@@ -546,10 +553,66 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     )
     const offTypingStop = onSocketEvent('typing:stop', () => setTypingConversationId(null))
 
+    // Sent -> delivered: the recipient came online or opened the thread.
+    const offDelivered = onSocketEvent('message:delivered', ({ messageIds, deliveredAt }) => {
+      if (!messageIds?.length) return
+      setChatMessages((prev) => {
+        const next = { ...prev }
+        Object.keys(next).forEach((convId) => {
+          next[convId] = next[convId].map((m) =>
+            messageIds.includes(m.id || m._id) ? { ...m, deliveredAt } : m
+          )
+        })
+        return next
+      })
+    })
+
+    // Delivered -> read: the recipient opened this specific thread.
+    const offRead = onSocketEvent('conversation:read', ({ conversationId }) => {
+      const now = new Date().toISOString()
+      setChatMessages((prev) => {
+        if (!prev[conversationId]) return prev
+        return {
+          ...prev,
+          [conversationId]: prev[conversationId].map((m) =>
+            m.readAt ? m : { ...m, readAt: now, deliveredAt: m.deliveredAt || now }
+          ),
+        }
+      })
+    })
+
+    const offEdited = onSocketEvent('message:edited', ({ conversationId, message }) => {
+      setChatMessages((prev) => {
+        if (!prev[conversationId]) return prev
+        return {
+          ...prev,
+          [conversationId]: prev[conversationId].map((m) =>
+            (m.id || m._id) === (message.id || message._id) ? message : m
+          ),
+        }
+      })
+    })
+
+    const offDeleted = onSocketEvent('message:deleted', ({ conversationId, messageId }) => {
+      setChatMessages((prev) => {
+        if (!prev[conversationId]) return prev
+        return {
+          ...prev,
+          [conversationId]: prev[conversationId].map((m) =>
+            (m.id || m._id) === messageId ? { ...m, deletedForEveryone: true, body: '' } : m
+          ),
+        }
+      })
+    })
+
     return () => {
       offNew()
       offTypingStart()
       offTypingStop()
+      offDelivered()
+      offRead()
+      offEdited()
+      offDeleted()
     }
   }, [selectedChat])
 
@@ -661,6 +724,96 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       setChatError(err?.message || 'Message could not be sent.')
     }
   }
+
+  /** A sent message can only be edited within this window (mirrors the backend). */
+  const MESSAGE_EDIT_WINDOW_MS = 15 * 60 * 1000
+
+  const isMyMessage = (msg) =>
+    selectedChat && String(msg.recipientProfileId) === String(selectedChat.profileId)
+
+  const canEditMessage = (msg) =>
+    isMyMessage(msg) &&
+    !msg.deletedForEveryone &&
+    Date.now() - new Date(msg.createdAt).getTime() < MESSAGE_EDIT_WINDOW_MS
+
+  const openMessageActions = (msg) => {
+    if (msg.deletedForEveryone) return
+    setMessageActionsFor(msg)
+    setMessageActionsView('menu')
+  }
+  const closeMessageActions = () => {
+    setMessageActionsFor(null)
+    setMessageActionsView('menu')
+  }
+
+  const handleLongPressStart = (msg) => {
+    longPressTimerRef.current = setTimeout(() => openMessageActions(msg), 450)
+  }
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const startEditMessage = (msg) => {
+    setEditingMessage(msg)
+    setEditText(msg.body)
+    closeMessageActions()
+  }
+  const cancelEditMessage = () => {
+    setEditingMessage(null)
+    setEditText('')
+  }
+
+  const saveEditMessage = async () => {
+    const text = editText.trim()
+    if (!text || !editingMessage || !selectedChat) return
+    const msgId = editingMessage.id || editingMessage._id
+
+    try {
+      const res = await editMessageApi(msgId, text)
+      const updated = res?.message
+      if (updated) {
+        setChatMessages((prev) => ({
+          ...prev,
+          [selectedChat.id]: (prev[selectedChat.id] || []).map((m) =>
+            (m.id || m._id) === msgId ? updated : m
+          ),
+        }))
+      }
+      cancelEditMessage()
+    } catch (err) {
+      showToast(err?.message || 'Could not edit message.', 'error')
+    }
+  }
+
+  const handleDeleteMessage = async (scope) => {
+    if (!messageActionsFor || !selectedChat) return
+    const msgId = messageActionsFor.id || messageActionsFor._id
+    const convId = selectedChat.id
+
+    try {
+      await deleteMessageApi(msgId, scope)
+      setChatMessages((prev) => ({
+        ...prev,
+        [convId]:
+          scope === 'everyone'
+            ? (prev[convId] || []).map((m) =>
+                (m.id || m._id) === msgId ? { ...m, deletedForEveryone: true, body: '' } : m
+              )
+            : (prev[convId] || []).filter((m) => (m.id || m._id) !== msgId),
+      }))
+      showToast(scope === 'everyone' ? 'Message deleted for everyone.' : 'Message deleted.', 'info')
+    } catch (err) {
+      showToast(err?.message || 'Could not delete message.', 'error')
+    } finally {
+      closeMessageActions()
+    }
+  }
+
+  const formatFullTime = (date) =>
+    date ? new Date(date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : null
 
   /** Debounced typing indicator: start on input, stop after a idle second. */
   const handleMessageInputChange = (value, chatId) => {
@@ -1350,41 +1503,183 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 // The thread is rendered from the recipient's point of view:
                 // a message is "mine" when I am not its recipient.
                 const isMine = String(msg.recipientProfileId) === String(selectedChat.profileId)
+                const msgId = msg.id || msg._id
+                const isEditingThis = (editingMessage?.id || editingMessage?._id) === msgId
+                const isDeleted = msg.deletedForEveryone
+
                 return (
                   <div
-                    key={msg.id || msg._id}
+                    key={msgId}
                     className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] px-3.5 py-2 rounded-md text-xs leading-normal shadow-2xs flex flex-wrap items-end gap-2 ${
+                      onPointerDown={() => !isDeleted && !isEditingThis && handleLongPressStart(msg)}
+                      onPointerUp={handleLongPressEnd}
+                      onPointerLeave={handleLongPressEnd}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        if (!isDeleted && !isEditingThis) openMessageActions(msg)
+                      }}
+                      className={`max-w-[80%] px-3.5 py-2 rounded-md text-xs leading-normal shadow-2xs select-none ${
+                        isEditingThis ? 'w-full' : 'flex flex-wrap items-end gap-2'
+                      } ${
                         isMine
                           ? 'bg-[#ffe6c9] text-slate-900 rounded-tr-none'
                           : 'bg-white border border-amber-100/70 text-slate-800 rounded-tl-none'
                       }`}
                     >
-                      <span>{msg.body}</span>
-                      <div className="flex items-center gap-1 ml-auto pt-1 text-[10px] text-slate-400">
-                        <span>
-                          {new Date(msg.createdAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                        {isMine && (
-                          <span
-                            className={`font-bold text-xs leading-none ${
-                              msg.readAt ? 'text-blue-500' : 'text-slate-300'
-                            }`}
-                          >
-                            ✓✓
+                      {isEditingThis ? (
+                        <div className="flex flex-col gap-1.5 w-full">
+                          <input
+                            autoFocus
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveEditMessage()}
+                            className="text-xs font-medium text-slate-900 bg-white rounded-md px-2 py-1.5 border border-amber-300 focus:outline-none focus:border-[#570013]"
+                          />
+                          <div className="flex items-center gap-3 justify-end">
+                            <button onClick={cancelEditMessage} className="text-[10px] font-bold text-slate-500">
+                              Cancel
+                            </button>
+                            <button onClick={saveEditMessage} className="text-[10px] font-bold text-[#570013]">
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <span className={isDeleted ? 'italic text-slate-400' : ''}>
+                            {isDeleted ? 'This message was deleted' : msg.body}
                           </span>
-                        )}
-                      </div>
+                          <div className="flex items-center gap-1 ml-auto pt-1 text-[10px] text-slate-400">
+                            {msg.editedAt && !isDeleted && <span className="italic">edited</span>}
+                            <span>
+                              {new Date(msg.createdAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            {isMine && !isDeleted && (
+                              <span
+                                className={`material-symbols-outlined text-sm leading-none ${
+                                  msg.readAt ? 'text-sky-500' : 'text-slate-400'
+                                }`}
+                              >
+                                {msg.deliveredAt || msg.readAt ? 'done_all' : 'done'}
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )
               })}
             </div>
+
+            {/* Message Actions Bottom Sheet (long-press or right-click a message) */}
+            {messageActionsFor && (
+              <div
+                className="fixed inset-0 z-[110] bg-black/50 flex items-end justify-center animate-fade-in"
+                onClick={closeMessageActions}
+              >
+                <div
+                  className="bg-white w-full max-w-[480px] rounded-t-2xl shadow-2xl overflow-hidden animate-slide-up"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {messageActionsView === 'menu' && (
+                    <div className="py-2">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-xs text-slate-500 line-clamp-2">{messageActionsFor.body}</p>
+                      </div>
+                      {canEditMessage(messageActionsFor) && (
+                        <button
+                          onClick={() => startEditMessage(messageActionsFor)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-gray-50 text-left"
+                        >
+                          <span className="material-symbols-outlined text-lg">edit</span>
+                          Edit Message
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setMessageActionsView('delete')}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 text-left"
+                      >
+                        <span className="material-symbols-outlined text-lg">delete</span>
+                        Delete Message
+                      </button>
+                      {isMyMessage(messageActionsFor) && (
+                        <button
+                          onClick={() => setMessageActionsView('info')}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-gray-50 text-left"
+                        >
+                          <span className="material-symbols-outlined text-lg">info</span>
+                          Message Info
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {messageActionsView === 'delete' && (
+                    <div className="py-2">
+                      <p className="px-4 py-3 text-xs text-slate-500 border-b border-gray-100">
+                        Delete this message?
+                      </p>
+                      <button
+                        onClick={() => handleDeleteMessage('me')}
+                        className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-gray-50"
+                      >
+                        Delete for Me
+                      </button>
+                      {isMyMessage(messageActionsFor) && (
+                        <button
+                          onClick={() => handleDeleteMessage('everyone')}
+                          className="w-full text-left px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Delete for Everyone
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setMessageActionsView('menu')}
+                        className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-400 hover:bg-gray-50 border-t border-gray-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {messageActionsView === 'info' && (
+                    <div className="p-4 space-y-3 pb-6">
+                      <h4 className="text-sm font-bold text-slate-800">Message Info</h4>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 font-semibold">Sent</span>
+                          <span className="font-bold text-slate-700">
+                            {formatFullTime(messageActionsFor.createdAt)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 font-semibold">Delivered</span>
+                          <span className="font-bold text-slate-700">
+                            {messageActionsFor.deliveredAt
+                              ? formatFullTime(messageActionsFor.deliveredAt)
+                              : 'Not yet delivered'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 font-semibold">Read</span>
+                          <span className="font-bold text-slate-700">
+                            {messageActionsFor.readAt
+                              ? formatFullTime(messageActionsFor.readAt)
+                              : 'Not yet read'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Message Input Box (Fixed Bottom) */}
             <div className="flex-shrink-0 p-3 bg-[#fff8ee] border-t border-amber-200/40 flex items-center gap-2 z-30">

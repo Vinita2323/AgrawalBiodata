@@ -55,13 +55,33 @@ export async function getUnreadMessageCount() {
   return api.get('/messages/unread-count');
 }
 
+/**
+ * 7. Edit a sent message (sender only, within 15 minutes of sending)
+ * PUT /api/messages/:messageId
+ */
+export async function editMessage(messageId, body) {
+  return api.put(`/messages/${messageId}`, { body });
+}
+
+/**
+ * 8. Delete a message - for yourself only, or (sender only) for everyone
+ * DELETE /api/messages/:messageId
+ * @param {string} messageId
+ * @param {'me'|'everyone'} [scope='me']
+ */
+export async function deleteMessage(messageId, scope = 'me') {
+  return api.delete(`/messages/${messageId}`, { scope });
+}
+
 export const messageService = {
   getConversations,
   openConversation,
   getMessages,
   sendMessage,
   markConversationRead,
-  getUnreadMessageCount
+  getUnreadMessageCount,
+  editMessage,
+  deleteMessage
 };
 
 export default messageService;

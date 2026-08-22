@@ -16,7 +16,12 @@ const { success, created, badRequest, notFound, forbidden } = require('../utils/
 function handleChatError(res, error, next) {
   if (!(error instanceof ChatAccessError)) return next(error);
   if (error.code === 'NOT_FOUND') return notFound(res, error.message);
-  if (error.code === 'EMPTY_MESSAGE' || error.code === 'PROFILE_REQUIRED') {
+  if (
+    error.code === 'EMPTY_MESSAGE' ||
+    error.code === 'PROFILE_REQUIRED' ||
+    error.code === 'EDIT_WINDOW_EXPIRED' ||
+    error.code === 'MESSAGE_DELETED'
+  ) {
     return badRequest(res, error.message, null, error.code);
   }
   return forbidden(res, error.message, error.code);
@@ -165,7 +170,21 @@ const getMessages = async (req, res, next) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
 
-    const { messages, total } = await chatService.listMessages(conversationId, { page, limit });
+    const { messages, total } = await chatService.listMessages(conversationId, {
+      page,
+      limit,
+      viewerUserId: req.user.userId
+    });
+
+    // Opening the thread delivers anything sent while this user was away
+    // from it, even if they never fully disconnected (e.g. a stale tab).
+    const delivered = await chatService.markDelivered(req.user.userId, { conversationId });
+    delivered.forEach((row) => {
+      realtime.emitToUser(row.senderUserId, 'message:delivered', {
+        messageIds: [row.id],
+        deliveredAt: row.deliveredAt
+      });
+    });
 
     return success(res, 'Messages retrieved successfully', {
       conversation: serializeConversation(conversation, participantProfileId(me)),
@@ -202,6 +221,13 @@ const sendMessage = async (req, res, next) => {
       senderUserId: req.user.userId,
       body: content
     });
+
+    // The recipient is about to be pushed this message - if they are
+    // connected right now it reaches them immediately, i.e. delivered.
+    if (realtime.isUserOnline(result.recipient.userId.toString())) {
+      result.message.deliveredAt = new Date();
+      await result.message.save();
+    }
 
     // Push to the recipient's socket room and record a notification so the
     // message is still discoverable if they were offline.
@@ -241,9 +267,16 @@ const markConversationRead = async (req, res, next) => {
     }
 
     const conversation = await Conversation.findById(conversationId);
-    chatService.assertParticipant(conversation, req.user.userId);
+    const { them } = chatService.assertParticipant(conversation, req.user.userId);
 
     await chatService.markRead(conversation, req.user.userId);
+
+    if (them?.userId) {
+      realtime.emitToUser(them.userId.toString(), 'conversation:read', {
+        conversationId,
+        readerUserId: req.user.userId
+      });
+    }
 
     return success(res, 'Conversation marked as read', {
       conversationId,
@@ -268,11 +301,79 @@ const getUnreadCount = async (req, res, next) => {
   }
 };
 
+/**
+ * 7. Edit a sent message (sender only, within 15 minutes of sending)
+ * PUT /api/messages/:messageId
+ */
+const editMessage = async (req, res, next) => {
+  try {
+    const { messageId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return notFound(res, 'Message not found');
+    }
+
+    const message = await chatService.editMessage({
+      messageId,
+      userId: req.user.userId,
+      body: req.body?.body
+    });
+
+    realtime.emitToUser(message.recipientUserId.toString(), 'message:edited', {
+      conversationId: message.conversationId.toString(),
+      message: message.toJSON()
+    });
+
+    return success(res, 'Message updated', { message });
+  } catch (error) {
+    return handleChatError(res, error, next);
+  }
+};
+
+/**
+ * 8. Delete a message - for the caller only, or (sender only) for everyone
+ * DELETE /api/messages/:messageId
+ * body: { scope: 'me' | 'everyone' }
+ */
+const deleteMessage = async (req, res, next) => {
+  try {
+    const { messageId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return notFound(res, 'Message not found');
+    }
+
+    const scope = req.body?.scope === 'everyone' ? 'everyone' : 'me';
+    const message = await chatService.deleteMessage({
+      messageId,
+      userId: req.user.userId,
+      scope
+    });
+
+    if (scope === 'everyone') {
+      const otherUserId =
+        message.senderUserId.toString() === req.user.userId
+          ? message.recipientUserId.toString()
+          : message.senderUserId.toString();
+      realtime.emitToUser(otherUserId, 'message:deleted', {
+        conversationId: message.conversationId.toString(),
+        messageId: message._id.toString()
+      });
+    }
+
+    return success(res, scope === 'everyone' ? 'Message deleted for everyone' : 'Message deleted', {
+      message
+    });
+  } catch (error) {
+    return handleChatError(res, error, next);
+  }
+};
+
 module.exports = {
   getConversations,
   openConversation,
   getMessages,
   sendMessage,
   markConversationRead,
-  getUnreadCount
+  getUnreadCount,
+  editMessage,
+  deleteMessage
 };

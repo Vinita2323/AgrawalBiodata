@@ -10,6 +10,9 @@ const Interest = require('../models/Interest');
 const { isBlockedBetween } = require('../utils/profileHelper');
 const { INTEREST_STATUS } = require('../config/constants');
 
+/** A sent message can only be edited within this window of its creation. */
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
 /**
  * Error thrown for access-control failures so controllers can map them to a
  * 403 rather than a generic 500.
@@ -189,19 +192,120 @@ class ChatService {
   /**
    * Reads one conversation thread, newest-first for pagination but returned
    * oldest-first so the client can append directly.
+   *
+   * Excludes messages the requesting viewer has deleted "for me" - the other
+   * participant's copy is untouched.
    */
-  async listMessages(conversationId, { page = 1, limit = 50 } = {}) {
+  async listMessages(conversationId, { page = 1, limit = 50, viewerUserId } = {}) {
     const skip = (page - 1) * limit;
+    const filter = { conversationId };
+    if (viewerUserId) {
+      filter.deletedFor = { $ne: viewerUserId };
+    }
 
     const [total, messages] = await Promise.all([
-      Message.countDocuments({ conversationId }),
-      Message.find({ conversationId })
+      Message.countDocuments(filter),
+      Message.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
     ]);
 
     return { messages: messages.reverse(), total };
+  }
+
+  /**
+   * Marks every un-delivered message addressed to this user (across every
+   * conversation, or one conversation when given) as delivered - covers the
+   * "was offline, just reconnected/opened the thread" case. Returns the
+   * updated messages grouped by sender so the caller can notify each one.
+   */
+  async markDelivered(userId, { conversationId } = {}) {
+    const filter = {
+      recipientUserId: userId,
+      deliveredAt: null,
+      deletedForEveryone: { $ne: true }
+    };
+    if (conversationId) filter.conversationId = conversationId;
+
+    const pending = await Message.find(filter).select('_id senderUserId conversationId');
+    if (pending.length === 0) return [];
+
+    const deliveredAt = new Date();
+    await Message.updateMany(
+      { _id: { $in: pending.map((m) => m._id) } },
+      { deliveredAt }
+    );
+
+    return pending.map((m) => ({
+      id: m._id.toString(),
+      senderUserId: m.senderUserId.toString(),
+      conversationId: m.conversationId.toString(),
+      deliveredAt
+    }));
+  }
+
+  /**
+   * Edits a sent message's body. Only the original sender, only within the
+   * edit window, and only while it has not been deleted for everyone.
+   */
+  async editMessage({ messageId, userId, body }) {
+    const message = await Message.findById(messageId);
+    if (!message) {
+      throw new ChatAccessError('Message not found', 'NOT_FOUND');
+    }
+    if (message.senderUserId.toString() !== userId.toString()) {
+      throw new ChatAccessError('Only the sender can edit this message', 'FORBIDDEN');
+    }
+    if (message.deletedForEveryone) {
+      throw new ChatAccessError('This message has been deleted', 'MESSAGE_DELETED');
+    }
+    if (Date.now() - message.createdAt.getTime() > EDIT_WINDOW_MS) {
+      throw new ChatAccessError('Messages can only be edited within 15 minutes of sending', 'EDIT_WINDOW_EXPIRED');
+    }
+
+    const trimmed = String(body || '').trim();
+    if (!trimmed) {
+      throw new ChatAccessError('Message body cannot be empty', 'EMPTY_MESSAGE');
+    }
+
+    message.body = trimmed;
+    message.editedAt = new Date();
+    await message.save();
+    return message;
+  }
+
+  /**
+   * Deletes a message either just for the caller ('me') or, if they sent it,
+   * for both participants ('everyone' - wipes the body server-side).
+   */
+  async deleteMessage({ messageId, userId, scope }) {
+    const message = await Message.findById(messageId);
+    if (!message) {
+      throw new ChatAccessError('Message not found', 'NOT_FOUND');
+    }
+
+    const uid = userId.toString();
+    const isSender = message.senderUserId.toString() === uid;
+    const isRecipient = message.recipientUserId.toString() === uid;
+    if (!isSender && !isRecipient) {
+      throw new ChatAccessError('You are not part of this conversation', 'NOT_PARTICIPANT');
+    }
+
+    if (scope === 'everyone') {
+      if (!isSender) {
+        throw new ChatAccessError('Only the sender can delete this message for everyone', 'FORBIDDEN');
+      }
+      message.deletedForEveryone = true;
+      await message.save();
+      return message;
+    }
+
+    if (!message.deletedFor.some((id) => id.toString() === uid)) {
+      message.deletedFor.push(userId);
+      await message.save();
+    }
+    return message;
   }
 
   /**
