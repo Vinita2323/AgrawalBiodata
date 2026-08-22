@@ -26,7 +26,7 @@ import {
   getShortlists,
   getVisitors,
 } from '../../../services/socialService'
-import { isAuthenticated } from '../../../services/authService'
+import { isAuthenticated, logout } from '../../../services/authService'
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -1165,9 +1165,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
             {/* Logout Button */}
             <button
-              onClick={() => {
-                localStorage.removeItem('userProfile');
-                navigate('/welcome');
+              onClick={async () => {
+                await logout()
+                localStorage.removeItem('userProfile')
+                navigate('/welcome', { replace: true })
               }}
               className="mt-5 w-full bg-white border border-red-100 text-red-600 font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-red-50 active:scale-95 transition"
             >
