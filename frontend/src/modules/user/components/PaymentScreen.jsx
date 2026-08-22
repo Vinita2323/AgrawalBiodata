@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { createOrder, verifyPayment, getPlans } from '../../../services/paymentService'
+import { createOrder, verifyPayment, demoCompletePayment, getPlans } from '../../../services/paymentService'
 import { isAuthenticated, getStoredUser } from '../../../services/authService'
 import { loadRazorpayCheckout, openRazorpayCheckout } from '../../../services/razorpay'
 
@@ -34,6 +34,10 @@ export default function PaymentScreen({
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  // Set once create-order comes back in demo mode (no real payment gateway
+  // configured yet) - shows Simulate Success/Failure buttons instead of the
+  // real Razorpay checkout.
+  const [demoOrderId, setDemoOrderId] = useState(null)
 
   const billingCycle = billingCycleProp
 
@@ -95,7 +99,18 @@ export default function PaymentScreen({
     try {
       // 1. Create the order server-side (authoritative amount + Razorpay key)
       const orderRes = await createOrder(plan.id || plan._id || plan.planId, billingCycle)
-      if (!orderRes?.orderId || !orderRes?.keyId) {
+      if (!orderRes?.orderId) {
+        throw new Error('Could not initiate the payment order. Please try again.')
+      }
+
+      // No real payment gateway configured yet - let the demo buttons handle it.
+      if (orderRes.demoMode) {
+        setIsProcessing(false)
+        setDemoOrderId(orderRes.orderId)
+        return
+      }
+
+      if (!orderRes?.keyId) {
         throw new Error('Could not initiate the payment order. Please try again.')
       }
 
@@ -139,6 +154,33 @@ export default function PaymentScreen({
         return
       }
       setErrorMsg(err?.message || 'Payment could not be completed. Please try again.')
+    }
+  }
+
+  const handleDemoOutcome = async (outcome) => {
+    if (!demoOrderId) return
+    setErrorMsg('')
+    setIsProcessing(true)
+
+    try {
+      const res = await demoCompletePayment(demoOrderId, outcome)
+
+      if (outcome === 'success' && res?.subscription) {
+        setIsProcessing(false)
+        setDemoOrderId(null)
+        setPaymentSuccess(true)
+        setTimeout(() => {
+          if (onPaymentComplete) onPaymentComplete(plan)
+        }, 1500)
+      } else {
+        setIsProcessing(false)
+        setDemoOrderId(null)
+        setErrorMsg('Simulated payment failed. You have not been charged.')
+      }
+    } catch (err) {
+      setIsProcessing(false)
+      setDemoOrderId(null)
+      setErrorMsg(err?.message || 'Could not simulate the payment. Please try again.')
     }
   }
 
@@ -261,29 +303,63 @@ export default function PaymentScreen({
       {/* Bottom Fixed Button */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-amber-200 py-3 px-4 shadow-2xl">
         <div className="max-w-xl mx-auto">
-          <button
-            disabled={isProcessing || isLoadingPlan || !plan}
-            onClick={handlePayment}
-            className={`w-full py-3.5 rounded-md font-bold text-sm transition shadow-lg text-center flex items-center justify-center gap-2 ${
-              isProcessing || isLoadingPlan || !plan
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-[#570013] text-[#ffdea5] hover:bg-[#800020]'
-            }`}
-          >
-            {isProcessing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">lock</span>
-                <span>
-                  Pay Securely {plan ? `₹${amount.toLocaleString('en-IN')}` : ''}
-                </span>
-              </>
-            )}
-          </button>
+          {demoOrderId ? (
+            <>
+              <p className="text-[10px] font-bold text-amber-700 text-center mb-2 uppercase tracking-wide">
+                Demo Mode &mdash; no real payment gateway configured yet
+              </p>
+              <div className="flex gap-2">
+                <button
+                  disabled={isProcessing}
+                  onClick={() => handleDemoOutcome('success')}
+                  className={`flex-1 py-3.5 rounded-md font-bold text-sm transition shadow-lg flex items-center justify-center gap-2 ${
+                    isProcessing
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-lg">check_circle</span>
+                  <span>Simulate Success</span>
+                </button>
+                <button
+                  disabled={isProcessing}
+                  onClick={() => handleDemoOutcome('failed')}
+                  className={`flex-1 py-3.5 rounded-md font-bold text-sm transition shadow-lg flex items-center justify-center gap-2 ${
+                    isProcessing
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-lg">cancel</span>
+                  <span>Simulate Failure</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              disabled={isProcessing || isLoadingPlan || !plan}
+              onClick={handlePayment}
+              className={`w-full py-3.5 rounded-md font-bold text-sm transition shadow-lg text-center flex items-center justify-center gap-2 ${
+                isProcessing || isLoadingPlan || !plan
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : 'bg-[#570013] text-[#ffdea5] hover:bg-[#800020]'
+              }`}
+            >
+              {isProcessing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-lg">lock</span>
+                  <span>
+                    Pay Securely {plan ? `₹${amount.toLocaleString('en-IN')}` : ''}
+                  </span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

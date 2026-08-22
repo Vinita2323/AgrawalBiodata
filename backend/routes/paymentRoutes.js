@@ -9,6 +9,7 @@ const router = express.Router();
 const {
   createOrder,
   verifyPayment,
+  demoCompletePayment,
   handleWebhook,
   getPaymentHistory,
   getAdminPayments
@@ -19,6 +20,7 @@ const adminAuth = require('../middleware/adminAuth');
 // User Payment Endpoints
 router.post('/create-order', auth, createOrder);
 router.post('/verify', auth, verifyPayment);
+router.post('/demo-complete', auth, demoCompletePayment);
 router.get('/history', auth, getPaymentHistory);
 
 // Razorpay Webhook Endpoint (Public webhook callback)

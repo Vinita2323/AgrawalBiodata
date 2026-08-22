@@ -126,7 +126,12 @@ class PaymentService {
       }
     };
 
-    if (razorpayInstance && env.RAZORPAY_KEY_ID && !env.RAZORPAY_KEY_ID.includes('placeholder')) {
+    if (env.DEMO_MODE) {
+      // Demo mode deliberately skips the real gateway entirely - the order
+      // is completed later via simulateDemoPayment, never the real checkout
+      // widget, so there is no live API call to attempt here.
+      order = this.generateMockOrder(amountInPaise, orderPayload.notes);
+    } else if (razorpayInstance && env.RAZORPAY_KEY_ID && !env.RAZORPAY_KEY_ID.includes('placeholder')) {
       try {
         order = await razorpayInstance.orders.create(orderPayload);
       } catch (err) {
@@ -261,6 +266,61 @@ class PaymentService {
       payment,
       subscription
     };
+  }
+
+  /**
+   * Simulate a payment outcome without Razorpay, for demo/testing while no
+   * real payment gateway is configured. Reuses the exact same subscription
+   * activation path a real successful payment takes, so the rest of the app
+   * behaves identically either way.
+   * @param {object} params
+   * @param {string} params.userId
+   * @param {string} params.orderId
+   * @param {'success'|'failed'} params.outcome
+   */
+  async simulateDemoPayment({ userId, orderId, outcome }) {
+    if (!env.DEMO_MODE) {
+      throw new Error('Demo payments are not enabled');
+    }
+
+    const payment = await Payment.findOne({ orderId });
+    if (!payment) {
+      throw new Error('Order not found');
+    }
+    if (payment.userId.toString() !== userId.toString()) {
+      throw new Error('This order does not belong to you');
+    }
+
+    if (outcome !== 'success') {
+      payment.status = 'Failed';
+      payment.errorDetails = { message: 'Simulated demo payment failure' };
+      await payment.save();
+      return { success: false, payment };
+    }
+
+    payment.paymentId = `demo_pay_${Date.now()}`;
+    payment.status = 'Success';
+
+    const subscription = await this.activateUserSubscription({
+      userId: payment.userId,
+      planId: payment.planId,
+      billingCycle: payment.billingCycle || 'monthly',
+      paymentId: payment.paymentId,
+      orderId,
+      amountPaid: payment.amount
+    });
+
+    payment.subscriptionId = subscription._id;
+    await payment.save();
+
+    const plan = payment.planId ? await Plan.findById(payment.planId) : null;
+    await notificationService.paymentSucceeded({
+      userId: payment.userId,
+      planName: plan ? plan.name : 'Premium',
+      amount: payment.amount
+    });
+
+    return { success: true, payment, subscription };
   }
 
   /**

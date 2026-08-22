@@ -17,6 +17,11 @@ export async function verifyPayment(paymentData) {
   return api.post('/payments/verify', paymentData);
 }
 
+/** Demo-mode only: simulates a payment outcome without Razorpay. */
+export async function demoCompletePayment(orderId, outcome) {
+  return api.post('/payments/demo-complete', { orderId, outcome });
+}
+
 export async function getCurrentSubscription() {
   return api.get('/subscriptions/current');
 }
@@ -37,6 +42,7 @@ export const paymentService = {
   getPlans,
   createOrder,
   verifyPayment,
+  demoCompletePayment,
   getCurrentSubscription,
   getSubscriptionHistory,
   cancelSubscription,

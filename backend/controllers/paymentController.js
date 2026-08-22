@@ -8,6 +8,7 @@ const paymentService = require('../services/paymentService');
 const Payment = require('../models/Payment');
 const { success, created, badRequest, notFound, paginate, error: errorResponse } = require('../utils/apiResponse');
 const logger = require('../utils/logger');
+const env = require('../config/env');
 
 /**
  * 1. Create Razorpay order for purchasing subscription
@@ -34,6 +35,7 @@ const createOrder = async (req, res, next) => {
       amount: orderData.order.amount,
       currency: orderData.order.currency,
       keyId: orderData.keyId,
+      demoMode: env.DEMO_MODE,
       order: orderData.order,
       payment: orderData.payment,
       plan: {
@@ -81,6 +83,41 @@ const verifyPayment = async (req, res, next) => {
   } catch (error) {
     if (error.message.includes('signature') || error.message.includes('mismatch')) {
       return badRequest(res, error.message, null, 'INVALID_SIGNATURE');
+    }
+    next(error);
+  }
+};
+
+/**
+ * 2b. Simulate a payment outcome without Razorpay (demo mode only)
+ * POST /api/payments/demo-complete
+ */
+const demoCompletePayment = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const { orderId, outcome } = req.body || {};
+
+    if (!orderId || !['success', 'failed'].includes(outcome)) {
+      return badRequest(res, 'orderId and a valid outcome ("success" or "failed") are required');
+    }
+
+    const result = await paymentService.simulateDemoPayment({ userId, orderId, outcome });
+
+    if (!result.success) {
+      return success(res, 'Simulated payment failed', { payment: result.payment });
+    }
+
+    return success(res, 'Simulated payment succeeded and subscription activated', {
+      payment: result.payment,
+      subscription: result.subscription
+    });
+  } catch (error) {
+    if (
+      error.message.includes('not enabled') ||
+      error.message.includes('not found') ||
+      error.message.includes('does not belong')
+    ) {
+      return badRequest(res, error.message);
     }
     next(error);
   }
@@ -180,6 +217,7 @@ const getAdminPayments = async (req, res, next) => {
 module.exports = {
   createOrder,
   verifyPayment,
+  demoCompletePayment,
   handleWebhook,
   getPaymentHistory,
   getAdminPayments
