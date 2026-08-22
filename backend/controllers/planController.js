@@ -4,6 +4,8 @@
  */
 
 const Plan = require('../models/Plan');
+const User = require('../models/User');
+const { SUBSCRIPTION_STATUS } = require('../config/constants');
 const auditService = require('../services/auditService');
 const { success, created, badRequest, notFound } = require('../utils/apiResponse');
 
@@ -47,9 +49,36 @@ const getPlans = async (req, res, next) => {
 
     const plans = await Plan.find(filter).sort({ sortOrder: 1, monthlyPrice: 1 });
 
+    // Active subscriber count per plan. Counted from User, not the Plan
+    // record itself - nothing on Plan tracks how many people are on it, and
+    // this was previously never computed at all (the admin panel's "Active
+    // Subscribers" always read an undefined field and showed 0 regardless
+    // of real subscribers). subscriptionPlanId is the authoritative link
+    // (set by every activation path); subscriptionPlan name is the fallback
+    // for any legacy account that predates that field being backfilled.
+    const [byPlanId, byPlanName] = await Promise.all([
+      User.aggregate([
+        { $match: { subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE, subscriptionPlanId: { $ne: null } } },
+        { $group: { _id: '$subscriptionPlanId', count: { $sum: 1 } } }
+      ]),
+      User.aggregate([
+        { $match: { subscriptionStatus: SUBSCRIPTION_STATUS.ACTIVE, subscriptionPlanId: null } },
+        { $group: { _id: '$subscriptionPlan', count: { $sum: 1 } } }
+      ])
+    ]);
+    const countByPlanId = Object.fromEntries(byPlanId.map((r) => [r._id.toString(), r.count]));
+    const countByPlanName = Object.fromEntries(byPlanName.map((r) => [r._id, r.count]));
+
+    const plansWithCounts = plans.map((plan) => {
+      const obj = plan.toJSON();
+      obj.activeSubscribers =
+        (countByPlanId[plan._id.toString()] || 0) + (countByPlanName[plan.name] || 0);
+      return obj;
+    });
+
     return success(res, 'Subscription plans fetched successfully', {
       count: plans.length,
-      plans
+      plans: plansWithCounts
     });
   } catch (error) {
     next(error);

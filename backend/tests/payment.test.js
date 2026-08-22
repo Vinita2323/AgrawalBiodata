@@ -112,6 +112,43 @@ describe('Milestone 4: Plans, Subscriptions & Razorpay Payments Test Suite', () 
       expect(res.body.success).toBe(false);
     });
 
+    it('GET /api/plans should report activeSubscribers counted from real active subscribers, not a static 0', async () => {
+      // Linked via subscriptionPlanId (the normal activation path)
+      user1.subscriptionPlan = 'Gold';
+      user1.subscriptionPlanId = goldPlan._id;
+      user1.subscriptionStatus = 'Active';
+      await user1.save();
+
+      // Legacy-style account: same plan, but only the name is set, no subscriptionPlanId
+      user2.subscriptionPlan = 'Gold';
+      user2.subscriptionPlanId = undefined;
+      user2.subscriptionStatus = 'Active';
+      await user2.save();
+
+      const res = await request(app).get('/api/plans');
+
+      expect(res.status).toBe(200);
+      const gold = res.body.data.plans.find(p => p.name === 'Gold');
+      const platinum = res.body.data.plans.find(p => p.name === 'Platinum');
+      expect(gold.activeSubscribers).toBe(2);
+      expect(platinum.activeSubscribers).toBe(0);
+
+      // toJSON transform must still apply after attaching the count
+      expect(gold.id).toBe(goldPlan._id.toString());
+      expect(gold.__v).toBeUndefined();
+    });
+
+    it('GET /api/plans should not count Cancelled/Expired subscriptions as active', async () => {
+      user1.subscriptionPlan = 'Gold';
+      user1.subscriptionPlanId = goldPlan._id;
+      user1.subscriptionStatus = 'Cancelled';
+      await user1.save();
+
+      const res = await request(app).get('/api/plans');
+      const gold = res.body.data.plans.find(p => p.name === 'Gold');
+      expect(gold.activeSubscribers).toBe(0);
+    });
+
     it('POST /api/plans should allow Super Admin to create a new plan', async () => {
       const newPlanPayload = {
         name: 'Silver Special',
