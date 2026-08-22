@@ -216,7 +216,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [editText, setEditText] = useState('')
   const longPressTimerRef = useRef(null)
   const [replyingTo, setReplyingTo] = useState(null)
-  const swipeStateRef = useRef({ id: null, startX: 0, dragging: false })
+  const swipeStateRef = useRef({ id: null, startX: 0, startY: 0, pointerId: null, dragging: false })
   const [swipeOffset, setSwipeOffset] = useState({ id: null, x: 0 })
   const SWIPE_REPLY_THRESHOLD = 50
   const [chatMenuOpen, setChatMenuOpen] = useState(false)
@@ -774,7 +774,22 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const handleMessagePointerDown = (msg, e) => {
     if (msg.deletedForEveryone) return
     const msgId = msg.id || msg._id
-    swipeStateRef.current = { id: msgId, startX: e.clientX, dragging: false }
+    swipeStateRef.current = {
+      id: msgId,
+      startX: e.clientX,
+      startY: e.clientY,
+      pointerId: e.pointerId,
+      dragging: false,
+    }
+    // Without capture, once a touch moves off its start point some mobile
+    // browsers stop routing move/up events to this element - the gesture
+    // just silently dies. Capturing keeps every event for this touch here
+    // regardless of where the finger physically is.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // Unsupported in this browser - the gesture still works, just less robustly.
+    }
     handleLongPressStart(msg)
   }
 
@@ -784,24 +799,43 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     if (state.id !== msgId) return
 
     const deltaX = e.clientX - state.startX
-    if (!state.dragging && Math.abs(deltaX) > 8) {
-      state.dragging = true
-      handleLongPressEnd()
+    const deltaY = e.clientY - state.startY
+
+    if (!state.dragging) {
+      // Only commit to a horizontal swipe once movement is clearly more
+      // sideways than vertical - otherwise this is a normal thread scroll.
+      if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        state.dragging = true
+        handleLongPressEnd()
+      } else if (Math.abs(deltaY) > 8) {
+        // Clearly scrolling - stop tracking this touch as a swipe candidate.
+        swipeStateRef.current = { id: null, startX: 0, startY: 0, pointerId: null, dragging: false }
+        return
+      }
     }
+
     if (state.dragging) {
+      e.preventDefault()
       const clamped = Math.max(0, Math.min(deltaX, 70))
       setSwipeOffset({ id: msgId, x: clamped })
     }
   }
 
-  const handleMessagePointerUp = (msg) => {
+  const handleMessagePointerUp = (msg, e) => {
     handleLongPressEnd()
     const msgId = msg.id || msg._id
     const state = swipeStateRef.current
+    if (e?.currentTarget && state.pointerId != null) {
+      try {
+        e.currentTarget.releasePointerCapture(state.pointerId)
+      } catch {
+        // Already released or unsupported - nothing to clean up.
+      }
+    }
     if (state.id === msgId && state.dragging && swipeOffset.id === msgId && swipeOffset.x >= SWIPE_REPLY_THRESHOLD) {
       setReplyingTo(msg)
     }
-    swipeStateRef.current = { id: null, startX: 0, dragging: false }
+    swipeStateRef.current = { id: null, startX: 0, startY: 0, pointerId: null, dragging: false }
     setSwipeOffset({ id: null, x: 0 })
   }
 
@@ -1578,13 +1612,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     <div
                       onPointerDown={(e) => !isDeleted && !isEditingThis && handleMessagePointerDown(msg, e)}
                       onPointerMove={(e) => handleMessagePointerMove(msg, e)}
-                      onPointerUp={() => handleMessagePointerUp(msg)}
-                      onPointerLeave={() => handleMessagePointerUp(msg)}
-                      onPointerCancel={() => handleMessagePointerUp(msg)}
+                      onPointerUp={(e) => handleMessagePointerUp(msg, e)}
+                      onPointerLeave={handleLongPressEnd}
+                      onPointerCancel={(e) => handleMessagePointerUp(msg, e)}
                       onContextMenu={(e) => {
                         e.preventDefault()
                         if (!isDeleted && !isEditingThis) openMessageActions(msg)
                       }}
+                      style={{ touchAction: 'pan-y' }}
                       className={`max-w-[80%] px-3.5 py-2 rounded-md text-xs leading-normal shadow-2xs select-none ${
                         isEditingThis ? 'w-full' : 'flex flex-wrap items-end gap-2'
                       } ${
