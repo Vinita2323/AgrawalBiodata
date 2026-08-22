@@ -464,5 +464,37 @@ describe('Messaging', () => {
       expect(inBobThread.deletedForEveryone).toBe(true);
       expect(inBobThread.body).toBe('');
     });
+
+    it('snapshots the quoted message on a reply, unaffected by a later edit', async () => {
+      const originalRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'What time works for you?' });
+      const originalId = originalRes.body.data.message.id;
+
+      const replyRes = await request(app)
+        .post(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${bobToken}`)
+        .send({ body: '6pm works!', replyToMessageId: originalId });
+
+      expect(replyRes.status).toBe(201);
+      expect(replyRes.body.data.message.replyTo).toMatchObject({
+        messageId: originalId,
+        body: 'What time works for you?',
+        senderProfileId: aliceProfile._id.toString()
+      });
+
+      // Editing the original afterwards must not retroactively change the quote.
+      await request(app)
+        .put(`/api/messages/${originalId}`)
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ body: 'What time works for you tomorrow?' });
+
+      const thread = await request(app)
+        .get(`/api/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${bobToken}`);
+      const reply = thread.body.data.messages.find((m) => m.id === replyRes.body.data.message.id);
+      expect(reply.replyTo.body).toBe('What time works for you?');
+    });
   });
 });

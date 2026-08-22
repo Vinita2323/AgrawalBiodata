@@ -132,9 +132,10 @@ class ChatService {
    * @param {object} params.conversation
    * @param {string} params.senderUserId
    * @param {string} params.body
+   * @param {string} [params.replyToMessageId] Message being quoted, must be in the same thread
    * @returns {Promise<{ message: object, conversation: object, recipient: object }>}
    */
-  async sendMessage({ conversation, senderUserId, body }) {
+  async sendMessage({ conversation, senderUserId, body, replyToMessageId }) {
     const trimmed = String(body || '').trim();
     if (!trimmed) {
       throw new ChatAccessError('Message body cannot be empty', 'EMPTY_MESSAGE');
@@ -142,13 +143,29 @@ class ChatService {
 
     const { me, them } = this.assertParticipant(conversation, senderUserId);
 
+    let replyTo = null;
+    if (replyToMessageId) {
+      const original = await Message.findOne({
+        _id: replyToMessageId,
+        conversationId: conversation._id
+      });
+      if (original) {
+        replyTo = {
+          messageId: original._id,
+          body: original.deletedForEveryone ? '' : original.body.slice(0, 200),
+          senderProfileId: original.senderProfileId
+        };
+      }
+    }
+
     const message = await Message.create({
       conversationId: conversation._id,
       senderUserId: me.userId,
       senderProfileId: me.profileId,
       recipientUserId: them.userId,
       recipientProfileId: them.profileId,
-      body: trimmed
+      body: trimmed,
+      replyTo
     });
 
     // Update the denormalized summary and bump only the recipient's counter.

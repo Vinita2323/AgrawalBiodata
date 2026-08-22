@@ -215,6 +215,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [editingMessage, setEditingMessage] = useState(null)
   const [editText, setEditText] = useState('')
   const longPressTimerRef = useRef(null)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const swipeStateRef = useRef({ id: null, startX: 0, dragging: false })
+  const [swipeOffset, setSwipeOffset] = useState({ id: null, x: 0 })
+  const SWIPE_REPLY_THRESHOLD = 50
   const [chatMenuOpen, setChatMenuOpen] = useState(false)
   const [chatPartnerBlocked, setChatPartnerBlocked] = useState(false)
   const [chatInterestId, setChatInterestId] = useState(null)
@@ -623,6 +627,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     setChatMenuOpen(false)
     setChatPartnerBlocked(false)
     setChatInterestId(null)
+    setReplyingTo(null)
     joinConversation(chat.id)
 
     try {
@@ -651,6 +656,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     if (selectedChat) leaveConversation(selectedChat.id)
     setSelectedChat(null)
     setChatMenuOpen(false)
+    setReplyingTo(null)
   }
 
   /** Withdraws the interest connecting this thread - ends the match. */
@@ -695,16 +701,19 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     const text = newMessageText.trim()
     if (!text) return
 
+    const replyToMessageId = replyingTo ? replyingTo.id || replyingTo._id : undefined
+
     setNewMessageText('')
+    setReplyingTo(null)
     emitTyping(chatId, false)
 
     try {
       // Prefer the socket for latency; fall back to REST when it is down.
       let saved
       try {
-        saved = await sendSocketMessage(chatId, text)
+        saved = await sendSocketMessage(chatId, text, replyToMessageId)
       } catch {
-        const res = await sendMessageApi(chatId, text)
+        const res = await sendMessageApi(chatId, text, replyToMessageId)
         saved = res?.message
       }
 
@@ -721,6 +730,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       }
     } catch (err) {
       setNewMessageText(text)
+      setReplyingTo(replyToMessageId ? replyingTo : null)
       setChatError(err?.message || 'Message could not be sent.')
     }
   }
@@ -754,6 +764,45 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
     }
+  }
+
+  /**
+   * Swipe-right-to-reply, WhatsApp-style. Starts alongside the long-press
+   * timer; the moment horizontal movement is detected it cancels the
+   * long-press (this is a drag, not a hold) and tracks the bubble offset.
+   */
+  const handleMessagePointerDown = (msg, e) => {
+    if (msg.deletedForEveryone) return
+    const msgId = msg.id || msg._id
+    swipeStateRef.current = { id: msgId, startX: e.clientX, dragging: false }
+    handleLongPressStart(msg)
+  }
+
+  const handleMessagePointerMove = (msg, e) => {
+    const msgId = msg.id || msg._id
+    const state = swipeStateRef.current
+    if (state.id !== msgId) return
+
+    const deltaX = e.clientX - state.startX
+    if (!state.dragging && Math.abs(deltaX) > 8) {
+      state.dragging = true
+      handleLongPressEnd()
+    }
+    if (state.dragging) {
+      const clamped = Math.max(0, Math.min(deltaX, 70))
+      setSwipeOffset({ id: msgId, x: clamped })
+    }
+  }
+
+  const handleMessagePointerUp = (msg) => {
+    handleLongPressEnd()
+    const msgId = msg.id || msg._id
+    const state = swipeStateRef.current
+    if (state.id === msgId && state.dragging && swipeOffset.id === msgId && swipeOffset.x >= SWIPE_REPLY_THRESHOLD) {
+      setReplyingTo(msg)
+    }
+    swipeStateRef.current = { id: null, startX: 0, dragging: false }
+    setSwipeOffset({ id: null, x: 0 })
   }
 
   const startEditMessage = (msg) => {
@@ -1507,15 +1556,31 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 const isEditingThis = (editingMessage?.id || editingMessage?._id) === msgId
                 const isDeleted = msg.deletedForEveryone
 
+                const isSwipingThis = swipeOffset.id === msgId
+
                 return (
-                  <div
-                    key={msgId}
-                    className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
-                  >
+                  <div key={msgId} className="relative w-full">
+                    {isSwipingThis && swipeOffset.x > 0 && (
+                      <span
+                        className="absolute left-1 top-1/2 -translate-y-1/2 text-[#570013] material-symbols-outlined text-lg"
+                        style={{ opacity: Math.min(swipeOffset.x / SWIPE_REPLY_THRESHOLD, 1) }}
+                      >
+                        reply
+                      </span>
+                    )}
                     <div
-                      onPointerDown={() => !isDeleted && !isEditingThis && handleLongPressStart(msg)}
-                      onPointerUp={handleLongPressEnd}
-                      onPointerLeave={handleLongPressEnd}
+                      className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
+                      style={{
+                        transform: isSwipingThis ? `translateX(${swipeOffset.x}px)` : undefined,
+                        transition: isSwipingThis ? 'none' : 'transform 0.15s ease',
+                      }}
+                    >
+                    <div
+                      onPointerDown={(e) => !isDeleted && !isEditingThis && handleMessagePointerDown(msg, e)}
+                      onPointerMove={(e) => handleMessagePointerMove(msg, e)}
+                      onPointerUp={() => handleMessagePointerUp(msg)}
+                      onPointerLeave={() => handleMessagePointerUp(msg)}
+                      onPointerCancel={() => handleMessagePointerUp(msg)}
                       onContextMenu={(e) => {
                         e.preventDefault()
                         if (!isDeleted && !isEditingThis) openMessageActions(msg)
@@ -1528,6 +1593,20 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                           : 'bg-white border border-amber-100/70 text-slate-800 rounded-tl-none'
                       }`}
                     >
+                      {!isEditingThis && msg.replyTo && (
+                        <div
+                          className={`w-full mb-1 px-2 py-1 rounded border-l-2 text-[10px] ${
+                            isMine ? 'bg-black/5 border-[#570013]' : 'bg-amber-50 border-amber-400'
+                          }`}
+                        >
+                          <p className="font-bold text-[#570013] truncate">
+                            {String(msg.replyTo.senderProfileId) === String(selectedChat.profileId)
+                              ? selectedChat.name
+                              : 'You'}
+                          </p>
+                          <p className="text-slate-500 truncate">{msg.replyTo.body || 'This message was deleted'}</p>
+                        </div>
+                      )}
                       {isEditingThis ? (
                         <div className="flex flex-col gap-1.5 w-full">
                           <input
@@ -1571,6 +1650,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                           </div>
                         </>
                       )}
+                    </div>
                     </div>
                   </div>
                 )
@@ -1677,6 +1757,27 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Reply Preview Bar */}
+            {replyingTo && (
+              <div className="flex-shrink-0 px-3 pt-2 bg-[#fff8ee]">
+                <div className="flex items-center gap-2 bg-white border-l-4 border-[#570013] rounded-md px-3 py-2 shadow-2xs">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-[#570013]">
+                      {isMyMessage(replyingTo) ? 'You' : selectedChat.name}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">{replyingTo.body}</p>
+                  </div>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="text-slate-400 hover:text-slate-600 flex-shrink-0"
+                    aria-label="Cancel reply"
+                  >
+                    <span className="material-symbols-outlined text-lg block">close</span>
+                  </button>
                 </div>
               </div>
             )}

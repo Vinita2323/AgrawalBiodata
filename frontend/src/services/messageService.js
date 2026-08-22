@@ -35,8 +35,8 @@ export async function getMessages(conversationId, params = {}) {
  * fallback path and the two share the same server-side write.
  * POST /api/messages/conversations/:id
  */
-export async function sendMessage(conversationId, body) {
-  return api.post(`/messages/conversations/${conversationId}`, { body });
+export async function sendMessage(conversationId, body, replyToMessageId) {
+  return api.post(`/messages/conversations/${conversationId}`, { body, replyToMessageId });
 }
 
 /**

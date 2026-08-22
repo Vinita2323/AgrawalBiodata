@@ -146,7 +146,7 @@ function init(httpServer) {
      * client can use whichever is convenient; both persist through the same
      * service, so there is no divergent write path.
      */
-    socket.on('message:send', async ({ conversationId, body } = {}, ack) => {
+    socket.on('message:send', async ({ conversationId, body, replyToMessageId } = {}, ack) => {
       try {
         const conversation = await Conversation.findById(conversationId);
         chatService.assertParticipant(conversation, userId);
@@ -154,7 +154,8 @@ function init(httpServer) {
         const result = await chatService.sendMessage({
           conversation,
           senderUserId: userId,
-          body
+          body,
+          replyToMessageId
         });
 
         // The recipient's room is about to receive this in the same tick, so

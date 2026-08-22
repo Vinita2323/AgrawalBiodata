@@ -206,7 +206,7 @@ const getMessages = async (req, res, next) => {
 const sendMessage = async (req, res, next) => {
   try {
     const { conversationId } = req.params;
-    const { body, text, message } = req.body || {};
+    const { body, text, message, replyToMessageId } = req.body || {};
     const content = body || text || message;
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
@@ -219,7 +219,8 @@ const sendMessage = async (req, res, next) => {
     const result = await chatService.sendMessage({
       conversation,
       senderUserId: req.user.userId,
-      body: content
+      body: content,
+      replyToMessageId
     });
 
     // The recipient is about to be pushed this message - if they are

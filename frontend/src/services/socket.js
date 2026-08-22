@@ -90,7 +90,7 @@ export function leaveConversation(conversationId) {
  * Sends a message over the socket, resolving with the persisted message.
  * Rejects if the socket is unavailable so the caller can fall back to REST.
  */
-export function sendSocketMessage(conversationId, body) {
+export function sendSocketMessage(conversationId, body, replyToMessageId) {
   return new Promise((resolve, reject) => {
     const s = getSocket();
     if (!s || !s.connected) {
@@ -98,7 +98,7 @@ export function sendSocketMessage(conversationId, body) {
       return;
     }
 
-    s.emit('message:send', { conversationId, body }, (ack) => {
+    s.emit('message:send', { conversationId, body, replyToMessageId }, (ack) => {
       if (ack?.ok) resolve(ack.message);
       else reject(new Error(ack?.error || 'Failed to send message'));
     });

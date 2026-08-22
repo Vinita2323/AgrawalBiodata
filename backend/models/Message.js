@@ -67,6 +67,20 @@ const messageSchema = new mongoose.Schema(
     deletedFor: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
       default: []
+    },
+    // Snapshotted rather than just referenced, so the quoted preview still
+    // renders correctly even if the original message is later edited or
+    // deleted-for-everyone.
+    replyTo: {
+      type: new mongoose.Schema(
+        {
+          messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+          body: { type: String, default: '' },
+          senderProfileId: { type: mongoose.Schema.Types.ObjectId, ref: 'Profile' }
+        },
+        { _id: false }
+      ),
+      default: null
     }
   },
   {
