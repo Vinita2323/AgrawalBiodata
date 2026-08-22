@@ -18,6 +18,7 @@ import {
   sendInterest,
   acceptInterest,
   declineInterest,
+  cancelInterest,
 } from '../../../services/interestService'
 import {
   addToShortlist,
@@ -362,9 +363,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           if (sentInterestsRes.status === 'fulfilled' && sentInterestsRes.value?.interests) {
             const intMap = {}
             sentInterestsRes.value.interests.forEach((item) => {
+              // Only a still-pending interest can be undone here; an accepted
+              // match is a real connection, not a mis-tap to reverse.
+              if (item.status !== 'Pending') return
               const rec = item.recipientProfileId
               const recId = rec?.profileId || rec?._id || rec
-              if (recId) intMap[recId] = true
+              const interestId = item.id || item._id
+              if (recId && interestId) intMap[recId] = interestId
             })
             setInterested(intMap)
           }
@@ -630,11 +635,33 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const toggleInterest = async (profileId, e) => {
     e?.stopPropagation()
     if (!profileId) return
-    if (interested[profileId]) return
 
-    setInterested(prev => ({ ...prev, [profileId]: true }))
+    const existingInterestId = interested[profileId]
+
+    // Already sent - a second tap undoes it, for a mis-tap or change of mind.
+    if (existingInterestId) {
+      setInterested((prev) => {
+        const next = { ...prev }
+        delete next[profileId]
+        return next
+      })
+      try {
+        await cancelInterest(existingInterestId)
+        showToast('Interest withdrawn.', 'info')
+      } catch (err) {
+        // Restore on failure so the UI matches what actually happened server-side.
+        setInterested((prev) => ({ ...prev, [profileId]: existingInterestId }))
+        showToast(err?.message || 'Could not withdraw interest. Please try again.', 'info')
+      }
+      return
+    }
+
     try {
-      await sendInterest(profileId, 'Hello, I liked your profile and would like to connect.')
+      const res = await sendInterest(profileId, 'Hello, I liked your profile and would like to connect.')
+      const newInterestId = res?.interest?.id || res?.interest?._id
+      if (newInterestId) {
+        setInterested((prev) => ({ ...prev, [profileId]: newInterestId }))
+      }
       showToast('Interest expressed successfully!', 'success')
     } catch (err) {
       showToast(err?.message || 'Interest already expressed', 'info')
@@ -709,6 +736,18 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       } else if (newStatus === 'Declined') {
         await declineInterest(id)
         showToast('Interest declined.', 'success')
+      } else if (newStatus === 'Cancelled') {
+        await cancelInterest(id)
+        showToast('Interest withdrawn.', 'info')
+        // Keep the Matches tab's Interested button in sync with the withdrawal.
+        const cancelled = previous.find((item) => item.id === id)
+        if (cancelled?.profileId) {
+          setInterested((prev) => {
+            const next = { ...prev }
+            delete next[cancelled.profileId]
+            return next
+          })
+        }
       }
     } catch (err) {
       setInterestsData(previous)
@@ -1499,6 +1538,18 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     </div>
                   )}
 
+                  {interestsTab === 'Sent' && (
+                    <div className="pt-1">
+                      <button
+                        onClick={(e) => handleUpdateInterestStatus(item.id, 'Cancelled', e)}
+                        className="w-full py-2.5 rounded-md bg-white border border-[#570013] text-[#570013] font-bold text-xs hover:bg-red-50 transition active:scale-95 flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-sm">undo</span>
+                        <span>Withdraw Interest</span>
+                      </button>
+                    </div>
+                  )}
+
                   {interestsTab === 'Accepted' && (
                     <div className="pt-1 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-md">
@@ -1904,17 +1955,26 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     </span>
                   </div>
 
-                  {/* Interested Button */}
+                  {/* Interested / Undo Button */}
                   <button
                     onClick={(e) => toggleInterest(match.id, e)}
-                    className={`flex-1 py-3 px-5 rounded-md font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all ${
+                    className={`flex-1 py-3 px-5 rounded-md font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 ${
                       interested[match.id]
-                        ? 'bg-emerald-600 text-white'
+                        ? 'bg-white border border-emerald-300 text-emerald-700'
                         : 'bg-[#570013] hover:bg-[#72001a] text-white'
                     }`}
                   >
-                    <span>{interested[match.id] ? 'Interest Sent' : 'Interested'}</span>
-                    <span className="material-symbols-outlined text-base">arrow_forward</span>
+                    {interested[match.id] ? (
+                      <>
+                        <span className="material-symbols-outlined text-base">undo</span>
+                        <span>Undo Interest</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Interested</span>
+                        <span className="material-symbols-outlined text-base">arrow_forward</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
