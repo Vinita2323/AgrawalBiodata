@@ -1219,8 +1219,58 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     linkTarget: n.linkTarget,
   }))
 
+  // Shared nav item config, driving both the mobile bottom bar and the
+  // desktop sidebar so the tab list/badge/active logic only lives once.
+  const navTabs = [
+    { id: 'Home', label: 'Home', icon: 'home' },
+    { id: 'Matches', label: 'Matches', icon: 'favorite' },
+    {
+      id: 'Messages',
+      label: 'Messages',
+      icon: 'chat',
+      badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
+    },
+    { id: 'Membership', label: 'Premium', icon: 'workspace_premium' },
+    { id: 'Profile', label: 'Profile', icon: 'account_circle' },
+  ]
+
   return (
-    <div className="bg-[#fcfaf7] text-slate-800 font-body min-h-screen flex flex-col justify-between pb-24 select-none">
+    <div className="lg:flex lg:h-screen lg:overflow-hidden">
+      {/* Desktop Sidebar Navigation (replaces the bottom bar at lg:+) */}
+      <aside className="hidden lg:flex lg:w-64 lg:shrink-0 lg:flex-col lg:h-screen lg:border-r lg:border-gray-200/80 lg:bg-white lg:py-6 lg:px-3">
+        <div className="px-3 pb-6">
+          <span className="font-display font-extrabold text-lg text-[#570013]">Agrawal Biodata</span>
+        </div>
+        <nav className="flex flex-col gap-1">
+          {navTabs.map((tab) => {
+            const isActive = activeTab === tab.id || (activeTab === 'Notifications' && tab.id === 'Home')
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabNavigate(tab.id)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left font-semibold text-sm transition ${
+                  isActive ? 'bg-amber-50 text-[#6e0b18]' : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <span
+                  className="material-symbols-outlined text-xl"
+                  style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                >
+                  {tab.icon}
+                </span>
+                <span className="flex-1">{tab.label}</span>
+                {tab.badge && (
+                  <span className="w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
+      </aside>
+
+    <div className="bg-[#fcfaf7] text-slate-800 font-body min-h-screen flex flex-col justify-between pb-24 select-none lg:flex-1 lg:h-screen lg:overflow-y-auto lg:pb-0">
       {/* Dynamic Main View */}
       {activeTab === 'Notifications' ? (
         /* NOTIFICATIONS PAGE VIEW */
@@ -1490,10 +1540,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
         </div>
       ) : activeTab === 'Messages' ? (
-        /* MESSAGES / CHATS PAGE VIEW */
-        selectedChat ? (
+        /* MESSAGES / CHATS PAGE VIEW - list + thread mount simultaneously at
+           lg:+ as a WhatsApp-Web-style split pane; below lg: exactly one of
+           them is visible at a time, same as before. */
+        <div className="lg:flex lg:h-screen lg:overflow-hidden">
+        {selectedChat && (
           /* CONVERSATION THREAD VIEW */
-          <div className="fixed inset-0 w-full max-w-[480px] mx-auto bg-[#fff8ee] z-50 flex flex-col overflow-hidden">
+          <div className="fixed inset-0 lg:static lg:flex-1 lg:order-2 w-full max-w-[480px] lg:max-w-none mx-auto lg:mx-0 bg-[#fff8ee] z-50 lg:z-auto flex flex-col overflow-hidden">
             {/* Thread Header (Fixed Top) */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200/70 px-4 py-3 flex items-center justify-between z-30 shadow-2xs relative">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -1866,9 +1919,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               </button>
             </div>
           </div>
-        ) : (
-          /* CHATS LIST VIEW */
-          <div className="px-4 pt-3 relative min-h-screen">
+        )}
+        {!selectedChat && (
+          <div className="hidden lg:flex lg:flex-1 lg:order-2 lg:items-center lg:justify-center text-gray-400 text-sm font-medium">
+            Select a conversation to start chatting
+          </div>
+        )}
+          {/* CHATS LIST VIEW */}
+          <div className={`${selectedChat ? 'hidden lg:block' : 'block'} lg:order-1 px-4 pt-3 relative min-h-screen lg:min-h-0 lg:h-screen lg:overflow-y-auto lg:w-96 lg:shrink-0 lg:border-r lg:border-gray-200/80`}>
             {/* Header */}
             <div className="flex items-center gap-1 mb-2">
               <button
@@ -1980,7 +2038,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 ))}
               </div>
           </div>
-        )
+        </div>
       ) : activeTab === 'Interests' ? (
         /* INTERESTS PAGE VIEW */
         <div className="px-4 pt-3">
@@ -2017,7 +2075,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
 
           {/* Interests Cards List */}
-          <div className="space-y-4">
+          <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4">
             {filteredInterests.length > 0 ? (
               filteredInterests.map((item) => (
                 <div
@@ -2376,7 +2434,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           )}
 
           {/* Matches List */}
-          <div className="space-y-5">
+          <div className="space-y-5 lg:space-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-5">
             {(() => {
               const filteredMatches = matchesList.filter((match) => {
                 const isItemInterested = !!interested[match.id] || match.isMockInterested
@@ -2958,19 +3016,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
       {/* Sticky Bottom Navigation Bar */}
       {!selectedChat && activeTab !== 'MyProfile' && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-200/80 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-2 flex items-center justify-around z-50">
-          {[
-            { id: 'Home', label: 'Home', icon: 'home' },
-            { id: 'Matches', label: 'Matches', icon: 'favorite' },
-            {
-              id: 'Messages',
-              label: 'Messages',
-              icon: 'chat',
-              badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
-            },
-            { id: 'Membership', label: 'Premium', icon: 'workspace_premium' },
-            { id: 'Profile', label: 'Profile', icon: 'account_circle' },
-          ].map((tab) => {
+        <nav className="lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-200/80 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-2 flex items-center justify-around z-50">
+          {navTabs.map((tab) => {
             const isActive = activeTab === tab.id || (activeTab === 'Notifications' && tab.id === 'Home') // Failsafe for route match
             return (
               <button
@@ -3113,6 +3160,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
         </div>
       )}
+    </div>
     </div>
   )
 }

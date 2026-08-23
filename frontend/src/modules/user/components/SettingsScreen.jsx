@@ -19,7 +19,7 @@ export default function SettingsScreen({ onBack, onLogout }) {
   ]
 
   return (
-    <div className="bg-[#fcfaf7] text-slate-800 min-h-screen flex flex-col justify-between p-4 selection:bg-[#775a19] select-none">
+    <div className="bg-[#fcfaf7] text-slate-800 min-h-screen flex flex-col justify-between p-4 lg:max-w-2xl lg:mx-auto lg:w-full selection:bg-[#775a19] select-none">
       <div>
         {/* Header Bar */}
         <div className="flex items-center gap-1 mb-4 pt-1">

@@ -68,7 +68,7 @@ export default function ManageProfilesScreen({ onBack }) {
   }
 
   return (
-    <div className="bg-[#fbf9f5] min-h-screen text-slate-800 font-body flex flex-col p-5 select-none">
+    <div className="bg-[#fbf9f5] min-h-screen text-slate-800 font-body flex flex-col p-5 lg:max-w-2xl lg:mx-auto lg:w-full select-none">
       {/* Header */}
       <div className="flex items-center gap-2 w-full pt-1 pb-4">
         <button

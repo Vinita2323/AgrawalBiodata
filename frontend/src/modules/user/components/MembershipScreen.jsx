@@ -151,7 +151,7 @@ export default function MembershipScreen({ onBack, onSelectPlan }) {
       )}
 
       {/* Plan Cards */}
-      <div className="w-full flex flex-col gap-6 px-4 pb-6 pt-2">
+      <div className="w-full flex flex-col md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 px-4 pb-6 pt-2">
         {isLoading ? (
           [0, 1, 2].map((i) => (
             <div

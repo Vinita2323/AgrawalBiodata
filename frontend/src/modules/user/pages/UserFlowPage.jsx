@@ -50,9 +50,9 @@ export default function UserFlowPage() {
 
   return (
     <ActiveProfileProvider>
-    <div className="min-h-screen w-full bg-[#1b1b1b] flex justify-center items-center font-body selection:bg-[#775a19] selection:text-white">
+    <div className="min-h-screen w-full bg-[#1b1b1b] lg:bg-[#fbf9f5] flex justify-center items-center lg:items-stretch font-body selection:bg-[#775a19] selection:text-white">
       <ScrollToTop />
-      <div className="w-full max-w-[480px] min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl flex flex-col">
+      <div className="w-full max-w-[480px] lg:max-w-none min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl lg:shadow-none flex flex-col">
         {location.pathname !== '/welcome' && location.pathname !== '/auth-landing' && location.pathname !== '/' && location.pathname !== '/splash' && (
           <HeaderBar />
         )}
