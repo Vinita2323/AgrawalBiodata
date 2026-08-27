@@ -11,3 +11,12 @@ coverage/
 # Firebase service account credentials - never commit, this grants admin access
 firebase-service-account*.json
 *-firebase-adminsdk-*.json
+
+# Editor crash-recovery copies. nano writes "<name>.save" and "nano.<pid>.save",
+# neither of which matches the credential patterns above - so an interrupted
+# edit of the service account or .env would otherwise leave an unignored copy
+# of those secrets in the working tree.
+*.save
+.*.swp
+.*.swo
+*~
