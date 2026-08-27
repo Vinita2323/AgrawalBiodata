@@ -191,16 +191,13 @@ const MAX_FCM_TOKENS_PER_USER = 10;
  * make - it is the other long opaque string in the app - and it is trivially
  * recognisable, so name it specifically rather than reporting a vague error.
  *
- * Deliberately permissive otherwise: Google has changed the token format
- * before, and refusing a valid token is worse than storing an odd-looking one,
- * which the send path prunes on first failure anyway.
+ * Nothing else is rejected on shape. Google has changed the token format
+ * before, and refusing a token that would have worked is worse than storing an
+ * odd-looking one, which the send path prunes on its first failure anyway.
  */
 function describeInvalidFcmToken(token) {
   if (/^eyJ[A-Za-z0-9_-]*.[A-Za-z0-9_-]+.[A-Za-z0-9_-]+$/.test(token)) {
     return 'That is a JWT (your login token), not an FCM registration token. A push token is issued by the Firebase SDK in the browser or app via getToken(), never by this API.';
-  }
-  if (token.length < 50) {
-    return 'That value is too short to be an FCM registration token.';
   }
   return null;
 }

@@ -123,8 +123,10 @@ describe('FCM token validation', () => {
     expect(describeInvalidFcmToken(jwt)).toMatch(/JWT/i);
   });
 
-  it('rejects an obviously too-short value', () => {
-    expect(describeInvalidFcmToken('abc123')).toMatch(/too short/i);
+  it('leaves unfamiliar token shapes alone rather than guessing', () => {
+    // The send path prunes tokens Firebase rejects, so a false negative here
+    // costs far less than refusing a token that would have worked.
+    expect(describeInvalidFcmToken('fcm-token-abc')).toBeNull();
   });
 
   it('accepts a realistic FCM registration token', () => {
