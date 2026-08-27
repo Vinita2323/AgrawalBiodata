@@ -64,6 +64,22 @@ export async function updateNotificationPreferences(preferences) {
   return api.put('/notifications/preferences', preferences);
 }
 
+/**
+ * 8. Register this browser's FCM token for push delivery
+ * POST /api/notifications/fcm-token
+ */
+export async function saveFcmToken(token, platform = 'web') {
+  return api.post('/notifications/fcm-token', { token, platform });
+}
+
+/**
+ * 9. Remove this browser's FCM token, e.g. on logout
+ * DELETE /api/notifications/fcm-token
+ */
+export async function removeFcmToken(token) {
+  return api.delete('/notifications/fcm-token', { token });
+}
+
 export const notificationService = {
   getNotifications,
   getUnreadCount,
@@ -71,7 +87,9 @@ export const notificationService = {
   markAllNotificationsRead,
   deleteNotification,
   getNotificationPreferences,
-  updateNotificationPreferences
+  updateNotificationPreferences,
+  saveFcmToken,
+  removeFcmToken
 };
 
 export default notificationService;

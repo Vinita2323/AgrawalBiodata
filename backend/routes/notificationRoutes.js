@@ -19,6 +19,11 @@ router.put('/preferences', notificationController.updatePreferences);
 router.get('/unread-count', notificationController.getUnreadCount);
 router.put('/read-all', notificationController.markAllRead);
 
+// Declared before "/:id" for the same reason as "preferences" above - it
+// would otherwise be swallowed by the DELETE "/:id" route below.
+router.post('/fcm-token', notificationController.saveFcmToken);
+router.delete('/fcm-token', notificationController.removeFcmToken);
+
 router.get('/', notificationController.getNotifications);
 router.put('/:id/read', notificationController.markRead);
 router.delete('/:id', notificationController.deleteNotification);

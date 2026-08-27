@@ -95,6 +95,21 @@ const userSchema = new mongoose.Schema(
       ref: 'Profile',
       default: []
     },
+    // Push (FCM) registration tokens for this account's devices (web / app).
+    // Stored as subdocuments with platform ('web' | 'app') tracking.
+    fcmTokens: {
+      type: [
+        new mongoose.Schema(
+          {
+            token: { type: String, required: true },
+            platform: { type: String, enum: ['web', 'app'], default: 'web' },
+            lastUsed: { type: Date, default: Date.now }
+          },
+          { _id: false }
+        )
+      ],
+      default: []
+    },
     // Delivery preferences. In-app notifications are always recorded; these
     // flags gate push/email/SMS fan-out for the matching categories.
     notificationPreferences: {
@@ -138,5 +153,17 @@ const userSchema = new mongoose.Schema(
     }
   }
 );
+
+// A malformed fcmTokens entry (e.g. cast from a pre-migration plain-string
+// token, or any other future corruption) must never block a save - push
+// delivery is best-effort, but this field sits on the same document as
+// login/session state. Rather than fight Mongoose's cast timing to recover
+// bad data, just drop anything that didn't come out with a real token string.
+userSchema.pre('validate', function (next) {
+  if (Array.isArray(this.fcmTokens)) {
+    this.fcmTokens = this.fcmTokens.filter((entry) => entry && typeof entry.token === 'string' && entry.token.length > 0);
+  }
+  next();
+});
 
 module.exports = mongoose.model('User', userSchema);

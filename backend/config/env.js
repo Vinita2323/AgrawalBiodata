@@ -63,7 +63,12 @@ const env = {
   SMTP_SECURE: process.env.SMTP_SECURE === 'true',
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
-  EMAIL_FROM: process.env.EMAIL_FROM || 'Agrawal Matrimony <no-reply@agarwalbiodata.com>'
+  EMAIL_FROM: process.env.EMAIL_FROM || 'Agrawal Matrimony <no-reply@agarwalbiodata.com>',
+
+  // Firebase Cloud Messaging (web push). Optional - set ONE of these two; if
+  // neither is set, push sending is disabled and the in-app feed still works.
+  FIREBASE_SERVICE_ACCOUNT_PATH: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
+  FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || ''
 };
 
 /**

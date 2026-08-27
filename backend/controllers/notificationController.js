@@ -180,6 +180,100 @@ const updatePreferences = async (req, res, next) => {
   }
 };
 
+const MAX_FCM_TOKENS_PER_USER = 10;
+
+/**
+ * 8. Register a device/browser FCM token for push delivery
+ * POST /api/notifications/fcm-token
+ * Body: { token: string, platform?: 'web' | 'app' }
+ */
+const saveFcmToken = async (req, res, next) => {
+  try {
+    const { token, platform } = req.body || {};
+    if (!token || typeof token !== 'string') {
+      return badRequest(res, 'A valid FCM token is required');
+    }
+
+    const validPlatform = (platform === 'app' || platform === 'web') ? platform : 'web';
+
+    const user = await User.findById(req.user.userId).select('fcmTokens');
+    if (!user) {
+      return notFound(res, 'User not found');
+    }
+
+    // Normalize existing tokens in case the document had legacy plain string tokens
+    const normalizedTokens = (user.fcmTokens || [])
+      .map(item => {
+        if (!item) return null;
+        if (typeof item === 'string') {
+          return { token: item, platform: 'web', lastUsed: new Date() };
+        }
+        if (item.token) {
+          return {
+            token: item.token,
+            platform: item.platform || 'web',
+            lastUsed: item.lastUsed || new Date()
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    // Check if token already exists
+    const existingIndex = normalizedTokens.findIndex(item => item.token === token);
+
+    if (existingIndex !== -1) {
+      // Update platform and lastUsed if changed
+      normalizedTokens[existingIndex] = {
+        token,
+        platform: validPlatform,
+        lastUsed: new Date()
+      };
+    } else {
+      normalizedTokens.push({
+        token,
+        platform: validPlatform,
+        lastUsed: new Date()
+      });
+    }
+
+    // Cap per account
+    user.fcmTokens = normalizedTokens.slice(-MAX_FCM_TOKENS_PER_USER);
+
+    await user.save();
+
+    return success(res, 'Push token registered', { platform: validPlatform });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 9. Remove a device/browser FCM token, e.g. on logout
+ * DELETE /api/notifications/fcm-token
+ * Body: { token: string }
+ */
+const removeFcmToken = async (req, res, next) => {
+  try {
+    const { token } = req.body || {};
+    if (!token || typeof token !== 'string') {
+      return badRequest(res, 'A valid FCM token is required');
+    }
+
+    const user = await User.findById(req.user.userId).select('fcmTokens');
+    if (user && Array.isArray(user.fcmTokens)) {
+      user.fcmTokens = user.fcmTokens.filter(item =>
+        (typeof item === 'string' ? item : item?.token) !== token
+      );
+      await user.save();
+    }
+
+    return success(res, 'Push token removed');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getNotifications,
   getUnreadCount,
@@ -187,5 +281,7 @@ module.exports = {
   markAllRead,
   deleteNotification,
   getPreferences,
-  updatePreferences
+  updatePreferences,
+  saveFcmToken,
+  removeFcmToken
 };

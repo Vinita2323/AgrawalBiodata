@@ -4,6 +4,7 @@
  */
 
 import { api, setAuthTokens, clearAuthTokens } from './api';
+import { registerFcmTokenIfPermitted, unregisterFcmToken } from './pushNotificationService';
 
 /**
  * 1. Request 6-digit OTP code to mobile number
@@ -47,6 +48,10 @@ export async function verifyOtp(mobile, otp) {
     }
   }
 
+  // Re-sync this browser's push token with the backend if permission was
+  // already granted in an earlier session; never prompts on its own.
+  registerFcmTokenIfPermitted().catch(() => {});
+
   return data;
 }
 
@@ -77,6 +82,8 @@ export async function register(userData) {
       // Ignore localStorage error
     }
   }
+
+  registerFcmTokenIfPermitted().catch(() => {});
 
   return data;
 }
@@ -125,6 +132,7 @@ export async function refreshToken(token) {
 export async function logout() {
   try {
     const token = localStorage.getItem('refreshToken') || localStorage.getItem('refresh_token');
+    await unregisterFcmToken();
     await api.post('/auth/logout', { refreshToken: token }, { skipRefresh: true });
   } catch {
     // Ignore network or logout API errors during local logout cleanup

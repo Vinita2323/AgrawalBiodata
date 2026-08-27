@@ -4,6 +4,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from '../../../services/notificationService'
+import { registerFcmToken } from '../../../services/pushNotificationService'
 import { isAuthenticated } from '../../../services/authService'
 
 const PUSH_TOGGLES = [
@@ -67,6 +68,10 @@ export default function NotificationSettingsScreen({ onBack }) {
   const [errorMsg, setErrorMsg] = useState('')
   const [toastMsg, setToastMsg] = useState('')
 
+  const pushSupported = typeof window !== 'undefined' && 'Notification' in window
+  const [pushPermission, setPushPermission] = useState(pushSupported ? Notification.permission : 'unsupported')
+  const [isEnablingPush, setIsEnablingPush] = useState(false)
+
   useEffect(() => {
     let cancelled = false
 
@@ -112,6 +117,27 @@ export default function NotificationSettingsScreen({ onBack }) {
       setErrorMsg(err?.message || 'Could not save that preference.')
     } finally {
       setSavingKey(null)
+    }
+  }
+
+  const handleEnablePush = async () => {
+    setIsEnablingPush(true)
+    setErrorMsg('')
+    try {
+      const token = await registerFcmToken(true)
+      setPushPermission(pushSupported ? Notification.permission : 'unsupported')
+      if (!token) {
+        setErrorMsg(
+          Notification.permission === 'denied'
+            ? 'Notifications are blocked for this site in your browser settings.'
+            : 'Could not enable push notifications on this device.'
+        )
+      } else {
+        setToastMsg('Push notifications enabled on this device')
+        setTimeout(() => setToastMsg(''), 2000)
+      }
+    } finally {
+      setIsEnablingPush(false)
     }
   }
 
@@ -182,6 +208,33 @@ export default function NotificationSettingsScreen({ onBack }) {
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-bold">
             Loading your settings...
           </div>
+        )}
+
+        {pushSupported && (
+          <section className="bg-white rounded-xl border border-amber-200/80 shadow-2xs p-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-bold text-slate-800 mb-0.5">Browser Push Notifications</div>
+              <div className="text-[11px] text-gray-500 leading-relaxed">
+                {pushPermission === 'granted' && 'Enabled on this device.'}
+                {pushPermission === 'denied' && 'Blocked - allow notifications for this site in your browser settings.'}
+                {pushPermission === 'default' && 'Turn on to get alerts on this device even when the tab is closed.'}
+              </div>
+            </div>
+            {pushPermission !== 'granted' && (
+              <button
+                onClick={handleEnablePush}
+                disabled={isEnablingPush || pushPermission === 'denied'}
+                className="shrink-0 text-xs font-bold text-white bg-[#570013] rounded-lg px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isEnablingPush ? 'Enabling...' : 'Enable'}
+              </button>
+            )}
+            {pushPermission === 'granted' && (
+              <span className="shrink-0 text-xs font-bold text-emerald-700 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">check_circle</span> On
+              </span>
+            )}
+          </section>
         )}
 
         {renderSection('Push Notifications', PUSH_TOGGLES)}

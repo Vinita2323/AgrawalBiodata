@@ -7,3 +7,7 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+
+# Firebase service account credentials - never commit, this grants admin access
+firebase-service-account*.json
+*-firebase-adminsdk-*.json

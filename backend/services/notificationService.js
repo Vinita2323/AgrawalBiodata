@@ -14,6 +14,7 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const logger = require('../utils/logger');
+const pushService = require('./pushService');
 const { NOTIFICATION_TYPES, NOTIFICATION_META } = require('../config/constants');
 
 // Set by realtime.js once Socket.io is initialised. Kept as an injected
@@ -74,9 +75,12 @@ class NotificationService {
         metadata
       });
 
-      // Push in real time only when the recipient opted into this category.
-      if (realtimeEmitter && (await this.isPushEnabled(userId, meta.preference))) {
-        realtimeEmitter.emitToUser(userId.toString(), 'notification:new', notification.toJSON());
+      // Push (in-tab socket + FCM) only when the recipient opted into this category.
+      if (await this.isPushEnabled(userId, meta.preference)) {
+        if (realtimeEmitter) {
+          realtimeEmitter.emitToUser(userId.toString(), 'notification:new', notification.toJSON());
+        }
+        await this.sendFcmPush(userId, notification);
       }
 
       return notification;
@@ -114,6 +118,46 @@ class NotificationService {
     } catch {
       // Default to delivering rather than silently dropping.
       return true;
+    }
+  }
+
+  /**
+   * Delivers a notification to every FCM token registered on the recipient's
+   * account (their browsers). Prunes tokens Firebase reports as dead so a
+   * uninstalled/cleared browser doesn't accumulate failed sends forever.
+   * @param {string} userId
+   * @param {object} notification A saved Notification document
+   */
+  async sendFcmPush(userId, notification) {
+    try {
+      const user = await User.findById(userId).select('fcmTokens');
+      if (!user?.fcmTokens?.length) return;
+
+      const tokenStrings = user.fcmTokens
+        .map(t => (typeof t === 'string' ? t : t?.token))
+        .filter(Boolean);
+
+      if (!tokenStrings.length) return;
+
+      const { invalidTokens } = await pushService.sendToTokens(tokenStrings, {
+        title: notification.title,
+        body: notification.body,
+        data: {
+          type: notification.type,
+          notificationId: notification._id.toString(),
+          linkTarget: notification.linkTarget || ''
+        }
+      });
+
+      if (invalidTokens.length) {
+        user.fcmTokens = user.fcmTokens.filter(t => {
+          const raw = typeof t === 'string' ? t : t?.token;
+          return !invalidTokens.includes(raw);
+        });
+        await user.save();
+      }
+    } catch (error) {
+      logger.error(`Failed to send FCM push to user ${userId}: ${error.message}`);
     }
   }
 

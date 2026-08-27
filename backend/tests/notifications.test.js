@@ -246,7 +246,79 @@ describe('Notification Subsystem', () => {
     });
   });
 
-  describe('4. Emission from platform events', () => {
+  describe('4. FCM device token registration', () => {
+    it('registers a token and de-duplicates repeated registration', async () => {
+      const first = await request(app)
+        .post('/api/notifications/fcm-token')
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ token: 'fcm-token-abc', platform: 'app' });
+      expect(first.status).toBe(200);
+
+      const second = await request(app)
+        .post('/api/notifications/fcm-token')
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ token: 'fcm-token-abc', platform: 'app' });
+      expect(second.status).toBe(200);
+
+      const stored = await User.findById(alice._id).select('fcmTokens');
+      expect(stored.fcmTokens).toHaveLength(1);
+      expect(stored.fcmTokens[0].token).toBe('fcm-token-abc');
+      expect(stored.fcmTokens[0].platform).toBe('app');
+    });
+
+    it('rejects registration without a token', async () => {
+      const res = await request(app)
+        .post('/api/notifications/fcm-token')
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('caps stored tokens at 10 per account, keeping the most recent', async () => {
+      for (let i = 0; i < 12; i += 1) {
+        await request(app)
+          .post('/api/notifications/fcm-token')
+          .set('Authorization', `Bearer ${aliceToken}`)
+          .send({ token: `token-${i}`, platform: i % 2 === 0 ? 'web' : 'app' });
+      }
+
+      const stored = await User.findById(alice._id).select('fcmTokens');
+      expect(stored.fcmTokens).toHaveLength(10);
+      expect(stored.fcmTokens.map(t => t.token)).toEqual(
+        Array.from({ length: 10 }, (_, i) => `token-${i + 2}`)
+      );
+    });
+
+    it('removes a registered token', async () => {
+      await request(app)
+        .post('/api/notifications/fcm-token')
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ token: 'fcm-token-remove-me', platform: 'web' });
+
+      const res = await request(app)
+        .delete('/api/notifications/fcm-token')
+        .set('Authorization', `Bearer ${aliceToken}`)
+        .send({ token: 'fcm-token-remove-me' });
+      expect(res.status).toBe(200);
+
+      const stored = await User.findById(alice._id).select('fcmTokens');
+      expect(stored.fcmTokens.map(t => t.token)).not.toContain('fcm-token-remove-me');
+    });
+
+    it('does not throw when emitting to a user with registered tokens but no Firebase credentials configured', async () => {
+      await User.updateOne({ _id: alice._id }, { $set: { fcmTokens: [{ token: 'some-token', platform: 'app' }] } });
+
+      const notification = await notificationService.emit({
+        userId: alice._id,
+        type: NOTIFICATION_TYPES.INTEREST_RECEIVED,
+        title: 'Push attempted with no Firebase app configured'
+      });
+
+      expect(notification).not.toBeNull();
+    });
+  });
+
+  describe('5. Emission from platform events', () => {
     it('notifies the recipient when an interest is expressed', async () => {
       const res = await request(app)
         .post('/api/interests')
