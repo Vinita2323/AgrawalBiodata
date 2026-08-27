@@ -1,9 +1,13 @@
 // Firebase Cloud Messaging Service Worker
 // Agrawal Matrimony Platform
 //
-// Handles push delivery while the app is backgrounded or closed. This file
-// is served as a static asset (Vite does not process public/), so the config
-// values below must be filled in by hand - see PUSH_NOTIFICATIONS_SOP.md.
+// Handles push delivery while the app is backgrounded or closed.
+//
+// This file is a TEMPLATE. Vite copies public/ to dist/ untouched, so the
+// placeholders below are replaced in the build output by
+// scripts/inject-sw-config.mjs, which reads the VITE_FIREBASE_* values from
+// frontend/.env. Do not fill them in here: this file is tracked by git, so a
+// hand-edit is reverted by the next "git reset --hard" on deploy.
 // These are public client identifiers, not secrets.
 
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
