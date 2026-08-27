@@ -37,24 +37,44 @@ export async function registerFcmToken(force = false) {
       return localStorage.getItem(STORAGE_KEY);
     }
 
-    if (!VAPID_KEY) return null;
-    const messaging = await getMessagingIfSupported();
-    if (!messaging) return null;
+    if (!VAPID_KEY) {
+      console.warn('[push] VITE_FIREBASE_VAPID_KEY is not set - this build cannot register for push. Set it in frontend/.env and rebuild.');
+      return null;
+    }
 
-    if (typeof Notification === 'undefined') return null;
+    const messaging = await getMessagingIfSupported();
+    if (!messaging) {
+      console.warn('[push] Firebase Messaging is unsupported here. It needs HTTPS (or localhost) and a browser with the Push API - iOS Safari only supports it for installed web apps.');
+      return null;
+    }
+
+    if (typeof Notification === 'undefined') {
+      console.warn('[push] This browser has no Notification API.');
+      return null;
+    }
     if (Notification.permission === 'default') {
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return null;
+      if (permission !== 'granted') {
+        console.warn(`[push] Notification permission was not granted (got "${permission}").`);
+        return null;
+      }
     } else if (Notification.permission !== 'granted') {
+      console.warn('[push] Notifications are blocked for this site. Clear the block in the browser site settings to re-enable.');
       return null;
     }
 
     const registration = await registerServiceWorker();
-    if (!registration) return null;
+    if (!registration) {
+      console.warn('[push] Service workers are unavailable, so /firebase-messaging-sw.js could not be registered.');
+      return null;
+    }
 
     const { getToken } = await import('firebase/messaging');
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
-    if (!token) return null;
+    if (!token) {
+      console.warn('[push] Firebase returned no token. Usually the VAPID key does not belong to this Firebase project.');
+      return null;
+    }
 
     await saveFcmTokenOnBackend(token);
     localStorage.setItem(STORAGE_KEY, token);

@@ -102,3 +102,34 @@ describe('OTP exposure', () => {
     }
   });
 });
+
+describe('FCM token validation', () => {
+  const { describeInvalidFcmToken } = (() => {
+    // The helper is module-private; exercise it through the same regex rules
+    // the controller applies so the contract stays pinned.
+    const src = require('fs').readFileSync(
+      require('path').resolve(__dirname, '../controllers/notificationController.js'),
+      'utf8'
+    );
+    const body = src.slice(src.indexOf('function describeInvalidFcmToken'));
+    const fn = body.slice(0, body.indexOf('\n}') + 2);
+    // eslint-disable-next-line no-new-func
+    return { describeInvalidFcmToken: new Function(`${fn}; return describeInvalidFcmToken;`)() };
+  })();
+
+  it('rejects a JWT pasted in place of an FCM token', () => {
+    const jwt =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMifQ.aKAHyIIq93_8JKmhJuP_53f0pRQrIIcTE3BofzbSXgI';
+    expect(describeInvalidFcmToken(jwt)).toMatch(/JWT/i);
+  });
+
+  it('rejects an obviously too-short value', () => {
+    expect(describeInvalidFcmToken('abc123')).toMatch(/too short/i);
+  });
+
+  it('accepts a realistic FCM registration token', () => {
+    const fcm =
+      'fMEP0vJqS0aBcDeFgHiJkL:APA91bH' + 'x'.repeat(120);
+    expect(describeInvalidFcmToken(fcm)).toBeNull();
+  });
+});

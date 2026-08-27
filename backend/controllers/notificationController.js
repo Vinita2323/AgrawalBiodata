@@ -183,6 +183,29 @@ const updatePreferences = async (req, res, next) => {
 const MAX_FCM_TOKENS_PER_USER = 10;
 
 /**
+ * Rejects strings that cannot be FCM registration tokens.
+ *
+ * The endpoint used to store whatever it was given and answer 200, so pasting
+ * an access token here looked like success while every later send failed
+ * against a token Firebase would never accept. A JWT is the easy mistake to
+ * make - it is the other long opaque string in the app - and it is trivially
+ * recognisable, so name it specifically rather than reporting a vague error.
+ *
+ * Deliberately permissive otherwise: Google has changed the token format
+ * before, and refusing a valid token is worse than storing an odd-looking one,
+ * which the send path prunes on first failure anyway.
+ */
+function describeInvalidFcmToken(token) {
+  if (/^eyJ[A-Za-z0-9_-]*.[A-Za-z0-9_-]+.[A-Za-z0-9_-]+$/.test(token)) {
+    return 'That is a JWT (your login token), not an FCM registration token. A push token is issued by the Firebase SDK in the browser or app via getToken(), never by this API.';
+  }
+  if (token.length < 50) {
+    return 'That value is too short to be an FCM registration token.';
+  }
+  return null;
+}
+
+/**
  * 8. Register a device/browser FCM token for push delivery
  * POST /api/notifications/fcm-token
  * Body: { token: string, platform?: 'web' | 'app' }
@@ -192,6 +215,11 @@ const saveFcmToken = async (req, res, next) => {
     const { token, platform } = req.body || {};
     if (!token || typeof token !== 'string') {
       return badRequest(res, 'A valid FCM token is required');
+    }
+
+    const problem = describeInvalidFcmToken(token.trim());
+    if (problem) {
+      return badRequest(res, problem, null, 'INVALID_FCM_TOKEN');
     }
 
     const validPlatform = (platform === 'app' || platform === 'web') ? platform : 'web';
