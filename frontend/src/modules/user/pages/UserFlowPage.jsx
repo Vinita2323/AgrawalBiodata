@@ -26,6 +26,7 @@ import WelcomeScreen from '../components/WelcomeScreen'
 import HeaderBar from '../components/HeaderBar'
 import ManageProfilesScreen from '../components/ManageProfilesScreen'
 import SignupOnlyRoute, { clearJustSignedUp } from '../components/SignupOnlyRoute'
+import PushNotificationManager from '../components/PushNotificationManager'
 import GuestOnlyRoute from '../components/GuestOnlyRoute'
 import { ActiveProfileProvider } from '../../../context/ActiveProfileContext'
 import { isAuthenticated } from '../../../services/authService'
@@ -52,6 +53,7 @@ export default function UserFlowPage() {
     <ActiveProfileProvider>
     <div className="min-h-screen w-full bg-[#1b1b1b] lg:bg-[#fbf9f5] flex justify-center items-center lg:items-stretch font-body selection:bg-[#775a19] selection:text-white">
       <ScrollToTop />
+      <PushNotificationManager />
       <div className="w-full max-w-[480px] lg:max-w-none min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl lg:shadow-none flex flex-col">
         {location.pathname !== '/welcome' && location.pathname !== '/auth-landing' && location.pathname !== '/' && location.pathname !== '/splash' && (
           <HeaderBar />

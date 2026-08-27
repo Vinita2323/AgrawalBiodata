@@ -109,6 +109,37 @@ export async function unregisterFcmToken() {
 }
 
 /**
+ * Displays a push that arrived while the tab was focused.
+ *
+ * FCM splits delivery: a focused tab receives the message in the page and the
+ * service worker's onBackgroundMessage never runs. Without this, notifications
+ * appeared only when the tab happened to be in the background, which reads as
+ * "sometimes it works". Rendered through the same service-worker registration
+ * the background path uses, so both look identical.
+ *
+ * @param {object} payload FCM message payload
+ */
+export async function showForegroundNotification(payload) {
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (!('serviceWorker' in navigator)) return;
+
+    const registration = await navigator.serviceWorker.ready;
+    const title = payload?.notification?.title || payload?.data?.title || 'Agrawal Matrimony';
+
+    await registration.showNotification(title, {
+      body: payload?.notification?.body || payload?.data?.body || '',
+      icon: '/favicon.svg',
+      // Collapses repeats of the same event instead of stacking duplicates.
+      tag: payload?.data?.notificationId || undefined,
+      data: payload?.data || {},
+    });
+  } catch (error) {
+    console.warn('[push] could not display a foreground notification:', error);
+  }
+}
+
+/**
  * Subscribes to messages received while the app tab is focused (the service
  * worker only fires for background/closed tabs).
  * @returns {Promise<Function>} unsubscribe function
@@ -121,4 +152,10 @@ export async function onForegroundPush(handler) {
   return onMessage(messaging, handler);
 }
 
-export default { registerFcmToken, registerFcmTokenIfPermitted, unregisterFcmToken, onForegroundPush };
+export default {
+  registerFcmToken,
+  registerFcmTokenIfPermitted,
+  unregisterFcmToken,
+  onForegroundPush,
+  showForegroundNotification,
+};
