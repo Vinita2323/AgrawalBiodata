@@ -93,9 +93,23 @@ if (env.NODE_ENV === 'production') {
   }
 
   if (env.SMS_PROVIDER === 'none') {
-    throw new Error(
-      'Refusing to start in production: SMS_PROVIDER is not configured. OTP login cannot work without a real SMS gateway. Set SMS_PROVIDER to msg91, twilio, or fast2sms.'
-    );
+    // Running live before an SMS gateway is contracted is a real situation.
+    // The wrong way out is NODE_ENV=development, which returns the OTP in the
+    // send-otp response and lets anyone sign in as anyone. Instead, allow a
+    // deliberate demo login that keeps every other production protection.
+    if (!env.DEMO_MODE) {
+      throw new Error(
+        'Refusing to start in production: SMS_PROVIDER is not configured. OTP login cannot work without a real SMS gateway. Set SMS_PROVIDER to msg91, twilio, or fast2sms - or, if you are still pre-launch, set DEMO_MODE=true together with a private DEMO_OTP_CODE.'
+      );
+    }
+
+    // In demo mode every account shares one OTP, so a guessable code is a
+    // full account takeover. Refuse the well-known default.
+    if (!process.env.DEMO_OTP_CODE || env.DEMO_OTP_CODE === '123456') {
+      throw new Error(
+        'Refusing to start in production: DEMO_MODE is on with no SMS gateway, so one fixed code logs in to every account. Set DEMO_OTP_CODE to a private 6-digit value - the "123456" default is not acceptable outside local development.'
+      );
+    }
   }
 }
 

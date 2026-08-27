@@ -106,6 +106,13 @@ if (require.main === module) {
 
       server.listen(env.PORT, () => {
         logger.info(`Server running in ${env.NODE_ENV} mode on port ${env.PORT}`);
+
+        // Demo login is a pre-launch stopgap, not a configuration anyone should
+        // drift into permanently - say so on every single boot.
+        if (env.DEMO_MODE) {
+          logger.warn('DEMO MODE: OTP delivery is disabled and one fixed code signs in to every account.');
+          logger.warn('DEMO MODE: anyone who learns that code can access any member. Configure SMS_PROVIDER before real users are onboarded.');
+        }
         logger.info(`API Base URL: http://localhost:${env.PORT}/api`);
         logger.info(`Socket.io listening on ws://localhost:${env.PORT}/socket.io`);
       });
