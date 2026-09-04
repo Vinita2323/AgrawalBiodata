@@ -317,7 +317,20 @@ async function request(endpoint, options = {}) {
 
   // Handle 401 Unauthorized with automatic refresh token rotation
   if (response.status === 401 && !skipRefresh && !url.includes('/auth/refresh-token') && !url.includes('/auth/login') && !url.includes('/auth/send-otp')) {
+    const isAdminRoute = typeof window !== 'undefined' && window.location?.pathname?.startsWith('/admin');
     const refreshToken = getRefreshToken();
+
+    // Admin sessions carry no refresh token, so an expired/invalid admin
+    // token can never be silently renewed - the session is simply over.
+    // Log out and send the admin back to sign in instead of surfacing a raw
+    // "invalid token" error that leaves the dashboard stuck on a Retry loop.
+    if (!refreshToken && isAdminRoute) {
+      clearAuthTokens();
+      if (!window.location.pathname.startsWith('/admin/login')) {
+        window.location.href = '/admin/login';
+      }
+      return new Promise(() => {}); // navigation is underway; never resolve
+    }
 
     if (refreshToken) {
       if (!isRefreshing) {
