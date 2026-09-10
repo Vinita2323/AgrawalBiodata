@@ -132,7 +132,11 @@ const COMPLAINT_CATEGORIES = [
   'Harassment',
   'Spam',
   'Financial Scam / Fraud',
-  'Misrepresentation of Gotra / Family'
+  'Misrepresentation of Gotra / Family',
+  'Child Safety Concern',
+  'Sexual Exploitation involving a minor',
+  'Suspected CSAM',
+  'Grooming or inappropriate interaction with a minor'
 ];
 
 const INTEREST_STATUS = {
@@ -147,6 +151,7 @@ const BLOCK_REASONS = [
   'Spam/Fake Profile',
   'Harassment',
   'Not Interested',
+  'Child Safety Concern',
   'Other'
 ];
 

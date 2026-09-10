@@ -64,6 +64,15 @@ const submitComplaint = async (req, res, next) => {
       return badRequest(res, 'You cannot report your own account');
     }
 
+    // Auto-escalate child safety concerns
+    const childSafetyCategories = [
+      'Child Safety Concern',
+      'Sexual Exploitation involving a minor',
+      'Suspected CSAM',
+      'Grooming or inappropriate interaction with a minor'
+    ];
+    const priority = childSafetyCategories.includes(category) ? 'CRITICAL' : 'LOW';
+
     const complaint = new Complaint({
       reporterUserId,
       reporterProfileId,
@@ -73,7 +82,8 @@ const submitComplaint = async (req, res, next) => {
       category: category || 'Other',
       description: description ? description.trim() : '',
       evidenceUrls: Array.isArray(evidenceUrls) ? evidenceUrls : [evidenceUrls].filter(Boolean),
-      status: 'Pending'
+      status: 'Pending',
+      priority
     });
 
     await complaint.save();

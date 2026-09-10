@@ -12,6 +12,9 @@ import {
   getContactQuota,
   getContactUnlockStatus,
 } from '../../../services/accountService'
+import api from '../../../services/api'
+import ReportModal from './ReportModal'
+import BlockModal from './BlockModal'
 
 export default function ProfileDetailScreen({ profile, onBack }) {
   const navigate = useNavigate()
@@ -27,6 +30,9 @@ export default function ProfileDetailScreen({ profile, onBack }) {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
   const [viewLimitReached, setViewLimitReached] = useState(false)
   const [viewLimitMessage, setViewLimitMessage] = useState('')
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false)
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -190,6 +196,31 @@ export default function ProfileDetailScreen({ profile, onBack }) {
     }
   }
 
+  const handleReportUser = async (reportData) => {
+    try {
+      await api.post('/complaints', {
+        reportedProfileId: targetId,
+        ...reportData
+      })
+      showToast('Report submitted successfully. Our safety team will review it.', 'success')
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Failed to submit report.', 'error')
+    }
+  }
+
+  const handleBlockUser = async (blockData) => {
+    try {
+      await api.post('/blocks', {
+        blockedProfileId: targetId,
+        ...blockData
+      })
+      showToast(`User blocked successfully.`, 'success')
+      navigate('/home') // Go back after blocking
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Failed to block user.', 'error')
+    }
+  }
+
   const displayName = p.fullName || p.name || 'Candidate Profile'
   const displayGotra = p.gotra || 'Agarwal'
   const displayMotherGotra = p.motherGotra || p.subGotra || 'Bansal'
@@ -234,14 +265,61 @@ export default function ProfileDetailScreen({ profile, onBack }) {
         <span className="font-display font-bold text-sm text-[#570013]">
           Complete Biodata Profile
         </span>
-        <button
-          onClick={handleShare}
-          className="text-[#570013] p-1.5 rounded-full hover:bg-amber-100/60 active:scale-95 transition flex items-center justify-center"
-          title="Share Biodata Profile"
-        >
-          <span className="material-symbols-outlined text-[20px]">share</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleShare}
+            className="text-[#570013] p-1.5 rounded-full hover:bg-amber-100/60 active:scale-95 transition flex items-center justify-center"
+            title="Share Biodata Profile"
+          >
+            <span className="material-symbols-outlined text-[20px]">share</span>
+          </button>
+          
+          {/* More Options Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="text-[#570013] p-1.5 rounded-full hover:bg-amber-100/60 active:scale-95 transition flex items-center justify-center"
+              title="More Options"
+            >
+              <span className="material-symbols-outlined text-[20px]">more_vert</span>
+            </button>
+            {showMoreMenu && (
+              <div className="absolute top-full right-0 mt-1 w-40 bg-white border border-amber-200 shadow-xl rounded-lg overflow-hidden z-30 flex flex-col">
+                <button
+                  onClick={() => { setShowMoreMenu(false); setIsReportModalOpen(true); }}
+                  className="px-4 py-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition"
+                >
+                  <span className="material-symbols-outlined text-[16px]">report</span>
+                  Report User
+                </button>
+                <button
+                  onClick={() => { setShowMoreMenu(false); setIsBlockModalOpen(true); }}
+                  className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition"
+                >
+                  <span className="material-symbols-outlined text-[16px]">block</span>
+                  Block User
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        targetId={targetId}
+        displayName={displayName}
+        onSubmitReport={handleReportUser}
+      />
+
+      <BlockModal
+        isOpen={isBlockModalOpen}
+        onClose={() => setIsBlockModalOpen(false)}
+        targetId={targetId}
+        displayName={displayName}
+        onSubmitBlock={handleBlockUser}
+      />
 
       {/* Fullscreen Image Preview Modal */}
       {isPreviewOpen && (

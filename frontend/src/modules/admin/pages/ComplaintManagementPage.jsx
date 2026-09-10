@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { adminDataService } from '../services/adminDataService'
 
@@ -148,6 +148,7 @@ export default function ComplaintManagementPage() {
                     <th className="py-4 px-4.5">Reported Profile</th>
                     <th className="py-4 px-4.5">Reported By</th>
                     <th className="py-4 px-4.5">Date</th>
+                    <th className="py-4 px-4.5">Priority</th>
                     <th className="py-4 px-4.5">Status</th>
                     <th className="py-4 px-4.5 text-right">Moderation Action</th>
                   </tr>
@@ -171,6 +172,19 @@ export default function ComplaintManagementPage() {
                         <td className="py-4 px-4.5 font-extrabold text-stone-900 text-sm">{item.reportedProfileName}</td>
                         <td className="py-4 px-4.5 font-bold text-stone-800 text-xs">{item.reporterUserName}</td>
                         <td className="py-4 px-4.5 text-stone-700 font-mono font-bold text-xs">{item.createdDate}</td>
+                        <td className="py-4 px-4.5">
+                          <span
+                            className={`px-3 py-1 rounded-md text-xs font-extrabold shadow-2xs border ${
+                              item.priority === 'CRITICAL'
+                                ? 'bg-red-600 text-white border-red-700 animate-pulse'
+                                : item.priority === 'HIGH'
+                                ? 'bg-orange-500 text-white border-orange-600'
+                                : 'bg-stone-100 text-stone-700 border-stone-300'
+                            }`}
+                          >
+                            {item.priority || 'LOW'}
+                          </span>
+                        </td>
                         <td className="py-4 px-4.5">
                           <span
                             className={`px-3 py-1 rounded-md text-xs font-extrabold shadow-2xs border ${

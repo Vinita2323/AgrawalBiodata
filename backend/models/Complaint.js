@@ -63,6 +63,12 @@ const complaintSchema = new mongoose.Schema(
       default: 'Pending',
       index: true
     },
+    priority: {
+      type: String,
+      enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+      default: 'LOW',
+      index: true
+    },
     resolutionAction: {
       type: String,
       enum: ['Warning Sent', 'User Suspended', 'Profile Removed', 'Dismissed', 'None', ''],
