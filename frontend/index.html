@@ -4,16 +4,184 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#570013" />
     <title>Vows of Elegance - Agarwal Matrimony</title>
-    <!-- Google Fonts -->
+
+    <!--
+      Google Fonts, loaded without blocking the first paint.
+      As plain stylesheets these two requests sat in front of every pixel: on a
+      slow connection the screen stayed empty until a third-party host replied.
+      media="print" makes the browser fetch them at low priority, and onload
+      promotes them to screen styles once they arrive. Both families already
+      have local fallbacks declared in index.css.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900&display=swap" rel="stylesheet">
-    <!-- Material Symbols Outlined -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900&display=swap">
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+    </noscript>
+
+    <!--
+      First-paint styles, inline so they need no network at all. Everything here
+      is thrown away the moment React mounts.
+    -->
+    <style>
+      #app-boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        background: #fbf9f5;
+        text-align: center;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      #app-boot img {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        object-fit: contain;
+        background: #fff;
+        box-shadow: 0 8px 30px rgba(87, 0, 19, 0.12);
+      }
+      #app-boot .boot-name {
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #570013;
+        margin: 0;
+      }
+      #app-boot .boot-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(87, 0, 19, 0.15);
+        border-top-color: #570013;
+        border-radius: 50%;
+        animation: boot-spin 0.8s linear infinite;
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      #app-boot .boot-failure { display: none; max-width: 320px; }
+      #app-boot.is-failed .boot-spinner { display: none; }
+      #app-boot.is-failed .boot-failure { display: block; }
+      #app-boot .boot-failure p {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #775a19;
+        margin: 0 0 18px;
+      }
+      #app-boot .boot-failure button {
+        width: 100%;
+        padding: 13px 24px;
+        border: 0;
+        border-radius: 999px;
+        background: #570013;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-boot .boot-spinner { animation-duration: 3s; }
+      }
+    </style>
   </head>
   <body class="bg-[#2a2928] text-[#1b1c1a] antialiased selection:bg-[#775a19] selection:text-white">
+    <!--
+      Shown from the very first frame and removed by main.jsx once React mounts.
+      Without it the page was blank - over a dark body background - for as long
+      as the bundle took to download and parse, which is what a Play reviewer on
+      a throttled connection reported as an app that does not open.
+    -->
+    <div id="app-boot">
+      <img src="/Logo (2).png" alt="Agarwal Biodata" />
+      <p class="boot-name">Agarwal Biodata</p>
+      <div class="boot-spinner"></div>
+      <div class="boot-failure">
+        <p>
+          The app could not finish loading. Check your internet connection and
+          try again.
+        </p>
+        <button type="button" id="app-boot-retry">Retry</button>
+      </div>
+    </div>
+
+    <noscript>
+      <div style="padding:40px 24px;text-align:center;font-family:sans-serif;color:#570013;">
+        <h1 style="font-size:18px;margin:0 0 10px;">JavaScript is required</h1>
+        <p style="font-size:14px;color:#775a19;margin:0;">
+          Please enable JavaScript in your browser settings to use Agarwal Biodata.
+        </p>
+      </div>
+    </noscript>
+
     <div id="root"></div>
+
+    <!--
+      Last-resort boot guard. It runs before the bundle and catches the failures
+      that React itself can never report, because React never starts: a bundle
+      that 404s (a device holding a stale index.html after a deploy), a parse
+      error, or a module-level throw. In all of those the page would otherwise
+      sit on the spinner forever.
+    -->
+    <script>
+      (function () {
+        var BOOT_TIMEOUT_MS = 20000;
+        var boot = document.getElementById('app-boot');
+        var timer = null;
+        var settled = false;
+
+        function fail() {
+          if (settled || !boot || !boot.parentNode) return;
+          settled = true;
+          if (timer) clearTimeout(timer);
+          boot.className = 'is-failed';
+        }
+
+        window.__appBooted = function () {
+          settled = true;
+          if (timer) clearTimeout(timer);
+          if (boot && boot.parentNode) boot.parentNode.removeChild(boot);
+        };
+
+        // A failed <script>/<link> fires a non-bubbling error event that only a
+        // capturing listener on window can see.
+        window.addEventListener('error', function (event) {
+          if (event && event.target && event.target !== window && event.target.tagName) {
+            fail();
+          }
+        }, true);
+
+        timer = setTimeout(fail, BOOT_TIMEOUT_MS);
+
+        var retry = document.getElementById('app-boot-retry');
+        if (retry) {
+          retry.addEventListener('click', function () {
+            // Cache-busted so a stale index.html pointing at a deleted bundle
+            // cannot simply be served again from the HTTP cache.
+            window.location.replace('/?reload=' + Date.now());
+          });
+        }
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -4,6 +4,7 @@
  */
 
 import { api } from './api';
+import safeStorage from '../utils/safeStorage';
 
 /** Serializes a params object into a query string, dropping empty values. */
 function qs(params = {}) {
@@ -19,10 +20,10 @@ function qs(params = {}) {
 export async function adminLogin(email, password) {
   const data = await api.post('/admin/auth/login', { email, password });
   if (data?.token) {
-    localStorage.setItem('adminToken', data.token);
-    localStorage.setItem('admin_token', data.token);
+    safeStorage.setItem('adminToken', data.token);
+    safeStorage.setItem('admin_token', data.token);
     if (data.admin) {
-      localStorage.setItem('admin_session', JSON.stringify({ token: data.token, admin: data.admin }));
+      safeStorage.setItem('admin_session', JSON.stringify({ token: data.token, admin: data.admin }));
     }
   }
   return data;

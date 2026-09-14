@@ -10,6 +10,7 @@
 
 import { getMessagingIfSupported } from '../firebase';
 import { saveFcmToken as saveFcmTokenOnBackend, removeFcmToken as removeFcmTokenOnBackend } from './notificationService';
+import safeStorage from '../utils/safeStorage';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 const STORAGE_KEY = 'fcm_token_web';
@@ -33,8 +34,8 @@ async function registerServiceWorker() {
  */
 export async function registerFcmToken(force = false) {
   try {
-    if (!force && localStorage.getItem(STORAGE_KEY)) {
-      return localStorage.getItem(STORAGE_KEY);
+    if (!force && safeStorage.getItem(STORAGE_KEY)) {
+      return safeStorage.getItem(STORAGE_KEY);
     }
 
     if (!VAPID_KEY) {
@@ -77,7 +78,7 @@ export async function registerFcmToken(force = false) {
     }
 
     await saveFcmTokenOnBackend(token);
-    localStorage.setItem(STORAGE_KEY, token);
+    safeStorage.setItem(STORAGE_KEY, token);
     return token;
   } catch (error) {
     console.error('FCM token registration failed:', error);
@@ -96,7 +97,7 @@ export async function registerFcmTokenIfPermitted() {
 
 /** Unregisters this browser's token from the backend, e.g. on logout. */
 export async function unregisterFcmToken() {
-  const token = localStorage.getItem(STORAGE_KEY);
+  const token = safeStorage.getItem(STORAGE_KEY);
   if (!token) return;
 
   try {
@@ -104,7 +105,7 @@ export async function unregisterFcmToken() {
   } catch {
     // Ignore - logout must proceed regardless.
   } finally {
-    localStorage.removeItem(STORAGE_KEY);
+    safeStorage.removeItem(STORAGE_KEY);
   }
 }
 

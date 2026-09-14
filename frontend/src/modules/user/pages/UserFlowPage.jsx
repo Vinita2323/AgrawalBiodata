@@ -1,35 +1,43 @@
-import React, { useState } from 'react'
+import React, { Suspense, lazy, useState } from 'react'
 import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import ScrollToTop from '../components/ScrollToTop'
+import ErrorBoundary from '../../../components/ErrorBoundary'
+import RouteFallback from '../../../components/RouteFallback'
+
+// Loaded up front: these are the screens a cold start can land on, so splitting
+// them would only put a round trip in front of the first paint.
 import AuthLandingScreen from '../components/AuthLandingScreen'
 import LoginScreen from '../components/LoginScreen'
 import CreateAccountScreen from '../components/CreateAccountScreen'
 import OtpVerificationScreen from '../components/OtpVerificationScreen'
-import AccountCreatedScreen from '../components/AccountCreatedScreen'
-import ProfileCompletionDashboardScreen from '../components/ProfileCompletionDashboardScreen'
-import DashboardScreen from '../components/DashboardScreen'
-import ProfileDetailScreen from '../components/ProfileDetailScreen'
-import MembershipScreen from '../components/MembershipScreen'
-import PaymentScreen from '../components/PaymentScreen'
-import SettingsScreen from '../components/SettingsScreen'
-import AccountSettingsScreen from '../components/AccountSettingsScreen'
-import NotificationSettingsScreen from '../components/NotificationSettingsScreen'
-import BlockedUsersScreen from '../components/BlockedUsersScreen'
-import VerificationScreen from '../components/VerificationScreen'
-import PartnerPreferencesScreen from '../components/PartnerPreferencesScreen'
-import AboutMatrimonyHubScreen from '../components/AboutMatrimonyHubScreen'
-import HelpSupportScreen from '../components/HelpSupportScreen'
-import TermsOfServiceScreen from '../components/TermsOfServiceScreen'
-import PrivacyPolicyScreen from '../components/PrivacyPolicyScreen'
-import CommunityGuidelinesScreen from '../components/CommunityGuidelinesScreen'
-import WelcomeScreen from '../components/WelcomeScreen'
 import HeaderBar from '../components/HeaderBar'
-import ManageProfilesScreen from '../components/ManageProfilesScreen'
+import GuestOnlyRoute from '../components/GuestOnlyRoute'
 import SignupOnlyRoute, { clearJustSignedUp } from '../components/SignupOnlyRoute'
 import PushNotificationManager from '../components/PushNotificationManager'
-import GuestOnlyRoute from '../components/GuestOnlyRoute'
 import { ActiveProfileProvider } from '../../../context/ActiveProfileContext'
 import { isAuthenticated } from '../../../services/authService'
+
+// Everything past sign-in is split out. DashboardScreen alone is over 3,000
+// lines, and none of this is needed to draw the screen a new visitor sees.
+const AccountCreatedScreen = lazy(() => import('../components/AccountCreatedScreen'))
+const ProfileCompletionDashboardScreen = lazy(() => import('../components/ProfileCompletionDashboardScreen'))
+const DashboardScreen = lazy(() => import('../components/DashboardScreen'))
+const ProfileDetailScreen = lazy(() => import('../components/ProfileDetailScreen'))
+const MembershipScreen = lazy(() => import('../components/MembershipScreen'))
+const PaymentScreen = lazy(() => import('../components/PaymentScreen'))
+const SettingsScreen = lazy(() => import('../components/SettingsScreen'))
+const AccountSettingsScreen = lazy(() => import('../components/AccountSettingsScreen'))
+const NotificationSettingsScreen = lazy(() => import('../components/NotificationSettingsScreen'))
+const BlockedUsersScreen = lazy(() => import('../components/BlockedUsersScreen'))
+const VerificationScreen = lazy(() => import('../components/VerificationScreen'))
+const PartnerPreferencesScreen = lazy(() => import('../components/PartnerPreferencesScreen'))
+const AboutMatrimonyHubScreen = lazy(() => import('../components/AboutMatrimonyHubScreen'))
+const HelpSupportScreen = lazy(() => import('../components/HelpSupportScreen'))
+const TermsOfServiceScreen = lazy(() => import('../components/TermsOfServiceScreen'))
+const PrivacyPolicyScreen = lazy(() => import('../components/PrivacyPolicyScreen'))
+const CommunityGuidelinesScreen = lazy(() => import('../components/CommunityGuidelinesScreen'))
+const WelcomeScreen = lazy(() => import('../components/WelcomeScreen'))
+const ManageProfilesScreen = lazy(() => import('../components/ManageProfilesScreen'))
 
 // A returning visitor with a valid stored session should land on their
 // dashboard, not be sent through the login screen again on every visit.
@@ -40,13 +48,20 @@ const RootRedirect = () => (
 export default function UserFlowPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [selectedProfile, setSelectedProfile] = useState(null)
   const [hasPremium, setHasPremium] = useState(false)
   const [checkout, setCheckout] = useState({ planId: null, billingCycle: 'monthly' })
 
+  /**
+   * Opens a candidate's biodata at its own address.
+   *
+   * The card travels in route state only so the screen can paint immediately;
+   * the id in the URL is what it actually loads from, so a refresh, a shared
+   * link and a notification tap all resolve to the same real profile.
+   */
   const handleSelectProfile = (profile) => {
-    setSelectedProfile(profile)
-    navigate('/profile-detail')
+    const id = profile?.profileId || profile?._id || profile?.id
+    if (!id) return
+    navigate(`/profile/${id}`, { state: { card: profile } })
   }
 
   return (
@@ -58,6 +73,13 @@ export default function UserFlowPage() {
         {location.pathname !== '/welcome' && location.pathname !== '/auth-landing' && location.pathname !== '/' && location.pathname !== '/splash' && (
           <HeaderBar />
         )}
+        {/*
+          A screen-level net, inside the chrome so the header survives a screen
+          that dies. Keyed on the path so recovering on one route does not leave
+          the boundary latched open on the next.
+        */}
+        <ErrorBoundary key={location.pathname} variant="screen">
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Root and splash go to the dashboard if already logged in, otherwise auth landing */}
           <Route path="/" element={<RootRedirect />} />
@@ -71,7 +93,6 @@ export default function UserFlowPage() {
                 <AuthLandingScreen
                   onStartCreate={() => navigate('/create-account')}
                   onStartLogin={() => navigate('/login')}
-                  onGuestBrowse={() => navigate('/home')}
                 />
               </GuestOnlyRoute>
             }
@@ -83,7 +104,6 @@ export default function UserFlowPage() {
                 <AuthLandingScreen
                   onStartCreate={() => navigate('/create-account')}
                   onStartLogin={() => navigate('/login')}
-                  onGuestBrowse={() => navigate('/home')}
                 />
               </GuestOnlyRoute>
             }
@@ -370,17 +390,18 @@ export default function UserFlowPage() {
             element={<CommunityGuidelinesScreen onBack={() => navigate('/about')} />}
           />
 
-          {/* Candidate Profile Detail Route */}
+          {/*
+            Candidate biodata, addressed by id.
+            This used to sit at a fixed /profile-detail with the candidate held
+            in React state, so a refresh, a shared link or a notification tap all
+            arrived with nothing to show and fell back to placeholder content.
+          */}
           <Route
-            path="/profile-detail"
-            element={
-              <ProfileDetailScreen
-                profile={selectedProfile}
-                isPremiumUser={hasPremium}
-                onBack={() => navigate('/home')}
-              />
-            }
+            path="/profile/:profileId"
+            element={<ProfileDetailScreen isPremiumUser={hasPremium} onBack={() => navigate(-1)} />}
           />
+          {/* Old address: nothing here identifies a candidate, so start over. */}
+          <Route path="/profile-detail" element={<Navigate to="/home" replace />} />
 
           {/* Multi-Profile Management (a parent running biodata for
               more than one child) */}
@@ -402,6 +423,8 @@ export default function UserFlowPage() {
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
+        </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
     </ActiveProfileProvider>

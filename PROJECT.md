@@ -46,11 +46,32 @@ phases closed those gaps.
 
 | P7 | Partner preferences applied to discovery | `preferenceMatcher.js` translates stored `partnerPreferences` into query clauses + post-query filters; applied by default on `/api/matches` and `/api/matches/today`, opt-in on `/api/matches/search`; explicit request filters override the saved preference for the same dimension; `preferenceFit` annotation and `totalBeforePreferences` counter; new `PartnerPreferencesScreen` makes them settable | DONE |
 
+### Play Store rejection remediation (Phase 8)
+
+Google Play removed the app on 14 Sep 2026 under the Broken Functionality
+policy — "Problems loading: your app does not open or load". The web app and API
+were both healthy; the failures were all client-side, and each one presents to a
+reviewer as an app that never opens.
+
+| # | Phase | Scope | Status |
+|---|-------|-------|--------|
+| P8 | Play "does not open or load" remediation | `ErrorBoundary` at app and screen level (a render error used to blank `#root` permanently); `safeStorage` wrapper so a WebView with DOM storage disabled cannot throw out of `isAuthenticated()` during the first render; inline boot screen plus a boot guard in `index.html` that reports a bundle which never arrives instead of spinning forever; route-level code splitting and on-demand PDF libraries, cutting the initial bundle from 1,450 kB to 412 kB; `no-store` on `index.html` across nginx/Vercel/Netlify so a cached shell cannot outlive its bundle; fabricated fallback biodata removed from `ProfileDetailScreen`; `/profile/:id` replaces the stateful `/profile-detail`; 15s request deadlines and an offline banner; `REVIEW_MOBILE`/`REVIEW_OTP_CODE` allowlist so a reviewer without an Indian SIM can sign in | DONE |
+
 ## Test & Build Status
-- Backend: **21 suites, 478 tests, all passing** (`npm test` in `backend/`)
+- Backend: **25 suites, 528 tests, all passing** (`npm test` in `backend/`)
 - Frontend: clean production build (`npm run build` in `frontend/`)
 
 ## Known remaining gaps
+- **The Android wrapper is not in this repository.** There is no `android/`,
+  Capacitor, Cordova, or Bubblewrap project here — only the web app and the API.
+  Whether the Play build is a TWA, a Capacitor shell, or a plain WebView changes
+  what else is required (a plain WebView must set `setDomStorageEnabled(true)`
+  and handle `onReceivedError`; a TWA additionally needs a web app manifest and a
+  reachable `/.well-known/assetlinks.json`, which the SPA catch-all currently
+  swallows). Phase 8 fixed everything that is fixable from this side.
+- **No PWA manifest, and Digital Asset Links cannot verify.** `/manifest.json`
+  and `/.well-known/assetlinks.json` both return `index.html` because of the SPA
+  rewrite. Deliberately deferred — only blocking if the Play build is a TWA.
 - **Email delivery is not built.** `EMAIL_PROVIDER`/`SMTP_*` config exists in `env.js`, but there is no `emailService.js`. The `weeklyDigestEmail` and `promotionalEmails` preferences are stored and have no consumer.
 - **Search quick-filter chips are decorative.** The backend supports diet/complexion/education/height/income filters; the `quickFilterGrid` chips in `DashboardScreen.jsx` do not yet call them.
 - **Unverified against live services**: SMS adapters (written from provider docs), the Razorpay Checkout round-trip, and the Socket.io transport layer (`realtime.js` has no automated coverage; the shared `chatService` write path it uses is covered).

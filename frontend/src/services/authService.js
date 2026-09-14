@@ -5,6 +5,7 @@
 
 import { api, setAuthTokens, clearAuthTokens } from './api';
 import { registerFcmTokenIfPermitted, unregisterFcmToken } from './pushNotificationService';
+import safeStorage from '../utils/safeStorage';
 
 /**
  * 1. Request 6-digit OTP code to mobile number
@@ -42,7 +43,7 @@ export async function verifyOtp(mobile, otp) {
   // Store user info if present
   if (data?.user) {
     try {
-      localStorage.setItem('user', JSON.stringify(data.user));
+      safeStorage.setItem('user', JSON.stringify(data.user));
     } catch {
       // Ignore localStorage error
     }
@@ -77,7 +78,7 @@ export async function register(userData) {
 
   if (data?.user) {
     try {
-      localStorage.setItem('user', JSON.stringify(data.user));
+      safeStorage.setItem('user', JSON.stringify(data.user));
     } catch {
       // Ignore localStorage error
     }
@@ -96,7 +97,7 @@ export async function getCurrentUser() {
   const data = await api.get('/auth/me');
   if (data?.user) {
     try {
-      localStorage.setItem('user', JSON.stringify(data.user));
+      safeStorage.setItem('user', JSON.stringify(data.user));
     } catch {
       // Ignore
     }
@@ -112,7 +113,7 @@ export const getMe = getCurrentUser;
  * @param {string} [token] Optional explicit refresh token
  */
 export async function refreshToken(token) {
-  const tokenToUse = token || localStorage.getItem('refreshToken') || localStorage.getItem('refresh_token');
+  const tokenToUse = token || safeStorage.getItem('refreshToken') || safeStorage.getItem('refresh_token');
   const data = await api.post('/auth/refresh-token', { refreshToken: tokenToUse }, { skipRefresh: true });
 
   if (data?.accessToken || data?.token) {
@@ -131,7 +132,7 @@ export async function refreshToken(token) {
  */
 export async function logout() {
   try {
-    const token = localStorage.getItem('refreshToken') || localStorage.getItem('refresh_token');
+    const token = safeStorage.getItem('refreshToken') || safeStorage.getItem('refresh_token');
     await unregisterFcmToken();
     await api.post('/auth/logout', { refreshToken: token }, { skipRefresh: true });
   } catch {
@@ -139,8 +140,8 @@ export async function logout() {
   } finally {
     clearAuthTokens();
     try {
-      localStorage.removeItem('user');
-      localStorage.removeItem('activeProfile');
+      safeStorage.removeItem('user');
+      safeStorage.removeItem('activeProfile');
       // The "account created" screen belongs to a single registration; a new
       // sign-in in this tab must not replay it.
       sessionStorage.removeItem('justSignedUp');
@@ -164,7 +165,7 @@ export async function logout() {
  * Check if a user is currently logged in locally
  */
 export function isAuthenticated() {
-  return Boolean(localStorage.getItem('token') || localStorage.getItem('accessToken'));
+  return Boolean(safeStorage.getItem('token') || safeStorage.getItem('accessToken'));
 }
 
 /**
@@ -172,7 +173,7 @@ export function isAuthenticated() {
  */
 export function getStoredUser() {
   try {
-    const raw = localStorage.getItem('user');
+    const raw = safeStorage.getItem('user');
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

@@ -33,6 +33,14 @@ const env = {
   OTP_COOLDOWN_SECONDS: parseInt(process.env.OTP_COOLDOWN_SECONDS || '30', 10),
   OTP_MAX_ATTEMPTS: parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10),
   OTP_WINDOW_MINUTES: parseInt(process.env.OTP_WINDOW_MINUTES || '10', 10),
+
+  // Store-review account. Google Play reviewers work from outside India and
+  // cannot receive an OTP on an Indian number, so without a way in they file
+  // the app as unusable. This grants exactly one allowlisted mobile a fixed
+  // code; every other number still goes through the real SMS gateway. Declare
+  // the pair in Play Console > App content > App access.
+  REVIEW_MOBILE: (process.env.REVIEW_MOBILE || '').replace(/\D/g, '').slice(-10),
+  REVIEW_OTP_CODE: process.env.REVIEW_OTP_CODE || '',
   
   // Razorpay
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
@@ -110,6 +118,34 @@ if (env.NODE_ENV === 'production') {
         'Refusing to start in production: DEMO_MODE is on with no SMS gateway, so one fixed code logs in to every account. Set DEMO_OTP_CODE to a private 6-digit value - the "123456" default is not acceptable outside local development.'
       );
     }
+  }
+}
+
+
+/**
+ * The review credential is a standing login handed to a third party, so it is
+ * configured deliberately or not at all. Checked outside the production block
+ * because a malformed pair should surface on a developer's machine, not on the
+ * deploy that the store is waiting on.
+ */
+if (env.REVIEW_MOBILE || env.REVIEW_OTP_CODE) {
+  if (env.REVIEW_MOBILE.length !== 10) {
+    throw new Error(
+      'Refusing to start: REVIEW_MOBILE must be a 10-digit Indian mobile number. It is the only number that can sign in with a fixed code.'
+    );
+  }
+  if (!/^\d{6}$/.test(env.REVIEW_OTP_CODE)) {
+    throw new Error(
+      'Refusing to start: REVIEW_MOBILE is set but REVIEW_OTP_CODE is not a 6-digit code. Both are required, or neither.'
+    );
+  }
+  // A guessable code is a deliberate trade-off, not a mistake to block on: the
+  // reviewer has to type it from a Play Console field, and the blast radius is
+  // one demo account. Warned about on every boot so it cannot be forgotten.
+  if (env.NODE_ENV === 'production' && ['123456', '000000', '111111'].includes(env.REVIEW_OTP_CODE)) {
+    console.warn(
+      `[config] REVIEW_OTP_CODE is a guessable code (${env.REVIEW_OTP_CODE}). Anyone who tries it can open the review account ${env.REVIEW_MOBILE}. Keep only demo data on it.`
+    );
   }
 }
 

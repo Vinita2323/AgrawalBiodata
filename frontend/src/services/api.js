@@ -6,6 +6,7 @@
  * automatic envelope unwrapping, multipart form upload support,
  * error normalization, and transparent 401 token refresh rotation.
  */
+import safeStorage from '../utils/safeStorage';
 
 /**
  * API origin.
@@ -17,6 +18,12 @@
  */
 const API_ORIGIN = (import.meta.env?.VITE_API_URL || '').replace(/\/+$/, '');
 const BASE_URL = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
+
+/** How long a request may run before it is treated as failed. */
+const DEFAULT_TIMEOUT_MS = 15000;
+
+/** Uploads move real files over mobile connections and need more room. */
+const UPLOAD_TIMEOUT_MS = 60000;
 
 /** Absolute origin for non-API assets such as /uploads/... image paths. */
 export const ASSET_ORIGIN = API_ORIGIN;
@@ -35,20 +42,18 @@ export function resolveAssetUrl(path) {
 }
 
 /**
- * Retrieve auth token from localStorage (supporting user and admin keys)
+ * Retrieve auth token from storage (supporting user and admin keys)
  */
 export function getAuthToken() {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  
   // If currently in the admin section, prioritize admin tokens
   const isAdminRoute = typeof window !== 'undefined' && window.location?.pathname?.startsWith('/admin');
 
   if (isAdminRoute) {
-    const adminToken = localStorage.getItem('adminToken') || localStorage.getItem('admin_token');
+    const adminToken = safeStorage.getItem('adminToken') || safeStorage.getItem('admin_token');
     if (adminToken) return adminToken;
 
     try {
-      const adminSession = localStorage.getItem('admin_session');
+      const adminSession = safeStorage.getItem('admin_session');
       if (adminSession) {
         const parsed = JSON.parse(adminSession);
         if (parsed?.token || parsed?.accessToken) {
@@ -59,15 +64,15 @@ export function getAuthToken() {
   }
 
   // Check standard user token keys
-  const token = localStorage.getItem('token') || 
-                localStorage.getItem('accessToken') || 
-                localStorage.getItem('adminToken') || 
-                localStorage.getItem('admin_token');
+  const token = safeStorage.getItem('token') || 
+                safeStorage.getItem('accessToken') || 
+                safeStorage.getItem('adminToken') || 
+                safeStorage.getItem('admin_token');
   if (token) return token;
 
   // Check structured admin session object
   try {
-    const adminSession = localStorage.getItem('admin_session');
+    const adminSession = safeStorage.getItem('admin_session');
     if (adminSession) {
       const parsed = JSON.parse(adminSession);
       if (parsed?.token || parsed?.accessToken) {
@@ -80,7 +85,7 @@ export function getAuthToken() {
 
   // Check structured user session object
   try {
-    const userSession = localStorage.getItem('user_session');
+    const userSession = safeStorage.getItem('user_session');
     if (userSession) {
       const parsed = JSON.parse(userSession);
       if (parsed?.token || parsed?.accessToken) {
@@ -94,7 +99,7 @@ export function getAuthToken() {
   return null;
 }
 
-/** localStorage key holding the candidate profile the UI is currently showing. */
+/** Storage key holding the candidate profile the UI is currently showing. */
 export const ACTIVE_PROFILE_ID_KEY = 'activeProfileId';
 
 /**
@@ -105,66 +110,53 @@ export const ACTIVE_PROFILE_ID_KEY = 'activeProfileId';
  * back to the account's stored active profile when this is absent.
  */
 export function getActiveProfileId() {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  try {
-    return localStorage.getItem(ACTIVE_PROFILE_ID_KEY) || null;
-  } catch {
-    return null;
-  }
+  return safeStorage.getItem(ACTIVE_PROFILE_ID_KEY) || null;
 }
 
 /** Records which profile subsequent requests should act as. */
 export function setActiveProfileId(profileId) {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-  try {
-    if (profileId) {
-      localStorage.setItem(ACTIVE_PROFILE_ID_KEY, profileId);
-    } else {
-      localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
-    }
-  } catch {
-    // Ignore quota / privacy-mode errors
+  if (profileId) {
+    safeStorage.setItem(ACTIVE_PROFILE_ID_KEY, profileId);
+  } else {
+    safeStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
   }
 }
 
 /**
- * Retrieve refresh token from localStorage
+ * Retrieve refresh token from storage
  */
 export function getRefreshToken() {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  return localStorage.getItem('refreshToken') || localStorage.getItem('refresh_token');
+  return safeStorage.getItem('refreshToken') || safeStorage.getItem('refresh_token');
 }
 
 /**
- * Store auth tokens into localStorage
+ * Store auth tokens into storage
  */
 export function setAuthTokens({ accessToken, token, refreshToken }) {
-  if (typeof window === 'undefined' || !window.localStorage) return;
   const primaryToken = accessToken || token;
   if (primaryToken) {
-    localStorage.setItem('token', primaryToken);
-    localStorage.setItem('accessToken', primaryToken);
+    safeStorage.setItem('token', primaryToken);
+    safeStorage.setItem('accessToken', primaryToken);
   }
   if (refreshToken) {
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('refresh_token', refreshToken);
+    safeStorage.setItem('refreshToken', refreshToken);
+    safeStorage.setItem('refresh_token', refreshToken);
   }
 }
 
 /**
- * Clear all auth tokens and session data from localStorage
+ * Clear all auth tokens and session data from storage
  */
 export function clearAuthTokens() {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-  localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
-  localStorage.removeItem('token');
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('adminToken');
-  localStorage.removeItem('admin_token');
-  localStorage.removeItem('admin_session');
-  localStorage.removeItem('user_session');
+  safeStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
+  safeStorage.removeItem('token');
+  safeStorage.removeItem('accessToken');
+  safeStorage.removeItem('refreshToken');
+  safeStorage.removeItem('refresh_token');
+  safeStorage.removeItem('adminToken');
+  safeStorage.removeItem('admin_token');
+  safeStorage.removeItem('admin_session');
+  safeStorage.removeItem('user_session');
 }
 
 /**
@@ -277,22 +269,67 @@ async function request(endpoint, options = {}) {
     reqBody = JSON.stringify(body);
   }
 
+  /**
+   * Every request is given a deadline.
+   *
+   * `fetch` has no timeout of its own, so a connection that opens and then
+   * stalls - a dropped mobile network, a wedged upstream - never settles. The
+   * caller's spinner then runs forever, which is indistinguishable from an app
+   * that has hung. Uploads get a longer budget because they legitimately take
+   * one.
+   */
+  const timeoutMs = restOptions.timeoutMs
+    ?? (body instanceof FormData ? UPLOAD_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+  delete restOptions.timeoutMs;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  // A caller-supplied signal still has to work, so abort on either.
+  const callerSignal = restOptions.signal;
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+  delete restOptions.signal;
+
   const fetchOptions = {
     method,
     headers: reqHeaders,
     body: reqBody,
-    ...restOptions
+    ...restOptions,
+    signal: controller.signal
   };
 
   let response;
   try {
     response = await fetch(url, fetchOptions);
   } catch (networkError) {
-    const error = new Error(networkError.message || 'Network connection failed');
+    // An abort the caller asked for is not a fault; ours means we ran out of time.
+    const isTimeout = networkError?.name === 'AbortError' && !callerSignal?.aborted;
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+
+    let message = 'Could not reach the server. Please try again.';
+    let code = 'NETWORK_ERROR';
+
+    if (callerSignal?.aborted) {
+      message = 'Request cancelled';
+      code = 'CANCELLED';
+    } else if (isOffline) {
+      message = 'You appear to be offline. Check your connection and try again.';
+      code = 'OFFLINE';
+    } else if (isTimeout) {
+      message = 'The server took too long to respond. Please try again.';
+      code = 'TIMEOUT';
+    }
+
+    const error = new Error(message);
     error.status = 0;
-    error.code = 'NETWORK_ERROR';
+    error.code = code;
     error.originalError = networkError;
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 
   // Parse response payload
@@ -336,12 +373,23 @@ async function request(endpoint, options = {}) {
       if (!isRefreshing) {
         isRefreshing = true;
         try {
-          const refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken })
-          });
-          const refreshPayload = await refreshRes.json();
+          // Deadlined like any other request: a stalled refresh would otherwise
+          // hold every queued caller open indefinitely.
+          const refreshController = new AbortController();
+          const refreshTimer = setTimeout(() => refreshController.abort(), DEFAULT_TIMEOUT_MS);
+          let refreshRes;
+          let refreshPayload;
+          try {
+            refreshRes = await fetch(`${BASE_URL}/auth/refresh-token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken }),
+              signal: refreshController.signal
+            });
+            refreshPayload = await refreshRes.json();
+          } finally {
+            clearTimeout(refreshTimer);
+          }
 
           if (refreshRes.ok && refreshPayload?.data?.accessToken) {
             const newAccessToken = refreshPayload.data.accessToken;

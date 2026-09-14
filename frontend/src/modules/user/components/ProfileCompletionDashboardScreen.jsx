@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { getMyProfile, createProfile, updateProfile, uploadProfilePhoto } from '../../../services/profileService'
 import { isAuthenticated } from '../../../services/authService'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
+import safeStorage from '../../../utils/safeStorage';
 
 /** Who an additional biodata is being created for. */
 const PROFILE_FOR_OPTIONS = ['Son', 'Daughter', 'Brother', 'Sister', 'Relative', 'Friend', 'Self']
@@ -142,7 +143,7 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
         }
       }
 
-      const regData = location.state?.formData || JSON.parse(localStorage.getItem('registrationData') || '{}')
+      const regData = location.state?.formData || JSON.parse(safeStorage.getItem('registrationData') || '{}')
       if (regData && Object.keys(regData).length > 0) {
         setFormData((prev) => ({
           ...prev,
@@ -215,14 +216,14 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
         }
       }
 
-      localStorage.setItem('userProfile', JSON.stringify(payload))
+      safeStorage.setItem('userProfile', JSON.stringify(payload))
       if (!silent) {
         showToast('Details saved to database successfully!', 'success')
       }
       return savedProfile
     } catch (err) {
       console.error('Save profile to database error:', err)
-      localStorage.setItem('userProfile', JSON.stringify(dataToSave))
+      safeStorage.setItem('userProfile', JSON.stringify(dataToSave))
       if (!silent) {
         showToast(err.message || 'Saved locally. Backend connection pending.', 'info')
       }
@@ -302,7 +303,7 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
               type="button"
               onClick={() => {
                 if (isEditing) {
-                  localStorage.setItem('userProfile', JSON.stringify(formData))
+                  safeStorage.setItem('userProfile', JSON.stringify(formData))
                   alert('Details saved successfully!')
                   setIsEditing(false)
                 } else {

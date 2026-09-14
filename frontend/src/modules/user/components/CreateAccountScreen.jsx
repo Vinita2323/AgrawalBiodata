@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sendOtp } from '../../../services/authService'
+import safeStorage from '../../../utils/safeStorage';
 
 export default function CreateAccountScreen({ onBack, onCreateAccount }) {
   const navigate = useNavigate()
@@ -32,7 +33,7 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
     setIsLoading(true)
     setErrorMsg('')
     try {
-      localStorage.setItem('registrationData', JSON.stringify(formData))
+      safeStorage.setItem('registrationData', JSON.stringify(formData))
       await sendOtp(formData.mobile)
       if (onCreateAccount) {
         onCreateAccount(formData)

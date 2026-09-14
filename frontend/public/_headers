@@ -1,0 +1,12 @@
+# Netlify header rules. The nginx equivalent lives in VPS-Deployment-SOP.md and
+# the Vercel one in vercel.json - all three exist so no host can silently cache
+# the shell.
+
+/index.html
+  Cache-Control: no-store, must-revalidate
+
+/firebase-messaging-sw.js
+  Cache-Control: no-store, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

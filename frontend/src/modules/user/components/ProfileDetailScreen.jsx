@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { sendInterest, getInterestStatus } from '../../../services/interestService'
 import { addToShortlist, recordVisitor } from '../../../services/socialService'
 import { getMatchScore } from '../../../services/matchService'
@@ -13,8 +13,10 @@ import {
   getContactUnlockStatus,
 } from '../../../services/accountService'
 
-export default function ProfileDetailScreen({ profile, onBack }) {
+export default function ProfileDetailScreen({ onBack }) {
   const navigate = useNavigate()
+  const { profileId } = useParams()
+  const location = useLocation()
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isShortlisted, setIsShortlisted] = useState(false)
   const [isInterestSent, setIsInterestSent] = useState(false)
@@ -27,68 +29,63 @@ export default function ProfileDetailScreen({ profile, onBack }) {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
   const [viewLimitReached, setViewLimitReached] = useState(false)
   const [viewLimitMessage, setViewLimitMessage] = useState('')
+  const [notFound, setNotFound] = useState(false)
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
   }
 
-  const cardProfile = profile
-  const targetId = cardProfile?.profileId || cardProfile?._id || cardProfile?.id
-  const p = fullDetail || cardProfile || {
-    fullName: 'Priya Garg',
-    name: 'Priya Garg',
-    gender: 'Female',
-    age: 26,
-    height: "5'4\"",
-    gotra: 'Garg',
-    motherGotra: 'Bansal',
-    dob: '1998-05-14',
-    tob: '08:30 AM',
-    pob: 'Jaipur, Rajasthan',
-    complexion: 'Fair',
-    manglik: 'Non-Manglik',
-    qualification: 'M.Tech, Software Engineer',
-    workingAt: 'TCS Digital',
-    income: '15-20 LPA',
-    hobbies: 'Classical Dance, Reading, Travelling',
-    grandfather: 'Late Sh. Ramcharan Garg',
-    grandmother: 'Smt. Shanti Devi',
-    father: 'Sh. Rameshwar Garg',
-    fatherOccupation: 'Business',
-    fatherOccupationDetails: 'Owner, Garg Textile Mills',
-    mother: 'Smt. Sunita Garg',
-    brotherList: [{ name: 'Aman Garg', status: 'Married', spouseName: 'Pooja Garg', homePlace: 'Delhi' }],
-    sisterList: [{ name: 'Neha Garg', status: 'Married', spouseName: 'Rahul Agrawal', homePlace: 'Indore' }],
-    taujiList: [{ name: 'Sh. Suresh Garg', status: 'Married', spouseName: 'Smt. Anita Garg', homePlace: 'Jaipur' }],
-    chachaList: [{ name: 'Sh. Dinesh Garg', status: 'Married', spouseName: 'Smt. Meena Garg', homePlace: 'Ahmedabad' }],
-    buajiList: [{ name: 'Smt. Rekha Agrawal', status: 'Married', spouseName: 'Sh. Mohan Agrawal', homePlace: 'Udaipur' }],
-    mamajiList: [{ name: 'Sh. Vijay Bansal', status: 'Married', spouseName: 'Smt. Geeta Bansal', homePlace: 'Kota' }],
-    residentialAddress: '104, Agrasen Nagar, Gopalpura Bypass, Jaipur, Rajasthan',
-    mobileNumber: '+91 98290 XXXXX',
-    city: 'Jaipur, Rajasthan',
-    matchScore: 95,
-    verified: true,
-    image: '',
-  }
+  /**
+   * The listing card this screen was opened from, when there is one.
+   *
+   * A convenience for painting immediately - never the source of truth. The id
+   * in the URL is. Arriving with no card at all (a refresh, a shared link, a
+   * notification tap) is an ordinary case, not a reason to invent a candidate:
+   * this screen used to fall back to a fully fabricated biodata, which shipped
+   * an imaginary person to anyone who opened it that way.
+   */
+  const cardProfile = location.state?.card || null
+  const targetId = profileId || cardProfile?.profileId || cardProfile?._id || cardProfile?.id
+  const p = fullDetail || cardProfile
 
   useEffect(() => {
     async function initProfileDetail() {
-      if (!targetId || !isAuthenticated()) return
+      if (!targetId) {
+        setNotFound(true)
+        return
+      }
+
+      // Biodata is members-only. Sending them to sign in is the honest answer;
+      // rendering a stand-in candidate was not.
+      if (!isAuthenticated()) {
+        navigate('/login', { replace: true })
+        return
+      }
 
       // Match/search listings only carry card-level fields; the full biodata
       // (family tree, contact block, bio, etc.) is a plan-metered view.
       setIsLoadingDetail(true)
       try {
         const res = await getProfileById(targetId)
-        setFullDetail(res?.profile || null)
+        const loaded = res?.profile || null
+        setFullDetail(loaded)
         setViewLimitReached(false)
+        // With no card to fall back on, an empty response means there is
+        // nothing here to show.
+        if (!loaded && !cardProfile) setNotFound(true)
       } catch (err) {
         if (err?.code === 'MATCH_VIEW_LIMIT_REACHED') {
           setViewLimitReached(true)
           setViewLimitMessage(err.message || 'You have reached your daily profile view limit.')
           return
         }
+        if (err?.status === 404 || err?.code === 'NOT_FOUND') {
+          setNotFound(true)
+          return
+        }
+        // A transient failure with a card in hand still has something to show.
+        if (!cardProfile) setNotFound(true)
         console.warn('Profile detail fetch note:', err)
       } finally {
         setIsLoadingDetail(false)
@@ -190,33 +187,114 @@ export default function ProfileDetailScreen({ profile, onBack }) {
     }
   }
 
+  /**
+   * Nothing to render yet.
+   *
+   * Reached whenever the screen was opened by id alone - a refresh, a shared
+   * link, a notification tap - so it is the normal first frame, not an edge
+   * case. A spinner is the honest answer; the fabricated candidate that used to
+   * stand in here was not.
+   */
+  if (!p && isLoadingDetail) {
+    return (
+      <div className="bg-[#fbf9f5] min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 rounded-full border-[3px] border-[#570013]/15 border-t-[#570013] animate-spin" />
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#775a19]">
+          Loading biodata
+        </p>
+      </div>
+    )
+  }
+
+  if (!p) {
+    const hitViewLimit = viewLimitReached && !notFound
+    return (
+      <div className="bg-[#fbf9f5] min-h-screen flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-[#570013]/10 flex items-center justify-center mb-5">
+          <span className="material-symbols-outlined text-[32px] text-[#570013]">
+            {hitViewLimit ? 'lock' : 'person_off'}
+          </span>
+        </div>
+        <h1 className="font-display text-xl font-bold text-[#570013] mb-2">
+          {hitViewLimit ? 'Daily view limit reached' : 'Profile not available'}
+        </h1>
+        <p className="text-sm text-[#775a19] max-w-xs leading-relaxed mb-7">
+          {hitViewLimit
+            ? viewLimitMessage || 'You have reached your daily profile view limit. Please try again tomorrow.'
+            : 'This biodata may have been removed, or the link you followed is no longer valid.'}
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-[260px]">
+          {hitViewLimit && (
+            <button
+              type="button"
+              onClick={() => navigate('/membership')}
+              className="w-full py-3 rounded-full bg-[#570013] text-white text-sm font-bold shadow-lg active:scale-[0.98] transition-transform"
+            >
+              See membership plans
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className={`w-full py-3 rounded-full text-sm font-bold active:scale-[0.98] transition-transform ${
+              hitViewLimit
+                ? 'border border-[#775a19]/30 text-[#775a19]'
+                : 'bg-[#570013] text-white shadow-lg'
+            }`}
+          >
+            Browse other profiles
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+
+  // Real biodata is often partial. Inventing a plausible value for a missing
+  // field - a grandfather's name, a salary band, an employer - attributes
+  // fiction to a real family, and Play reads that as placeholder content.
+  const NOT_SPECIFIED = 'Not specified'
+
   const displayName = p.fullName || p.name || 'Candidate Profile'
-  const displayGotra = p.gotra || 'Agarwal'
-  const displayMotherGotra = p.motherGotra || p.subGotra || 'Bansal'
-  const displayHeight = p.height || "5'4\""
-  const displayCity = p.city || p.pob || 'Rajasthan'
+  const displayGotra = p.gotra || NOT_SPECIFIED
+  const displayMotherGotra = p.motherGotra || p.subGotra || NOT_SPECIFIED
+  const displayHeight = p.height || NOT_SPECIFIED
+  const displayCity = p.city || p.pob || NOT_SPECIFIED
   const profileImgSrc = resolveAssetUrl(p.image || p.profilePicture)
 
   const handleShare = async () => {
+    // Built from the id rather than read off the address bar, so the link stays
+    // correct whatever query string or scroll state the current URL carries.
+    const shareUrl = targetId
+      ? `${window.location.origin}/profile/${targetId}`
+      : window.location.origin
+
     const shareData = {
       title: `${displayName} - Agrawal Biodata Profile`,
       text: `Check out the biodata profile of ${displayName} (${displayGotra} Gotra, ${displayCity}) on Agrawal Biodata!`,
-      url: window.location.href,
+      url: shareUrl,
     }
 
     if (navigator.share) {
       try {
         await navigator.share(shareData)
+        return
       } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Error sharing:', err)
-        }
+        // Dismissing the sheet is not a failure worth reporting.
+        if (err?.name === 'AbortError') return
+        console.warn('Native share unavailable, falling back to copy:', err)
       }
-    } else if (navigator.clipboard) {
-      await navigator.clipboard.writeText(window.location.href)
-      alert('Profile link copied to clipboard!')
-    } else {
-      alert(`Share link for ${displayName}: ${window.location.href}`)
+    }
+
+    // writeText rejects outside a secure context and wherever clipboard
+    // permission is refused - an unhandled rejection here used to be the only
+    // signal that sharing had failed.
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard API unavailable')
+      await navigator.clipboard.writeText(shareUrl)
+      showToast('Profile link copied to clipboard')
+    } catch {
+      showToast(`Share this link: ${shareUrl}`, 'info')
     }
   }
 
@@ -324,10 +402,18 @@ export default function ProfileDetailScreen({ profile, onBack }) {
             </div>
 
             <div className="text-left flex-grow min-w-0">
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#570013] text-[#ffdea5] text-[10px] font-bold rounded-full mb-1 shadow-2xs">
-                <span className="material-symbols-outlined text-[12px]">star</span>
-                <span>{p.matchScore || 95}% Match Score</span>
-              </div>
+              {/*
+                The server-computed score is what this shows, falling back to the
+                one the listing card carried. When neither exists the badge is
+                simply absent - it used to display a flat "95% Match Score" for
+                every candidate whose score had not been calculated.
+              */}
+              {(liveScore?.totalScore ?? p.matchScore) != null && (
+                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#570013] text-[#ffdea5] text-[10px] font-bold rounded-full mb-1 shadow-2xs">
+                  <span className="material-symbols-outlined text-[12px]">star</span>
+                  <span>{Math.round(liveScore?.totalScore ?? p.matchScore)}% Match Score</span>
+                </div>
+              )}
 
               <h1 className="font-display text-xl sm:text-2xl font-bold text-[#570013] flex items-center justify-start gap-1.5 mb-0.5 leading-tight tracking-tight">
                 <span className="truncate">{displayName}</span>
@@ -364,7 +450,7 @@ export default function ProfileDetailScreen({ profile, onBack }) {
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Gender</span>
-              <span className="font-bold text-slate-800">{p.gender || 'Female'}</span>
+              <span className="font-bold text-slate-800">{p.gender || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Paternal Gotra</span>
@@ -376,11 +462,11 @@ export default function ProfileDetailScreen({ profile, onBack }) {
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Complexion</span>
-              <span className="font-bold text-slate-800">{p.complexion || 'Fair'}</span>
+              <span className="font-bold text-slate-800">{p.complexion || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Hobbies</span>
-              <span className="font-bold text-slate-800">{p.hobbies || 'Music, Reading'}</span>
+              <span className="font-bold text-slate-800">{p.hobbies || NOT_SPECIFIED}</span>
             </div>
           </div>
         </div>
@@ -398,20 +484,20 @@ export default function ProfileDetailScreen({ profile, onBack }) {
               <span className="font-bold text-slate-800">
                 {p.dob
                   ? new Date(p.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-                  : '14 May 1998'}
+                  : NOT_SPECIFIED}
               </span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Time of Birth</span>
-              <span className="font-bold text-slate-800">{p.tob || '08:30 AM'}</span>
+              <span className="font-bold text-slate-800">{p.tob || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Place of Birth</span>
-              <span className="font-bold text-slate-800">{p.pob || 'Jaipur, Rajasthan'}</span>
+              <span className="font-bold text-slate-800">{p.pob || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Manglik Status</span>
-              <span className="font-bold text-[#570013]">{p.manglik || 'Non-Manglik'}</span>
+              <span className="font-bold text-[#570013]">{p.manglik || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Paternal Gotra</span>
@@ -434,15 +520,15 @@ export default function ProfileDetailScreen({ profile, onBack }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Highest Qualification</span>
-              <span className="font-bold text-slate-800">{p.qualification || 'M.Tech'}</span>
+              <span className="font-bold text-slate-800">{p.qualification || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Working At</span>
-              <span className="font-bold text-slate-800">{p.workingAt || 'TCS'}</span>
+              <span className="font-bold text-slate-800">{p.workingAt || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Annual Income</span>
-              <span className="font-bold text-emerald-700">{p.income || '12-15 LPA'}</span>
+              <span className="font-bold text-emerald-700">{p.income || NOT_SPECIFIED}</span>
             </div>
           </div>
         </div>
@@ -457,23 +543,23 @@ export default function ProfileDetailScreen({ profile, onBack }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Grandfather</span>
-              <span className="font-bold text-slate-800">{p.grandfather || 'Late Sh. Ramcharan Garg'}</span>
+              <span className="font-bold text-slate-800">{p.grandfather || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Grandmother</span>
-              <span className="font-bold text-slate-800">{p.grandmother || 'Smt. Shanti Devi'}</span>
+              <span className="font-bold text-slate-800">{p.grandmother || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Father</span>
-              <span className="font-bold text-slate-800">{p.father || 'Sh. Rameshwar Garg'}</span>
+              <span className="font-bold text-slate-800">{p.father || NOT_SPECIFIED}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Father's Occupation</span>
-              <span className="font-bold text-slate-800">{p.fatherOccupation || 'Business'} {p.fatherOccupationDetails ? `(${p.fatherOccupationDetails})` : ''}</span>
+              <span className="font-bold text-slate-800">{p.fatherOccupation || NOT_SPECIFIED} {p.fatherOccupationDetails ? `(${p.fatherOccupationDetails})` : ''}</span>
             </div>
             <div>
               <span className="text-gray-400 font-medium block text-[10px] uppercase">Mother</span>
-              <span className="font-bold text-slate-800">{p.mother || 'Smt. Sunita Garg'}</span>
+              <span className="font-bold text-slate-800">{p.mother || NOT_SPECIFIED}</span>
             </div>
           </div>
         </div>

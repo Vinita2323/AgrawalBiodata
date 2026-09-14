@@ -19,6 +19,28 @@ class OtpService {
   }
 
   /**
+   * Whether this number is the allowlisted store-review account.
+   * @param {string} normalizedMobile 10-digit number
+   */
+  isReviewMobile(normalizedMobile) {
+    return Boolean(env.REVIEW_MOBILE) && normalizedMobile === env.REVIEW_MOBILE;
+  }
+
+  /**
+   * Generates the OTP for a given number.
+   *
+   * The review account always gets its fixed code so a Play reviewer can sign
+   * in without an Indian SIM. Everyone else gets a fresh random code - the
+   * allowlist is one number wide, not a mode the whole system drops into.
+   * @param {string} normalizedMobile 10-digit number
+   * @returns {string}
+   */
+  generateOtpFor(normalizedMobile) {
+    if (this.isReviewMobile(normalizedMobile)) return env.REVIEW_OTP_CODE;
+    return this.generate6DigitOtp();
+  }
+
+  /**
    * Normalizes mobile phone number to standard 10-digit format
    * @param {string} mobile 
    * @returns {string}
@@ -44,6 +66,14 @@ class OtpService {
    * @returns {Promise<{ success: boolean, error?: string, code?: string }>}
    */
   async dispatchOtp(mobile, otpCode) {
+    // The review account's number is not a SIM anyone holds - sending to it
+    // would burn gateway credit on a message nobody reads, and a gateway
+    // failure would lock the reviewer out.
+    if (this.isReviewMobile(mobile)) {
+      logger.info(`[REVIEW ACCOUNT] OTP requested for the allowlisted store-review number (no SMS sent)`);
+      return { success: true };
+    }
+
     if (env.DEMO_MODE) {
       logger.info(`[DEMO MODE] OTP for ${mobile} is ${otpCode} (no SMS sent)`);
       return { success: true };
@@ -121,7 +151,7 @@ class OtpService {
       }
 
       // Generate new OTP
-      const otpCode = this.generate6DigitOtp();
+      const otpCode = this.generateOtpFor(mobile);
       otpDoc.otp = otpCode;
       otpDoc.expiresAt = new Date(now.getTime() + expiryMs);
       otpDoc.cooldownUntil = new Date(now.getTime() + cooldownMs);
@@ -146,7 +176,7 @@ class OtpService {
     }
 
     // First time OTP request for this mobile
-    const otpCode = this.generate6DigitOtp();
+    const otpCode = this.generateOtpFor(mobile);
     otpDoc = new OTP({
       mobile,
       otp: otpCode,

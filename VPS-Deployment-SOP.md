@@ -276,12 +276,34 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
+    location = /index.html {             # never cache the shell - see below
+        add_header Cache-Control "no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+
+    location = /firebase-messaging-sw.js {   # a stale worker outlives a deploy
+        add_header Cache-Control "no-store, must-revalidate";
+    }
+
     location / { try_files $uri /index.html; }   # SPA fallback
 
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
 }
 ```
+
+**Why `index.html` must not be cached.** The build emits content-hashed
+filenames under `/assets/`, so those are safe to cache forever. `index.html` is
+the one file that names them, and nginx sends no `Cache-Control` for it by
+default — browsers then apply heuristic freshness and hold it for hours. After
+the next deploy those devices ask for a bundle that no longer exists, get a 404,
+and render a blank screen with no way to recover. It looks exactly like a broken
+app, it survives redeploys, and it is invisible from the server side. The
+`no-store` block above is what prevents it.
+
+The same applies to `firebase-messaging-sw.js`: a cached service worker keeps
+serving the previous deploy's behaviour until it happens to update.
+
 ```bash
 mv nginx.conf /etc/nginx/sites-available/<domain>
 ln -sf /etc/nginx/sites-available/<domain> /etc/nginx/sites-enabled/

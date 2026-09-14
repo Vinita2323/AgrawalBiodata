@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import safeStorage from '../../../utils/safeStorage';
 
 const AdminAuthContext = createContext()
 
 export function AdminAuthProvider({ children }) {
   const [adminUser, setAdminUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('admin_session')
+      const saved = safeStorage.getItem('admin_session')
       const parsed = saved ? JSON.parse(saved) : null
       // A session without a token cannot authenticate any request, so treat it
       // as logged out rather than rendering a shell that 401s on every call.
@@ -41,7 +42,7 @@ export function AdminAuthProvider({ children }) {
       }
 
       setAdminUser(userObj)
-      localStorage.setItem('admin_session', JSON.stringify(userObj))
+      safeStorage.setItem('admin_session', JSON.stringify(userObj))
       return { success: true }
     } catch (err) {
       if (err?.status === 0) {
@@ -59,9 +60,9 @@ export function AdminAuthProvider({ children }) {
 
   const logout = () => {
     setAdminUser(null)
-    localStorage.removeItem('admin_session')
-    localStorage.removeItem('adminToken')
-    localStorage.removeItem('admin_token')
+    safeStorage.removeItem('admin_session')
+    safeStorage.removeItem('adminToken')
+    safeStorage.removeItem('admin_token')
   }
 
   return (

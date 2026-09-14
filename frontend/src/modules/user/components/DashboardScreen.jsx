@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
 import HeaderBar from './HeaderBar'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
 import { avatarSrc, handleAvatarError } from '../../../utils/avatar'
@@ -55,6 +53,7 @@ import {
   emitConversationRead,
 } from '../../../services/socket'
 import { resolveAssetUrl } from '../../../services/api'
+import safeStorage from '../../../utils/safeStorage';
 
 /** Renders an ISO timestamp as a short relative label ("10 min ago"). */
 function relativeTime(value) {
@@ -95,6 +94,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     // Allow UI thread to repaint spinner & disabled button state before heavy canvas processing
     setTimeout(async () => {
       try {
+        // Loaded on demand: html2canvas and jsPDF are ~450 kB together and only a
+        // fraction of members ever export a biodata PDF. Bundling them eagerly
+        // delayed the first screen for everyone.
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+          import('html2canvas'),
+          import('jspdf'),
+        ])
+
         const rawName = userProfile?.fullName ? userProfile.fullName.trim().replace(/\s+/g, '_') : 'Profile'
         const formattedFilename = `Biodata_${rawName}.pdf`
 
@@ -259,6 +266,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       ? getVisitors({ limit: 20 }).then((res) =>
           (res?.visitors || []).map((v) => ({
             id: v.id || v._id,
+            // The visit record's own id is not the visitor's biodata id; without
+            // this the "View Profile" button had nothing to open.
+            profileId: v.visitorProfileId?.profileId || v.visitorProfileId?._id || null,
             name: v.visitorProfileId?.fullName || 'A member',
             city: v.visitorProfileId?.city || '',
             time: relativeTime(v.lastVisitedAt || v.createdAt),
@@ -351,7 +361,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
   useEffect(() => {
     async function loadDashboardData() {
-      const savedProfile = localStorage.getItem('userProfile')
+      const savedProfile = safeStorage.getItem('userProfile')
       if (savedProfile) {
         try {
           setUserProfile(JSON.parse(savedProfile))
@@ -1529,7 +1539,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             <button
               onClick={async () => {
                 await logout()
-                localStorage.removeItem('userProfile')
+                safeStorage.removeItem('userProfile')
                 navigate('/welcome', { replace: true })
               }}
               className="mt-5 w-full bg-white border border-red-100 text-red-600 font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-red-50 active:scale-95 transition"
@@ -3098,9 +3108,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                           <p className="text-[10px] text-slate-500">{v.city} • {v.time}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => { setActiveModal(null); navigate('/profile-detail'); }}
-                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition"
+                      <button
+                        disabled={!v.profileId}
+                        onClick={() => {
+                          setActiveModal(null)
+                          onSelectProfile && onSelectProfile(v)
+                        }}
+                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none"
                       >
                         View Profile
                       </button>
@@ -3127,9 +3141,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                           <p className="text-[10px] text-slate-500">{s.profession} • {s.city}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => { setActiveModal(null); navigate('/profile-detail'); }}
-                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition"
+                      <button
+                        disabled={!s.profileId}
+                        onClick={() => {
+                          setActiveModal(null)
+                          onSelectProfile && onSelectProfile(s)
+                        }}
+                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none"
                       >
                         Open Profile
                       </button>

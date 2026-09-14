@@ -4,6 +4,7 @@
  */
 
 import { api, setActiveProfileId } from './api';
+import safeStorage from '../utils/safeStorage';
 
 /**
  * Caches the profile the UI is showing and pins subsequent requests to it.
@@ -12,7 +13,7 @@ import { api, setActiveProfileId } from './api';
 function rememberActiveProfile(profile) {
   if (!profile) return;
   try {
-    localStorage.setItem('activeProfile', JSON.stringify(profile));
+    safeStorage.setItem('activeProfile', JSON.stringify(profile));
   } catch {
     // Ignore quota / privacy-mode errors
   }

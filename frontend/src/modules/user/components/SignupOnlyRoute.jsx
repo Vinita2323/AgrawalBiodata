@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { isAuthenticated } from '../../../services/authService'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
+import RouteFallback from '../../../components/RouteFallback'
 
 /** sessionStorage key marking a signup that has just completed. */
 const SIGNUP_FLAG = 'justSignedUp'
@@ -61,9 +62,11 @@ export default function SignupOnlyRoute({ children }) {
   }
 
   // Wait for the profile list before choosing, otherwise a slow load would
-  // bounce an established member into onboarding.
+  // bounce an established member into onboarding. Shown as a spinner rather
+  // than null: a blank screen here is exactly what "the app does not load"
+  // looks like from the outside.
   if (isLoading && profiles.length === 0) {
-    return null
+    return <RouteFallback />
   }
 
   return <Navigate to={profiles.length > 0 ? '/home' : '/profile-completion-dashboard'} replace />

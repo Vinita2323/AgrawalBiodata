@@ -113,6 +113,13 @@ if (require.main === module) {
           logger.warn('DEMO MODE: OTP delivery is disabled and one fixed code signs in to every account.');
           logger.warn('DEMO MODE: anyone who learns that code can access any member. Configure SMS_PROVIDER before real users are onboarded.');
         }
+
+        // A standing credential handed to a third party deserves to be visible
+        // on every boot, so it is never left enabled by accident.
+        if (env.REVIEW_MOBILE) {
+          logger.warn(`REVIEW ACCOUNT: ${env.REVIEW_MOBILE} signs in with a fixed OTP and receives no SMS.`);
+          logger.warn('REVIEW ACCOUNT: keep no real personal data on it, and rotate REVIEW_OTP_CODE once the store review is finished.');
+        }
         logger.info(`API Base URL: http://localhost:${env.PORT}/api`);
         logger.info(`Socket.io listening on ws://localhost:${env.PORT}/socket.io`);
       });

@@ -6,6 +6,7 @@ import {
   onForegroundPush,
   showForegroundNotification,
 } from '../../../services/pushNotificationService'
+import safeStorage from '../../../utils/safeStorage'
 
 /**
  * Marks that this browser has already been shown the permission prompt, so a
@@ -20,7 +21,7 @@ const PROMPT_DELAY_MS = 4000
 
 function hasAsked() {
   try {
-    return localStorage.getItem(ASKED_KEY) === '1'
+    return safeStorage.getItem(ASKED_KEY) === '1'
   } catch {
     return false
   }
@@ -28,7 +29,7 @@ function hasAsked() {
 
 function markAsked() {
   try {
-    localStorage.setItem(ASKED_KEY, '1')
+    safeStorage.setItem(ASKED_KEY, '1')
   } catch {
     // Private-mode storage failures should not block the prompt itself.
   }
