@@ -210,6 +210,7 @@ function normalizeComplaint(c) {
     reporterUserName: reporter?.name || '',
     reason: c.reason || '',
     description: c.description || '',
+    priority: c.priority || 'LOW',
     status,
     rawStatus: c.status,
     createdDate: formatDateTime(c.createdAt),
