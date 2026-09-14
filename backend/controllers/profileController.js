@@ -118,6 +118,18 @@ const createProfile = async (req, res, next) => {
     if (!dob) {
       return badRequest(res, 'Date of birth is required', null, 'VALIDATION_ERROR');
     }
+
+    // Server-side age validation (minimum 18 years)
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    if (age < 18) {
+      return badRequest(res, 'You must be at least 18 years old to create a profile.', null, 'MIN_AGE_RESTRICTION');
+    }
     if (!gotra || !gotra.trim()) {
       return badRequest(res, 'Gotra is required', null, 'VALIDATION_ERROR');
     }
@@ -581,7 +593,20 @@ const updateProfile = async (req, res, next) => {
 
     if (fullName !== undefined) profile.fullName = fullName.trim();
     if (gender !== undefined) profile.gender = gender;
-    if (dob !== undefined) profile.dob = new Date(dob);
+    if (dob !== undefined) {
+      // Server-side age validation (minimum 18 years)
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return badRequest(res, 'You must be at least 18 years old to use this platform.', null, 'MIN_AGE_RESTRICTION');
+      }
+      profile.dob = birthDate;
+    }
     if (tob !== undefined) profile.tob = tob;
     if (pob !== undefined) profile.pob = pob;
     if (height !== undefined) profile.height = height;

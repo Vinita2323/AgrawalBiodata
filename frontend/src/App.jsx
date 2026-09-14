@@ -10,6 +10,10 @@ import OfflineBanner from './components/OfflineBanner'
 // before the first screen could paint.
 const AdminRoutes = lazy(() => import('./modules/admin/routes/AdminRoutes'))
 
+// A standalone policy page, linked from the store listing rather than browsed
+// to from inside the app, so it has no business in the first-load bundle.
+const ChildSafetyPage = lazy(() => import('./pages/ChildSafetyPage'))
+
 export default function App() {
   return (
     <ErrorBoundary variant="app">
@@ -18,6 +22,7 @@ export default function App() {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/admin/*" element={<AdminRoutes />} />
+            <Route path="/child-safety" element={<ChildSafetyPage />} />
             <Route path="/*" element={<UserFlowPage />} />
           </Routes>
         </Suspense>

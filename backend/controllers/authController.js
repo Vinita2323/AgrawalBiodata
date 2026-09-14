@@ -144,6 +144,20 @@ const register = async (req, res, next) => {
       return badRequest(res, 'Invalid 10-digit mobile number format');
     }
 
+    if (dob) {
+      // Server-side age validation (minimum 18 years)
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        return badRequest(res, 'You must be at least 18 years old to register.', null, 'MIN_AGE_RESTRICTION');
+      }
+    }
+
     let user = await User.findOne({ mobile: normalizedMobile });
 
     if (!user) {
