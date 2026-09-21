@@ -78,12 +78,27 @@ export default function AuthLandingScreen({ onStartCreate, onStartLogin, onGuest
         </button>
 
         {/* Bottom Policy Links */}
-        <div className="flex items-center justify-center gap-3 mt-4 text-[11px] font-semibold text-slate-400">
-          <a href="#privacy" className="hover:underline hover:text-slate-600 transition-colors">Privacy Policy</a>
+        <div className="flex items-center justify-center gap-3 mt-4 text-[11px] font-semibold text-slate-500">
+          <button
+            onClick={() => navigate('/privacy')}
+            className="hover:underline hover:text-[#570013] transition-colors cursor-pointer"
+          >
+            Privacy Policy
+          </button>
           <span className="text-gray-300">•</span>
-          <a href="#terms" className="hover:underline hover:text-slate-600 transition-colors">Terms & Conditions</a>
+          <button
+            onClick={() => navigate('/terms')}
+            className="hover:underline hover:text-[#570013] transition-colors cursor-pointer"
+          >
+            Terms & Conditions
+          </button>
           <span className="text-gray-300">•</span>
-          <a href="#help" className="hover:underline hover:text-slate-600 transition-colors">Help</a>
+          <button
+            onClick={() => navigate('/help-support')}
+            className="hover:underline hover:text-[#570013] transition-colors cursor-pointer"
+          >
+            Help
+          </button>
         </div>
       </footer>
     </div>

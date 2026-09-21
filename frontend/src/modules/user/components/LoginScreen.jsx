@@ -108,15 +108,33 @@ export default function LoginScreen({ onBack, onSendOtp }) {
         </div>
       </main>
 
-      {/* Footer Registration Link */}
-      <footer className="w-full text-center py-2 text-xs text-slate-500 font-medium">
-        <span>Don't have an account? </span>
-        <button
-          onClick={() => navigate('/create-account')}
-          className="font-bold text-[#570013] hover:underline"
-        >
-          Create Account
-        </button>
+      {/* Footer Registration Link & Legal Policies */}
+      <footer className="w-full text-center py-2 text-xs text-slate-500 font-medium space-y-2">
+        <div>
+          <span>Don't have an account? </span>
+          <button
+            onClick={() => navigate('/create-account')}
+            className="font-bold text-[#570013] hover:underline cursor-pointer"
+          >
+            Create Account
+          </button>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 font-medium">
+          <button
+            onClick={() => navigate('/privacy')}
+            className="hover:underline hover:text-slate-600 transition cursor-pointer"
+          >
+            Privacy Policy
+          </button>
+          <span>•</span>
+          <button
+            onClick={() => navigate('/terms')}
+            className="hover:underline hover:text-slate-600 transition cursor-pointer"
+          >
+            Terms & Conditions
+          </button>
+        </div>
       </footer>
     </div>
   )

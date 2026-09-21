@@ -233,8 +233,26 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [chatInterestId, setChatInterestId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState(null)
-  const [favorites, setFavorites] = useState({})
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const cached = safeStorage.getItem('userFavorites')
+      return cached ? JSON.parse(cached) : {}
+    } catch {
+      return {}
+    }
+  })
   const [interested, setInterested] = useState({})
+
+  /** Checks whether a candidate profile is liked/shortlisted by ID or Name */
+  const isLiked = (match) => {
+    if (!match) return false
+    const id = match.id || match.profileId || match._id
+    if (id && favorites[id]) return true
+    if (match.profileId && favorites[match.profileId]) return true
+    if (match._id && favorites[match._id]) return true
+    if (match.name && favorites[match.name]) return true
+    return false
+  }
 
   const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Help & Support'
   const [notificationsTab, setNotificationsTab] = useState('All')
@@ -397,12 +415,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           setIsLoadingLive(true)
           setLiveMatches([])
           setLiveTodayMatches([])
-          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes] = await Promise.allSettled([
+          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes, shortlistsRes] = await Promise.allSettled([
             getMyProfile(),
             getMatches({ limit: 20 }),
             getTodayMatches(),
             getSentInterests({ limit: 100 }),
-            getMatchQuota()
+            getMatchQuota(),
+            getShortlists({ limit: 100 })
           ])
 
           if (quotaRes.status === 'fulfilled' && quotaRes.value?.quota) {
@@ -411,6 +430,25 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           if (profileRes.status === 'fulfilled' && profileRes.value?.profile) {
             setUserProfile(profileRes.value.profile)
+          }
+
+          if (shortlistsRes.status === 'fulfilled' && shortlistsRes.value?.shortlists) {
+            setFavorites((prev) => {
+              const next = { ...prev }
+              shortlistsRes.value.shortlists.forEach((item) => {
+                const prof = item.shortlistedProfileId
+                if (prof) {
+                  if (prof.profileId) next[prof.profileId] = true
+                  if (prof._id) next[prof._id] = true
+                  if (prof.id) next[prof.id] = true
+                  if (prof.fullName) next[prof.fullName] = true
+                }
+                if (item.targetProfileId) next[item.targetProfileId] = true
+                if (item.id) next[item.id] = true
+              })
+              safeStorage.setItem('userFavorites', JSON.stringify(next))
+              return next
+            })
           }
 
           if (sentInterestsRes.status === 'fulfilled' && sentInterestsRes.value?.interests) {
@@ -960,21 +998,31 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     typingTimeoutRef.current = setTimeout(() => emitTyping(chatId, false), 1200)
   }
 
-  const toggleFavorite = async (profileId, e) => {
+  const toggleFavorite = async (profileId, e, profileName = '') => {
     e?.stopPropagation()
-    if (!profileId) return
-    const isFav = !!favorites[profileId]
-    setFavorites(prev => ({ ...prev, [profileId]: !isFav }))
+    if (!profileId && !profileName) return
+    const key = profileId || profileName
+    const isFav = !!favorites[key] || (profileName && !!favorites[profileName])
+    const nextState = !isFav
+
+    setFavorites((prev) => {
+      const next = { ...prev }
+      if (profileId) next[profileId] = nextState
+      if (profileName) next[profileName] = nextState
+      safeStorage.setItem('userFavorites', JSON.stringify(next))
+      return next
+    })
+
     try {
       if (isFav) {
-        await removeFromShortlist(profileId)
+        if (profileId) await removeFromShortlist(profileId)
         showToast('Removed from shortlist', 'info')
       } else {
-        await addToShortlist(profileId)
+        if (profileId) await addToShortlist(profileId)
         showToast('Added to shortlist', 'success')
       }
     } catch (err) {
-      showToast(err?.message || 'Updated shortlist', 'info')
+      console.warn('Shortlist sync note:', err)
     }
   }
 
@@ -2538,14 +2586,15 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
                   {/* Heart Action Button */}
                   <button
-                    onClick={(e) => toggleFavorite(match.id, e)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition"
+                    onClick={(e) => toggleFavorite(match.id, e, match.name)}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer"
+                    title={isLiked(match) ? "Liked profile" : "Like profile"}
                   >
                     <span
-                      className={`material-symbols-outlined text-base ${
-                        favorites[match.id] ? 'text-red-600' : 'text-red-600'
+                      className={`material-symbols-outlined text-base transition-colors ${
+                        isLiked(match) ? 'text-red-600' : 'text-slate-400 hover:text-red-500'
                       }`}
-                      style={{ fontVariationSettings: "'FILL' 1" }}
+                      style={{ fontVariationSettings: isLiked(match) ? "'FILL' 1" : "'FILL' 0" }}
                     >
                       favorite
                     </span>
@@ -2991,14 +3040,15 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <button
-                      onClick={(e) => toggleFavorite(match.id, e)}
-                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow hover:bg-white transition"
+                      onClick={(e) => toggleFavorite(match.id, e, match.name)}
+                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow hover:bg-white transition cursor-pointer"
+                      title={isLiked(match) ? "Liked profile" : "Like profile"}
                     >
                       <span
-                        className={`material-symbols-outlined text-sm ${
-                          favorites[match.id] ? 'text-red-600' : 'text-red-500'
+                        className={`material-symbols-outlined text-sm transition-colors ${
+                          isLiked(match) ? 'text-red-600' : 'text-slate-400 hover:text-red-500'
                         }`}
-                        style={{ fontVariationSettings: favorites[match.id] ? "'FILL' 1" : "'FILL' 0" }}
+                        style={{ fontVariationSettings: isLiked(match) ? "'FILL' 1" : "'FILL' 0" }}
                       >
                         favorite
                       </span>

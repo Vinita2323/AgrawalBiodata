@@ -39,6 +39,25 @@ const CommunityGuidelinesScreen = lazy(() => import('../components/CommunityGuid
 const WelcomeScreen = lazy(() => import('../components/WelcomeScreen'))
 const ManageProfilesScreen = lazy(() => import('../components/ManageProfilesScreen'))
 
+const AUTH_AND_SPLASH_ROUTES = new Set([
+  '/',
+  '/splash',
+  '/welcome',
+  '/welcome-legacy',
+  '/auth-landing',
+  '/login',
+  '/auth',
+  '/otp-verification',
+  '/create-account',
+  '/register',
+  '/account-created',
+  '/privacy',
+  '/privacy-policy',
+  '/terms',
+  '/terms-of-service',
+  '/terms-and-conditions',
+])
+
 // A returning visitor with a valid stored session should land on their
 // dashboard, not be sent through the login screen again on every visit.
 const RootRedirect = () => (
@@ -64,13 +83,19 @@ export default function UserFlowPage() {
     navigate(`/profile/${id}`, { state: { card: profile } })
   }
 
+  const currentPath = location.pathname.endsWith('/') && location.pathname.length > 1
+    ? location.pathname.slice(0, -1)
+    : location.pathname
+
+  const showHeaderBar = !AUTH_AND_SPLASH_ROUTES.has(currentPath)
+
   return (
     <ActiveProfileProvider>
     <div className="min-h-screen w-full bg-[#1b1b1b] lg:bg-[#fbf9f5] flex justify-center items-center lg:items-stretch font-body selection:bg-[#775a19] selection:text-white">
       <ScrollToTop />
       <PushNotificationManager />
       <div className="w-full max-w-[480px] lg:max-w-none min-h-screen bg-[#fbf9f5] relative overflow-x-hidden shadow-2xl lg:shadow-none flex flex-col">
-        {location.pathname !== '/welcome' && location.pathname !== '/auth-landing' && location.pathname !== '/' && location.pathname !== '/splash' && (
+        {showHeaderBar && (
           <HeaderBar />
         )}
         {/*
@@ -379,12 +404,30 @@ export default function UserFlowPage() {
           />
           <Route
             path="/terms"
-            element={<TermsOfServiceScreen onBack={() => navigate('/about')} />}
+            element={
+              <TermsOfServiceScreen
+                onBack={() => {
+                  if (window.history.length > 1) navigate(-1)
+                  else navigate(isAuthenticated() ? '/home' : '/welcome')
+                }}
+              />
+            }
           />
+          <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
+          <Route path="/terms-and-conditions" element={<Navigate to="/terms" replace />} />
+
           <Route
             path="/privacy"
-            element={<PrivacyPolicyScreen onBack={() => navigate('/about')} />}
+            element={
+              <PrivacyPolicyScreen
+                onBack={() => {
+                  if (window.history.length > 1) navigate(-1)
+                  else navigate(isAuthenticated() ? '/home' : '/welcome')
+                }}
+              />
+            }
           />
+          <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
           <Route
             path="/guidelines"
             element={<CommunityGuidelinesScreen onBack={() => navigate('/about')} />}

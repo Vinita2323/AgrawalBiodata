@@ -221,9 +221,36 @@ export default function CreateAccountScreen({ onBack, onCreateAccount }) {
               />
               <label htmlFor="terms" className="text-[10px] sm:text-[11px] text-stone-600 font-medium leading-tight cursor-pointer">
                 By continuing, you agree to our{' '}
-                <a href="#terms" className="text-[#570013] font-bold hover:underline">Terms of Service</a>
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#570013] font-bold hover:underline"
+                  onClick={(e) => {
+                    // If in Cordova / Capacitor / PWA without tabs, fallback to navigate
+                    if (window.navigator?.standalone) {
+                      e.preventDefault()
+                      navigate('/terms')
+                    }
+                  }}
+                >
+                  Terms of Service
+                </a>
                 {' '}and{' '}
-                <a href="#privacy" className="text-[#570013] font-bold hover:underline">Privacy Policy</a>.
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#570013] font-bold hover:underline"
+                  onClick={(e) => {
+                    if (window.navigator?.standalone) {
+                      e.preventDefault()
+                      navigate('/privacy')
+                    }
+                  }}
+                >
+                  Privacy Policy
+                </a>.
               </label>
             </div>
 
