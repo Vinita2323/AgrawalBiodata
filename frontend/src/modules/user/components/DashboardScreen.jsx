@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import HeaderBar from './HeaderBar'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
-import { avatarSrc, handleAvatarError } from '../../../utils/avatar'
+import { avatarSrc, handleAvatarError, getMockFemaleAvatar, DEFAULT_TODAY_MATCHES } from '../../../utils/avatar'
 import { getMyProfile } from '../../../services/profileService'
 import { getMatches, getTodayMatches, searchMatches, getMatchQuota } from '../../../services/matchService'
 import {
@@ -1203,7 +1203,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   // hardcoded fallback: showing invented people as though they were members
   // is worse than an empty feed, and tapping one only produced 404s.
   const matchesList = liveMatches
-  const todayMatches = liveTodayMatches
+  const todayMatches = liveTodayMatches && liveTodayMatches.length > 0 ? liveTodayMatches : DEFAULT_TODAY_MATCHES
 
   // Server-side results once a search has run; otherwise the match feed is
   // reused so the tab has something to show before the user types.
@@ -2260,7 +2260,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     className="bg-white rounded-md p-2.5 border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md transition cursor-pointer"
                   >
                     <img
-                      src={avatarSrc(match.image)} onError={handleAvatarError}
+                      src={avatarSrc(match.image, match.id || match.name)}
+                      onError={(e) => handleAvatarError(e, getMockFemaleAvatar(match.id || match.name))}
                       alt={match.name}
                       className="w-12 h-12 rounded-md object-cover flex-shrink-0"
                     />
@@ -2483,7 +2484,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 {/* Candidate Image Card */}
                 <div className="w-full h-64 rounded-md overflow-hidden relative bg-gray-100 mb-4">
                   <img
-                    src={avatarSrc(match.image)} onError={handleAvatarError}
+                    src={avatarSrc(match.image, match.id || match.name)}
+                    onError={(e) => handleAvatarError(e, getMockFemaleAvatar(match.id || match.name))}
                     alt={match.name}
                     className="w-full h-full object-cover"
                   />
@@ -2945,7 +2947,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 >
                   <div className="w-full h-36 rounded-md overflow-hidden relative bg-gray-100 mb-2">
                     <img
-                      src={avatarSrc(match.image)} onError={handleAvatarError}
+                      src={avatarSrc(match.image, match.id || match.name)}
+                      onError={(e) => handleAvatarError(e, getMockFemaleAvatar(match.id || match.name))}
                       alt={match.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />

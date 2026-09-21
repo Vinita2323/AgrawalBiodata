@@ -5,7 +5,7 @@ import { addToShortlist, recordVisitor } from '../../../services/socialService'
 import { getMatchScore } from '../../../services/matchService'
 import { getProfileById } from '../../../services/profileService'
 import { isAuthenticated } from '../../../services/authService'
-import { handleAvatarError } from '../../../utils/avatar'
+import { handleAvatarError, avatarSrc } from '../../../utils/avatar'
 import { resolveAssetUrl } from '../../../services/api'
 import {
   unlockContact,
@@ -291,7 +291,7 @@ export default function ProfileDetailScreen({ onBack }) {
   const displayMotherGotra = p.motherGotra || p.subGotra || NOT_SPECIFIED
   const displayHeight = p.height || NOT_SPECIFIED
   const displayCity = p.city || p.pob || NOT_SPECIFIED
-  const profileImgSrc = resolveAssetUrl(p.image || p.profilePicture)
+  const profileImgSrc = avatarSrc(resolveAssetUrl(p.image || p.profilePicture), p.profileId || p._id || displayName)
 
   const handleShare = async () => {
     // Built from the id rather than read off the address bar, so the link stays
