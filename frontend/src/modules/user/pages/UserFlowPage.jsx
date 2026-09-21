@@ -23,8 +23,10 @@ const AccountCreatedScreen = lazy(() => import('../components/AccountCreatedScre
 const ProfileCompletionDashboardScreen = lazy(() => import('../components/ProfileCompletionDashboardScreen'))
 const DashboardScreen = lazy(() => import('../components/DashboardScreen'))
 const ProfileDetailScreen = lazy(() => import('../components/ProfileDetailScreen'))
-const MembershipScreen = lazy(() => import('../components/MembershipScreen'))
-const PaymentScreen = lazy(() => import('../components/PaymentScreen'))
+// === [IOS-DEPLOY-COMMENT-START] MembershipScreen and PaymentScreen imports commented out for iOS deployment ===
+// const MembershipScreen = lazy(() => import('../components/MembershipScreen'))
+// const PaymentScreen = lazy(() => import('../components/PaymentScreen'))
+// === [IOS-DEPLOY-COMMENT-END] ===
 const SettingsScreen = lazy(() => import('../components/SettingsScreen'))
 const AccountSettingsScreen = lazy(() => import('../components/AccountSettingsScreen'))
 const NotificationSettingsScreen = lazy(() => import('../components/NotificationSettingsScreen'))
@@ -319,7 +321,8 @@ export default function UserFlowPage() {
             }
           />
 
-          {/* Membership / Premium Route */}
+          {/* === [IOS-DEPLOY-COMMENT-START] Membership and Payment routes commented out for iOS deployment ===
+          // Membership / Premium Route
           <Route
             path="/membership"
             element={
@@ -337,7 +340,7 @@ export default function UserFlowPage() {
           />
           <Route path="/premium" element={<Navigate to="/membership" replace />} />
 
-          {/* Payment / Checkout Route */}
+          // Payment / Checkout Route
           <Route
             path="/payment"
             element={
@@ -352,6 +355,12 @@ export default function UserFlowPage() {
               />
             }
           />
+          === [IOS-DEPLOY-COMMENT-END] === */}
+
+          {/* Safe fallback redirects for iOS while membership/payment is disabled */}
+          <Route path="/membership" element={<Navigate to="/home" replace />} />
+          <Route path="/premium" element={<Navigate to="/home" replace />} />
+          <Route path="/payment" element={<Navigate to="/home" replace />} />
 
           {/* Help & Support Route */}
           <Route

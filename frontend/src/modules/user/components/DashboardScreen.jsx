@@ -550,8 +550,10 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       }
     } else if (tabId === 'Notifications') {
       navigate('/notifications')
-    } else if (tabId === 'Membership') {
-      navigate('/membership')
+    // === [IOS-DEPLOY-COMMENT-START] Membership tab handler commented out for iOS deployment ===
+    // } else if (tabId === 'Membership') {
+    //   navigate('/membership')
+    // === [IOS-DEPLOY-COMMENT-END] ===
     } else if (tabId === 'MyProfile') {
       setActiveTab('MyProfile')
     }
@@ -1312,7 +1314,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       icon: 'chat',
       badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
     },
-    { id: 'Membership', label: 'Premium', icon: 'workspace_premium' },
+    // === [IOS-DEPLOY-COMMENT-START] Membership / Premium bottom navbar tab commented out for iOS deployment ===
+    // { id: 'Membership', label: 'Premium', icon: 'workspace_premium' },
+    // === [IOS-DEPLOY-COMMENT-END] ===
     { id: 'Profile', label: 'Profile', icon: 'account_circle' },
   ]
 
@@ -1564,7 +1568,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               {[
                 { id: 'my-profile', label: 'My Profile', icon: 'person_pin' },
                 { id: 'verification', label: 'Verification', icon: 'verified_user' },
-                { id: 'premium', label: 'Premium', icon: 'workspace_premium', isGold: true },
+                // === [IOS-DEPLOY-COMMENT-START] Premium quick action card commented out for iOS deployment ===
+                // { id: 'premium', label: 'Premium', icon: 'workspace_premium', isGold: true },
+                // === [IOS-DEPLOY-COMMENT-END] ===
                 { id: 'interests', label: 'Interests', icon: 'favorite', badge: '5' },
                 { id: 'visitors', label: 'Visitors', icon: 'group' },
                 { id: 'saved', label: 'Saved', icon: 'bookmark' },
@@ -1576,7 +1582,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   onClick={() => {
                     if (item.id === 'my-profile') handleTabNavigate('MyProfile')
                     else if (item.id === 'verification') navigate('/verification')
-                    else if (item.id === 'premium') navigate('/membership')
+                    // === [IOS-DEPLOY-COMMENT-START] Premium navigation commented out for iOS deployment ===
+                    // else if (item.id === 'premium') navigate('/membership')
+                    // === [IOS-DEPLOY-COMMENT-END] ===
                     else if (item.id === 'interests') handleTabNavigate('Interests')
                     else if (item.id === 'visitors') setActiveModal('Visitors')
                     else if (item.id === 'saved') setActiveModal('Saved')
@@ -2481,12 +2489,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   ? 'You have viewed all profiles included in your plan today.'
                   : `${matchQuota.remaining} of ${matchQuota.limit} profile views left today`}
               </span>
-              <button
+              {/* === [IOS-DEPLOY-COMMENT-START] Quota Upgrade button commented out for iOS deployment === */}
+              {/* <button
                 onClick={() => navigate('/membership')}
                 className="px-2.5 py-1 bg-[#570013] text-amber-100 rounded-md text-[10px] font-extrabold shrink-0"
               >
                 Upgrade
-              </button>
+              </button> */}
+              {/* === [IOS-DEPLOY-COMMENT-END] === */}
             </div>
           )}
 

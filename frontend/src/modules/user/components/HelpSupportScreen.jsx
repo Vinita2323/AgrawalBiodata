@@ -18,10 +18,12 @@ export default function HelpSupportScreen({ onBack }) {
       question: 'How can I download my profile as a PDF Biodata?',
       answer: 'Click on "View" or "Download" under "Your Bio Data" on the Home tab or click "Export PDF" on your My Profile page to download a neatly styled printable A4 Biodata document.',
     },
-    {
-      question: 'How do Premium Membership plans work?',
-      answer: 'Premium plans give you unlimited interest requests, priority listing in candidate searches, unlocked email and address details for verified members, and personalized matchmaking support.',
-    },
+    // === [IOS-DEPLOY-COMMENT-START] Premium Membership FAQ commented out for iOS deployment ===
+    // {
+    //   question: 'How do Premium Membership plans work?',
+    //   answer: 'Premium plans give you unlimited interest requests, priority listing in candidate searches, unlocked email and address details for verified members, and personalized matchmaking support.',
+    // },
+    // === [IOS-DEPLOY-COMMENT-END] ===
     {
       question: 'Is my contact phone number hidden from public view?',
       answer: 'Yes! Your mobile number is always kept private. It is never shared with or shown to any other member, regardless of connections or membership plan.',

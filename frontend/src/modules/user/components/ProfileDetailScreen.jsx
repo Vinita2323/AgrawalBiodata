@@ -255,7 +255,8 @@ export default function ProfileDetailScreen({ onBack }) {
             : 'This biodata may have been removed, or the link you followed is no longer valid.'}
         </p>
         <div className="flex flex-col gap-3 w-full max-w-[260px]">
-          {hitViewLimit && (
+          {/* === [IOS-DEPLOY-COMMENT-START] 'See membership plans' button commented out for iOS deployment === */}
+          {/* {hitViewLimit && (
             <button
               type="button"
               onClick={() => navigate('/membership')}
@@ -263,7 +264,8 @@ export default function ProfileDetailScreen({ onBack }) {
             >
               See membership plans
             </button>
-          )}
+          )} */}
+          {/* === [IOS-DEPLOY-COMMENT-END] === */}
           <button
             type="button"
             onClick={() => navigate('/home')}
@@ -441,12 +443,14 @@ export default function ProfileDetailScreen({ onBack }) {
             <span className="material-symbols-outlined text-4xl text-amber-500">lock_clock</span>
             <h2 className="font-display text-lg font-bold text-[#570013]">Daily Profile View Limit Reached</h2>
             <p className="text-xs text-slate-600 font-medium">{viewLimitMessage}</p>
-            <button
+            {/* === [IOS-DEPLOY-COMMENT-START] 'Upgrade Membership' button commented out for iOS deployment === */}
+            {/* <button
               onClick={() => navigate('/membership')}
               className="mt-2 px-5 py-2.5 rounded-md bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow-md active:scale-95 transition"
             >
               Upgrade Membership
-            </button>
+            </button> */}
+            {/* === [IOS-DEPLOY-COMMENT-END] === */}
           </div>
         </main>
       )}
