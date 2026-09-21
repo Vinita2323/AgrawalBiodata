@@ -9,6 +9,7 @@ import {
   getSavedSearches,
   recordSearch,
   deleteSavedSearch,
+  deleteAccount,
 } from '../../../services/accountService'
 import {
   getReceivedInterests,
@@ -254,6 +255,29 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [visitorsList, setVisitorsList] = useState([])
   const [savedList, setSavedList] = useState([])
   const [isLoadingModal, setIsLoadingModal] = useState(false)
+
+  // Delete Account Confirmation State
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  const handleConfirmDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return
+    setIsDeletingAccount(true)
+    setDeleteError('')
+    try {
+      await deleteAccount()
+      await logout()
+      safeStorage.removeItem('userProfile')
+      showToast('Your account has been deleted.')
+      setShowDeleteModal(false)
+      navigate('/welcome', { replace: true })
+    } catch (err) {
+      setDeleteError(err?.message || 'Failed to delete account. Please try again.')
+      setIsDeletingAccount(false)
+    }
+  }
 
   useEffect(() => {
     if (activeModal !== 'Visitors' && activeModal !== 'Saved') return
@@ -1542,10 +1566,24 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 safeStorage.removeItem('userProfile')
                 navigate('/welcome', { replace: true })
               }}
-              className="mt-5 w-full bg-white border border-red-100 text-red-600 font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-red-50 active:scale-95 transition"
+              className="mt-5 w-full bg-white border border-red-100 text-red-600 font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-red-50 active:scale-95 transition cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
               Logout
+            </button>
+
+            {/* Delete Account Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteModal(true)
+                setDeleteConfirmText('')
+                setDeleteError('')
+              }}
+              className="mt-2.5 w-full bg-red-50/60 border border-red-200 text-red-700 font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-100/60 active:scale-95 transition text-xs cursor-pointer shadow-2xs"
+            >
+              <span className="material-symbols-outlined text-[18px] text-red-600">delete_forever</span>
+              Delete Account
             </button>
           </div>
         </div>
@@ -3177,6 +3215,77 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-2xl border border-red-100 text-left relative">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-3">
+              <span className="material-symbols-outlined text-2xl">delete_forever</span>
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-900 mb-1">
+              Delete Account Permanently?
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              This action <span className="font-bold text-red-600">cannot be undone</span>. All your candidate biodata, photos, saved matches, and conversations will be permanently erased.
+            </p>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 mb-3">
+              <p className="text-[11px] font-semibold text-red-800 mb-1.5">
+                Type <span className="font-extrabold underline tracking-wider">DELETE</span> below to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => {
+                  setDeleteConfirmText(e.target.value)
+                  setDeleteError('')
+                }}
+                placeholder="DELETE"
+                className="w-full px-3 py-2 bg-white border border-red-300 rounded-md text-xs font-bold text-red-700 tracking-wider focus:outline-none focus:ring-2 focus:ring-red-400 placeholder:text-gray-300 placeholder:font-normal"
+                autoFocus
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-[11px] text-red-600 font-semibold mb-3">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeleteConfirmText('')
+                  setDeleteError('')
+                }}
+                disabled={isDeletingAccount}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold rounded-lg text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAccount}
+                disabled={isDeletingAccount || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shadow transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+              >
+                {isDeletingAccount ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Permanently Delete</span>
+                )}
+              </button>
             </div>
           </div>
         </div>
