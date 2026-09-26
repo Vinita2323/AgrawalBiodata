@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 import HeaderBar from './HeaderBar'
 import { useActiveProfile } from '../../../context/ActiveProfileContext'
-import { avatarSrc, handleAvatarError, getMockFemaleAvatar, DEFAULT_TODAY_MATCHES } from '../../../utils/avatar'
+import { avatarSrc, handleAvatarError } from '../../../utils/avatar'
 import { getMyProfile } from '../../../services/profileService'
 import { getMatches, getTodayMatches, searchMatches, getMatchQuota } from '../../../services/matchService'
 import {
   getSavedSearches,
   recordSearch,
   deleteSavedSearch,
-  deleteAccount,
 } from '../../../services/accountService'
 import {
   getReceivedInterests,
@@ -54,7 +55,6 @@ import {
   emitConversationRead,
 } from '../../../services/socket'
 import { resolveAssetUrl } from '../../../services/api'
-import safeStorage from '../../../utils/safeStorage';
 
 /** Renders an ISO timestamp as a short relative label ("10 min ago"). */
 function relativeTime(value) {
@@ -95,14 +95,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     // Allow UI thread to repaint spinner & disabled button state before heavy canvas processing
     setTimeout(async () => {
       try {
-        // Loaded on demand: html2canvas and jsPDF are ~450 kB together and only a
-        // fraction of members ever export a biodata PDF. Bundling them eagerly
-        // delayed the first screen for everyone.
-        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-          import('html2canvas'),
-          import('jspdf'),
-        ])
-
         const rawName = userProfile?.fullName ? userProfile.fullName.trim().replace(/\s+/g, '_') : 'Profile'
         const formattedFilename = `Biodata_${rawName}.pdf`
 
@@ -231,28 +223,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [chatMenuOpen, setChatMenuOpen] = useState(false)
   const [chatPartnerBlocked, setChatPartnerBlocked] = useState(false)
   const [chatInterestId, setChatInterestId] = useState(null)
+  const [chatSearchQuery, setChatSearchQuery] = useState('')
+  const [chatFilterTab, setChatFilterTab] = useState('all') // 'all' | 'unread' | 'verified'
+  const [showChatSearch, setShowChatSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState(null)
-  const [favorites, setFavorites] = useState(() => {
-    try {
-      const cached = safeStorage.getItem('userFavorites')
-      return cached ? JSON.parse(cached) : {}
-    } catch {
-      return {}
-    }
-  })
+  const [favorites, setFavorites] = useState({})
   const [interested, setInterested] = useState({})
-
-  /** Checks whether a candidate profile is liked/shortlisted by ID or Name */
-  const isLiked = (match) => {
-    if (!match) return false
-    const id = match.id || match.profileId || match._id
-    if (id && favorites[id]) return true
-    if (match.profileId && favorites[match.profileId]) return true
-    if (match._id && favorites[match._id]) return true
-    if (match.name && favorites[match.name]) return true
-    return false
-  }
 
   const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Help & Support'
   const [notificationsTab, setNotificationsTab] = useState('All')
@@ -274,29 +251,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [savedList, setSavedList] = useState([])
   const [isLoadingModal, setIsLoadingModal] = useState(false)
 
-  // Delete Account Confirmation State
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [deleteConfirmText, setDeleteConfirmText] = useState('')
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
-
-  const handleConfirmDeleteAccount = async () => {
-    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return
-    setIsDeletingAccount(true)
-    setDeleteError('')
-    try {
-      await deleteAccount()
-      await logout()
-      safeStorage.removeItem('userProfile')
-      showToast('Your account has been deleted.')
-      setShowDeleteModal(false)
-      navigate('/welcome', { replace: true })
-    } catch (err) {
-      setDeleteError(err?.message || 'Failed to delete account. Please try again.')
-      setIsDeletingAccount(false)
-    }
-  }
-
   useEffect(() => {
     if (activeModal !== 'Visitors' && activeModal !== 'Saved') return
     if (!isAuthenticated()) return
@@ -308,9 +262,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       ? getVisitors({ limit: 20 }).then((res) =>
           (res?.visitors || []).map((v) => ({
             id: v.id || v._id,
-            // The visit record's own id is not the visitor's biodata id; without
-            // this the "View Profile" button had nothing to open.
-            profileId: v.visitorProfileId?.profileId || v.visitorProfileId?._id || null,
             name: v.visitorProfileId?.fullName || 'A member',
             city: v.visitorProfileId?.city || '',
             time: relativeTime(v.lastVisitedAt || v.createdAt),
@@ -403,7 +354,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
   useEffect(() => {
     async function loadDashboardData() {
-      const savedProfile = safeStorage.getItem('userProfile')
+      const savedProfile = localStorage.getItem('userProfile')
       if (savedProfile) {
         try {
           setUserProfile(JSON.parse(savedProfile))
@@ -415,13 +366,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           setIsLoadingLive(true)
           setLiveMatches([])
           setLiveTodayMatches([])
-          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes, shortlistsRes] = await Promise.allSettled([
+          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes] = await Promise.allSettled([
             getMyProfile(),
             getMatches({ limit: 20 }),
             getTodayMatches(),
             getSentInterests({ limit: 100 }),
-            getMatchQuota(),
-            getShortlists({ limit: 100 })
+            getMatchQuota()
           ])
 
           if (quotaRes.status === 'fulfilled' && quotaRes.value?.quota) {
@@ -430,25 +380,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           if (profileRes.status === 'fulfilled' && profileRes.value?.profile) {
             setUserProfile(profileRes.value.profile)
-          }
-
-          if (shortlistsRes.status === 'fulfilled' && shortlistsRes.value?.shortlists) {
-            setFavorites((prev) => {
-              const next = { ...prev }
-              shortlistsRes.value.shortlists.forEach((item) => {
-                const prof = item.shortlistedProfileId
-                if (prof) {
-                  if (prof.profileId) next[prof.profileId] = true
-                  if (prof._id) next[prof._id] = true
-                  if (prof.id) next[prof.id] = true
-                  if (prof.fullName) next[prof.fullName] = true
-                }
-                if (item.targetProfileId) next[item.targetProfileId] = true
-                if (item.id) next[item.id] = true
-              })
-              safeStorage.setItem('userFavorites', JSON.stringify(next))
-              return next
-            })
           }
 
           if (sentInterestsRes.status === 'fulfilled' && sentInterestsRes.value?.interests) {
@@ -550,10 +481,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       }
     } else if (tabId === 'Notifications') {
       navigate('/notifications')
-    // === [IOS-DEPLOY-COMMENT-START] Membership tab handler commented out for iOS deployment ===
-    // } else if (tabId === 'Membership') {
-    //   navigate('/membership')
-    // === [IOS-DEPLOY-COMMENT-END] ===
+    } else if (tabId === 'Membership') {
+      navigate('/membership')
     } else if (tabId === 'MyProfile') {
       setActiveTab('MyProfile')
     }
@@ -1000,31 +929,21 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
     typingTimeoutRef.current = setTimeout(() => emitTyping(chatId, false), 1200)
   }
 
-  const toggleFavorite = async (profileId, e, profileName = '') => {
+  const toggleFavorite = async (profileId, e) => {
     e?.stopPropagation()
-    if (!profileId && !profileName) return
-    const key = profileId || profileName
-    const isFav = !!favorites[key] || (profileName && !!favorites[profileName])
-    const nextState = !isFav
-
-    setFavorites((prev) => {
-      const next = { ...prev }
-      if (profileId) next[profileId] = nextState
-      if (profileName) next[profileName] = nextState
-      safeStorage.setItem('userFavorites', JSON.stringify(next))
-      return next
-    })
-
+    if (!profileId) return
+    const isFav = !!favorites[profileId]
+    setFavorites(prev => ({ ...prev, [profileId]: !isFav }))
     try {
       if (isFav) {
-        if (profileId) await removeFromShortlist(profileId)
+        await removeFromShortlist(profileId)
         showToast('Removed from shortlist', 'info')
       } else {
-        if (profileId) await addToShortlist(profileId)
+        await addToShortlist(profileId)
         showToast('Added to shortlist', 'success')
       }
     } catch (err) {
-      console.warn('Shortlist sync note:', err)
+      showToast(err?.message || 'Updated shortlist', 'info')
     }
   }
 
@@ -1277,7 +1196,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   // hardcoded fallback: showing invented people as though they were members
   // is worse than an empty feed, and tapping one only produced 404s.
   const matchesList = liveMatches
-  const todayMatches = liveTodayMatches && liveTodayMatches.length > 0 ? liveTodayMatches : DEFAULT_TODAY_MATCHES
+  const todayMatches = liveTodayMatches
 
   // Server-side results once a search has run; otherwise the match feed is
   // reused so the tab has something to show before the user types.
@@ -1314,10 +1233,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       icon: 'chat',
       badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
     },
-    // === [IOS-DEPLOY-COMMENT-START] Membership / Premium bottom navbar tab commented out for iOS deployment ===
-    // { id: 'Membership', label: 'Premium', icon: 'workspace_premium' },
-    // === [IOS-DEPLOY-COMMENT-END] ===
-    { id: 'Profile', label: 'Profile', icon: 'account_circle' },
+    { id: 'Interests', label: 'Interests', icon: 'diversity_1' },
+    { id: 'Profile', label: 'Profile', icon: 'person' },
   ]
 
   return (
@@ -1464,182 +1381,303 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         </div>
       ) : activeTab === 'Profile' ? (
         /* PROFILE PAGE VIEW */
-        <div className="pb-6">
-          {/* Top Maroon Profile Banner */}
-          <div className="bg-gradient-to-b from-[#570013] to-[#7a0d1c] text-white pt-4 pb-12 px-5 rounded-b-3xl relative">
-            {/* Header: Logo */}
-            <div className="flex justify-end mb-1">
-              <span className="material-symbols-outlined text-amber-300 text-2xl opacity-80">family_star</span>
+        <div className="pb-8 max-w-2xl mx-auto w-full">
+          {/* 1. Top Maroon Profile Hero Banner (Compact) */}
+          <div className="bg-gradient-to-br from-[#4a0612] via-[#6a0c1e] to-[#360309] text-white pt-3 pb-6 px-3.5 sm:px-4 rounded-b-[20px] relative overflow-hidden shadow-sm">
+            {/* Subtle decorative background flourishes */}
+            <div className="absolute -top-10 -left-10 w-36 h-36 bg-amber-400/10 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute -bottom-8 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-lg pointer-events-none" />
+            <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M-50,60 Q120,10 260,80 T550,50" fill="none" stroke="#fed488" strokeWidth="1.5" />
+              <path d="M-20,100 Q150,50 320,120 T620,90" fill="none" stroke="#fed488" strokeWidth="1" />
+            </svg>
+
+            {/* Floating Subtle Heart Accent (Compact) */}
+            <div className="absolute top-2.5 right-3 flex items-center pointer-events-none select-none opacity-80">
+              <div className="relative">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400/80 via-yellow-200/90 to-amber-500/80 shadow-2xs flex items-center justify-center transform rotate-12">
+                  <span className="material-symbols-outlined text-white text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    favorite
+                  </span>
+                </div>
+                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-tr from-rose-400 to-pink-300 shadow-2xs flex items-center justify-center -rotate-12">
+                  <span className="material-symbols-outlined text-white text-[8px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    favorite
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Profile Picture */}
-              <div className="relative w-20 h-20 rounded-full border-4 border-amber-300/80 shadow-lg overflow-hidden flex-shrink-0 bg-amber-100/20 flex items-center justify-center">
-                {userProfile?.profilePicture ? (
-                  <img
-                    src={avatarSrc(userProfile.profilePicture)} onError={handleAvatarError}
-                    alt={userProfile?.fullName || 'User Profile'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="material-symbols-outlined text-amber-200/80 text-4xl">
-                    person
-                  </span>
-                )}
+            <div className="flex items-center gap-2.5 relative z-10 pr-2">
+              {/* Profile Picture with Online Status */}
+              <div className="relative shrink-0">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full p-[1.5px] bg-gradient-to-tr from-amber-300 via-amber-100 to-amber-400 shadow-xs overflow-hidden bg-white">
+                  {userProfile?.profilePicture ? (
+                    <img
+                      src={avatarSrc(userProfile.profilePicture)}
+                      onError={handleAvatarError}
+                      alt={userProfile?.fullName || 'User Profile'}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-[#570013]">
+                      <span className="material-symbols-outlined text-2xl">person</span>
+                    </div>
+                  )}
+                </div>
+                {/* Online Status Dot */}
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-[1.5px] border-white rounded-full shadow-2xs" />
               </div>
 
               {/* User Details & Edit Profile Button */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <h1 className="text-xl font-bold truncate">{userProfile?.fullName || 'Rahul Garg'}</h1>
-                  <span className="w-4.5 h-4.5 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs" title="Verified Member">
-                    ✓
+                <div className="flex items-center gap-1 min-w-0">
+                  <h1 className="text-[13.5px] sm:text-sm font-bold text-white tracking-tight leading-tight truncate">
+                    {userProfile?.fullName || 'chirag agarwal'}
+                  </h1>
+                  <span
+                    className="material-symbols-outlined text-amber-300 text-[14px] shrink-0"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                    title="Verified Member"
+                  >
+                    verified
                   </span>
                 </div>
-                <p className="text-xs text-amber-200/90 font-medium mb-3 flex items-center">
-                  <span>{userProfile?.profileId || 'MHM123456'}</span>
+
+                <div className="flex items-center gap-1 text-[10px] text-amber-200/90 font-medium mt-0.5">
+                  <span>{userProfile?.profileId || 'PRF-283154'}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const pid = userProfile?.profileId || 'PRF-283154'
+                      if (navigator?.clipboard?.writeText) {
+                        navigator.clipboard.writeText(pid)
+                        showToast(`Profile ID copied: ${pid}`, 'success')
+                      } else {
+                        showToast(`Profile ID: ${pid}`, 'info')
+                      }
+                    }}
+                    className="hover:text-white active:scale-90 transition cursor-pointer p-0.5"
+                    title="Copy Profile ID"
+                  >
+                    <span className="material-symbols-outlined text-[11px]">content_copy</span>
+                  </button>
                   {isPremiumUser && (
-                    <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500/30 to-amber-600/30 border border-amber-300/50 text-amber-200 text-[10px] font-bold shadow-sm">
-                      <span className="material-symbols-outlined text-[12px]">workspace_premium</span>
-                      Premium Gold
+                    <span className="ml-1 inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-500/30 border border-amber-300/50 text-amber-200 text-[8px] font-bold">
+                      Premium
                     </span>
                   )}
-                </p>
+                </div>
 
-                <button 
+                <button
                   onClick={() => navigate('/profile-completion-dashboard')}
-                  className="px-4 py-1.5 rounded-full border border-white/40 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold shadow-2xs active:scale-95 transition cursor-pointer"
+                  className="mt-1 px-2.5 py-0.5 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 transition border border-white/25 backdrop-blur-xs text-white text-[10.5px] font-semibold flex items-center gap-0.5 cursor-pointer shadow-2xs w-fit"
                 >
-                  Edit Profile
+                  <span className="material-symbols-outlined text-[11px]">edit</span>
+                  <span>Edit Profile</span>
+                  <span className="material-symbols-outlined text-[11px]">chevron_right</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Profile Completion Overlapping Card */}
+          {/* 2. Profile Completion Overlapping Card (Compact) */}
           {(() => {
             const completionPct = Number(userProfile?.completionPercentage ?? 75);
             return (
-              <div className="bg-white rounded-lg p-4 shadow-xl border border-amber-100/90 -mt-8 mx-5 relative z-20 mb-6 flex items-center justify-between gap-3">
-                <div className="flex-1">
-                  <h2 className="text-xs font-bold text-slate-800 mb-1">Profile Completion</h2>
-                  <p className="text-xs text-slate-500 max-w-[190px] leading-snug mb-3">
-                    {completionPct >= 100 
-                      ? 'Your profile is 100% complete!' 
+              <div className="bg-gradient-to-r from-white via-[#FFFDF9] to-[#FFF8F0] border border-[#F4DFC8]/90 rounded-xl p-2.5 sm:p-3 shadow-xs -mt-3.5 mx-3 sm:mx-4 relative z-20 mb-3.5 flex items-center justify-between gap-2.5">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-5 h-5 rounded-full bg-[#FFF0E6] text-[#D05438] flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[12px]">track_changes</span>
+                    </div>
+                    <h2 className="text-xs sm:text-[12.5px] font-extrabold text-[#570013] font-display">
+                      Profile Completion
+                    </h2>
+                  </div>
+                  <p className="text-[9.5px] sm:text-[10px] text-gray-500 leading-tight mt-0.5">
+                    {completionPct >= 100
+                      ? 'Your profile is 100% complete!'
                       : 'Complete your profile to get better matches'}
                   </p>
-                  <button 
+                  <button
                     onClick={() => navigate('/profile-completion-dashboard')}
-                    className="px-4 py-2 rounded-full bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-xs shadow-md hover:brightness-105 active:scale-95 transition cursor-pointer"
+                    className="mt-1.5 px-2.5 py-0.5 rounded-full bg-[#570013] hover:bg-[#72001a] text-white font-bold text-[10px] sm:text-[10.5px] shadow-2xs flex items-center gap-1 active:scale-95 transition cursor-pointer w-fit"
                   >
-                    {completionPct >= 100 ? 'View / Edit Biodata' : 'Complete Now'}
+                    <span>{completionPct >= 100 ? 'View / Edit' : 'Complete Now'}</span>
+                    <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
                   </button>
                 </div>
 
                 {/* Dynamic Circular Progress Ring */}
-                <div className="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                <div className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-amber-100"
-                      strokeWidth="3.5"
+                      className="text-[#F9EAD9]"
+                      strokeWidth="3.2"
                       stroke="currentColor"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                     <path
-                      className="text-amber-500 transition-all duration-700 ease-out"
+                      className="text-[#E68A14] transition-all duration-700 ease-out"
                       strokeDasharray={`${completionPct}, 100`}
-                      strokeWidth="3.5"
+                      strokeWidth="3.2"
                       strokeLinecap="round"
                       stroke="currentColor"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                   </svg>
-                  <span className="absolute font-bold text-[#570013] text-xs">{completionPct}%</span>
+                  <div className="absolute flex flex-col items-center justify-center text-center">
+                    <span className="font-extrabold text-[#570013] text-[11px] sm:text-xs leading-none font-display">
+                      {completionPct}%
+                    </span>
+                    <span className="text-[7px] text-gray-500 font-semibold leading-none mt-0.5 uppercase tracking-tighter">
+                      Complete
+                    </span>
+                  </div>
                 </div>
               </div>
             );
           })()}
 
-          {/* Menu Action Tiles Grid (2 Rows x 4 Columns) */}
-          <div className="px-3.5">
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { id: 'my-profile', label: 'My Profile', icon: 'person_pin' },
-                { id: 'verification', label: 'Verification', icon: 'verified_user' },
-                // === [IOS-DEPLOY-COMMENT-START] Premium quick action card commented out for iOS deployment ===
-                // { id: 'premium', label: 'Premium', icon: 'workspace_premium', isGold: true },
-                // === [IOS-DEPLOY-COMMENT-END] ===
-                { id: 'interests', label: 'Interests', icon: 'favorite', badge: '5' },
-                { id: 'visitors', label: 'Visitors', icon: 'group' },
-                { id: 'saved', label: 'Saved', icon: 'bookmark' },
-                { id: 'blocked', label: 'Blocked', icon: 'block' },
-                { id: 'settings', label: 'Settings', icon: 'settings' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    if (item.id === 'my-profile') handleTabNavigate('MyProfile')
-                    else if (item.id === 'verification') navigate('/verification')
-                    // === [IOS-DEPLOY-COMMENT-START] Premium navigation commented out for iOS deployment ===
-                    // else if (item.id === 'premium') navigate('/membership')
-                    // === [IOS-DEPLOY-COMMENT-END] ===
-                    else if (item.id === 'interests') handleTabNavigate('Interests')
-                    else if (item.id === 'visitors') setActiveModal('Visitors')
-                    else if (item.id === 'saved') setActiveModal('Saved')
-                    else if (item.id === 'blocked') navigate('/blocked')
-                    else if (item.id === 'settings') navigate('/settings')
-                    else if (item.id === 'help') navigate('/help-support')
-                  }}
-                  className="flex flex-col items-center justify-center p-2.5 py-3.5 bg-white rounded-md border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/30 active:scale-95 transition min-h-[85px]"
-                >
-                  <div className="relative mb-2 flex items-center justify-center">
-                    <span
-                      className={`material-symbols-outlined text-2xl ${
-                        item.isGold ? 'text-amber-600' : 'text-[#6e0b18]'
-                      }`}
-                    >
-                      {item.icon}
-                    </span>
-                    {item.badge && (
-                      <span className="absolute -top-1.5 -right-2.5 w-4.5 h-4.5 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-2xs">
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-semibold text-slate-800 leading-tight text-center w-full px-0.5 whitespace-normal break-words">
-                    {item.label}
+          {/* 3. Action Grid (2 Rows x 4 Columns) - Enhanced Width & Clean Typography */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5 px-2.5 sm:px-4">
+            {[
+              {
+                id: 'my-profile',
+                label: 'My Profile',
+                icon: 'person',
+                bg: 'bg-[#FFF3EC]',
+                border: 'border-[#FFE4D6] hover:border-[#FFD0B8]',
+                iconBg: 'bg-[#FDE3D8]',
+                iconColor: 'text-[#9E2A2B]',
+              },
+              {
+                id: 'verification',
+                label: 'Verification',
+                icon: 'verified_user',
+                bg: 'bg-[#EFF8FF]',
+                border: 'border-[#D9EEFF] hover:border-[#BCE0FD]',
+                iconBg: 'bg-[#D9EEFF]',
+                iconColor: 'text-[#1D63B8]',
+              },
+              {
+                id: 'premium',
+                label: 'Premium',
+                icon: 'workspace_premium',
+                bg: 'bg-[#FFF9EA]',
+                border: 'border-[#FCEEC6] hover:border-[#F9DE96]',
+                iconBg: 'bg-[#FCEEC6]',
+                iconColor: 'text-[#B07D10]',
+              },
+              {
+                id: 'interests',
+                label: 'Interests',
+                icon: 'favorite',
+                bg: 'bg-[#FFF0F3]',
+                border: 'border-[#FFD6DF] hover:border-[#FFB8C7]',
+                iconBg: 'bg-[#FFD6DF]',
+                iconColor: 'text-[#D81E5B]',
+                badge: '5',
+              },
+              {
+                id: 'visitors',
+                label: 'Visitors',
+                icon: 'visibility',
+                bg: 'bg-[#F6F2FF]',
+                border: 'border-[#E8DCFF] hover:border-[#D5BFFF]',
+                iconBg: 'bg-[#E8DCFF]',
+                iconColor: 'text-[#6B3BA7]',
+              },
+              {
+                id: 'saved',
+                label: 'Saved',
+                icon: 'bookmark',
+                bg: 'bg-[#F0FDF4]',
+                border: 'border-[#DCFCE7] hover:border-[#BBF7D0]',
+                iconBg: 'bg-[#DCFCE7]',
+                iconColor: 'text-[#16A34A]',
+              },
+              {
+                id: 'blocked',
+                label: 'Blocked',
+                icon: 'block',
+                bg: 'bg-[#FFF1F2]',
+                border: 'border-[#FFE4E6] hover:border-[#FECDD3]',
+                iconBg: 'bg-[#FFE4E6]',
+                iconColor: 'text-[#E11D48]',
+              },
+              {
+                id: 'settings',
+                label: 'Settings',
+                icon: 'settings',
+                bg: 'bg-[#FFFBF2]',
+                border: 'border-[#F7ECD4] hover:border-[#EEDCB5]',
+                iconBg: 'bg-[#F7ECD4]',
+                iconColor: 'text-[#8C6D23]',
+              },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  if (item.id === 'my-profile') handleTabNavigate('MyProfile')
+                  else if (item.id === 'verification') navigate('/verification')
+                  else if (item.id === 'premium') navigate('/membership')
+                  else if (item.id === 'interests') handleTabNavigate('Interests')
+                  else if (item.id === 'visitors') setActiveModal('Visitors')
+                  else if (item.id === 'saved') setActiveModal('Saved')
+                  else if (item.id === 'blocked') navigate('/blocked')
+                  else if (item.id === 'settings') navigate('/settings')
+                }}
+                className={`${item.bg} ${item.border} rounded-xl py-2 px-1 sm:p-2.5 flex flex-col items-center justify-between shadow-2xs hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition cursor-pointer min-h-[94px] sm:min-h-[104px] relative group`}
+              >
+                {item.badge && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-red-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center border border-white shadow-2xs">
+                    {item.badge}
                   </span>
-                </button>
-              ))}
-            </div>
+                )}
 
-            {/* Logout Button */}
-            <button
-              onClick={async () => {
-                await logout()
-                safeStorage.removeItem('userProfile')
-                navigate('/welcome', { replace: true })
-              }}
-              className="mt-5 w-full bg-white border border-red-100 text-red-600 font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-red-50 active:scale-95 transition cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-              Logout
-            </button>
+                {/* Icon Container */}
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${item.iconBg} ${item.iconColor} flex items-center justify-center shrink-0 shadow-2xs mb-1`}>
+                  <span
+                    className="material-symbols-outlined text-[19px] sm:text-[20px]"
+                    style={{ fontVariationSettings: item.id === 'interests' ? "'FILL' 1" : "'FILL' 0" }}
+                  >
+                    {item.icon}
+                  </span>
+                </div>
 
-            {/* Delete Account Button */}
+                {/* Label (No awkward splitting or breaking) */}
+                <span className="text-[9.5px] sm:text-[10.5px] font-bold text-slate-800 leading-[1.15] text-center w-full px-0.5 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                  {item.label}
+                </span>
+
+                {/* Bottom Chevron Pill */}
+                <div className={`w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full ${item.iconBg} ${item.iconColor} flex items-center justify-center mt-1 group-hover:scale-110 transition-transform`}>
+                  <span className="material-symbols-outlined text-[11px] font-bold">chevron_right</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* 4. Full-Width Logout Action Card */}
+          <div className="px-2.5 sm:px-4 mt-4 sm:mt-5">
             <button
               type="button"
-              onClick={() => {
-                setShowDeleteModal(true)
-                setDeleteConfirmText('')
-                setDeleteError('')
+              onClick={async () => {
+                await logout()
+                localStorage.removeItem('userProfile')
+                navigate('/welcome', { replace: true })
               }}
-              className="mt-2.5 w-full bg-red-50/60 border border-red-200 text-red-700 font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-100/60 active:scale-95 transition text-xs cursor-pointer shadow-2xs"
+              className="w-full bg-white border border-rose-200/80 hover:border-rose-300 rounded-xl py-3 px-5 flex items-center justify-center gap-2.5 shadow-2xs hover:bg-rose-50/40 active:scale-98 transition cursor-pointer text-[#570013] font-extrabold text-xs sm:text-sm group"
             >
-              <span className="material-symbols-outlined text-[18px] text-red-600">delete_forever</span>
-              Delete Account
+              <span className="material-symbols-outlined text-rose-600 text-lg sm:text-xl font-bold">logout</span>
+              <span>Logout</span>
+              <span className="material-symbols-outlined text-rose-400 text-sm sm:text-base group-hover:translate-x-0.5 transition-transform">chevron_right</span>
             </button>
           </div>
         </div>
@@ -2029,118 +2067,342 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             Select a conversation to start chatting
           </div>
         )}
-          {/* CHATS LIST VIEW */}
-          <div className={`${selectedChat ? 'hidden lg:block' : 'block'} lg:order-1 px-4 pt-3 relative min-h-screen lg:min-h-0 lg:h-screen lg:overflow-y-auto lg:w-96 lg:shrink-0 lg:border-r lg:border-gray-200/80`}>
+          {/* CHATS LIST VIEW - Compact & Attractive Luxury Aesthetic */}
+          <div className={`${selectedChat ? 'hidden lg:block' : 'block'} lg:order-1 px-3 sm:px-4 pt-2.5 pb-6 relative min-h-screen lg:min-h-0 lg:h-screen lg:overflow-y-auto lg:w-96 lg:shrink-0 lg:border-r lg:border-gray-200/80`}>
             {/* Header */}
-            <div className="flex items-center gap-1 mb-2">
-              <button
-                onClick={() => navigate('/home')}
-                className="p-0.5 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013] -ml-1"
-                aria-label="Back to Home"
-              >
-                <span className="material-symbols-outlined text-2xl block">arrow_back</span>
-              </button>
-              <h1 className="text-lg font-display font-extrabold text-[#570013] flex-1">Chats</h1>
-              <button 
-                onClick={() => handleTabNavigate('Search')}
-                className="p-1 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013]"
-                aria-label="Search"
-              >
-                <span className="material-symbols-outlined text-xl block">search</span>
-              </button>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <button
+                  onClick={() => navigate('/home')}
+                  className="p-0.5 rounded-full hover:bg-amber-100/60 active:scale-95 transition text-[#570013] -ml-1"
+                  aria-label="Back to Home"
+                >
+                  <span className="material-symbols-outlined text-xl block">arrow_back</span>
+                </button>
+                <div>
+                  <h1 className="text-base font-display font-extrabold text-[#570013] leading-none flex items-center gap-1">
+                    <span>Chats</span>
+                    {chatsList.length > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-[#775a19] text-[9px] font-bold">
+                        {chatsList.length}
+                      </span>
+                    )}
+                  </h1>
+                  <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                    Connect & chat with verified matches
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={() => setShowChatSearch((prev) => !prev)}
+                  className={`p-1 rounded-full active:scale-95 transition ${
+                    showChatSearch || chatSearchQuery
+                      ? 'bg-[#570013] text-white shadow-2xs'
+                      : 'text-[#570013] hover:bg-amber-100/60'
+                  }`}
+                  aria-label="Search conversations"
+                  title="Search Chats"
+                >
+                  <span className="material-symbols-outlined text-lg block">
+                    {showChatSearch && !chatSearchQuery ? 'close' : 'search'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleTabNavigate('Interests')}
+                  className="p-1 rounded-full text-[#570013] hover:bg-amber-100/60 active:scale-95 transition"
+                  title="View Interests"
+                >
+                  <span className="material-symbols-outlined text-lg block">favorite</span>
+                </button>
+              </div>
             </div>
 
+            {/* In-Chat Realtime Search Bar (Compact) */}
+            {(showChatSearch || chatSearchQuery) && (
+              <div className="mb-2.5">
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 text-gray-400 material-symbols-outlined text-base pointer-events-none">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    value={chatSearchQuery}
+                    onChange={(e) => setChatSearchQuery(e.target.value)}
+                    placeholder="Search chats by candidate name..."
+                    className="w-full pl-8 pr-7 py-1.5 bg-white rounded-lg border border-amber-200 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#570013] focus:ring-1 focus:ring-[#570013] shadow-2xs"
+                    autoFocus
+                  />
+                  {chatSearchQuery && (
+                    <button
+                      onClick={() => setChatSearchQuery('')}
+                      className="absolute right-2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-xs block">close</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {chatError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-[11px] text-red-800 font-bold flex items-center justify-between">
+              <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-[10.5px] text-red-800 font-bold flex items-center justify-between">
                 <span>{chatError}</span>
-                <button onClick={() => setChatError('')} className="text-red-500 font-bold">
+                <button onClick={() => setChatError('')} className="text-red-500 font-bold p-0.5">
                   ✕
                 </button>
               </div>
             )}
 
-            {/* Chats List */}
-            <div className="divide-y divide-gray-100 bg-white rounded-lg border border-gray-100 shadow-2xs overflow-hidden">
-                {isLoadingChats && chatsList.length === 0 && (
-                  <div className="text-center py-12 text-xs text-slate-400 font-semibold">
-                    Loading conversations...
-                  </div>
-                )}
-
-                {!isLoadingChats && chatsList.length === 0 && (
-                  <div className="text-center py-12 px-6">
-                    <span className="material-symbols-outlined text-4xl text-gray-300 mb-2 block">
-                      forum
-                    </span>
-                    <p className="text-sm font-semibold text-slate-700">No conversations yet</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Chats open once a candidate accepts your interest.
-                    </p>
+            {/* Quick Connect / Recent Match Stories Row (Compact) */}
+            {chatsList.length > 0 && !chatSearchQuery && (
+              <div className="mb-2.5 pb-1.5 border-b border-gray-100/80">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[9.5px] font-bold text-gray-400 uppercase tracking-wider">
+                    Recent Connections
+                  </span>
+                  <span className="text-[9.5px] text-amber-800/80 font-bold">
+                    {chatsList.length} Connected
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+                  {chatsList.map((chat) => (
                     <button
-                      onClick={() => handleTabNavigate('Interests')}
-                      className="mt-4 px-4 py-2 bg-[#570013] text-white font-bold rounded-lg text-xs active:scale-95 transition"
+                      key={`story-${chat.id}`}
+                      onClick={() => handleOpenChat(chat)}
+                      className="flex flex-col items-center gap-0.5 shrink-0 group cursor-pointer"
                     >
-                      View Interests
-                    </button>
-                  </div>
-                )}
-
-                {chatsList.map((chat) => (
-                  <div
-                    key={chat.id}
-                    onClick={() => handleOpenChat(chat)}
-                    className="p-3.5 flex items-center justify-between hover:bg-amber-50/30 transition cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Avatar */}
-                      <div className="relative w-12 h-12 rounded-full flex-shrink-0 bg-amber-50 flex items-center justify-center overflow-hidden">
-                        {chat.image ? (
-                          <img
-                            src={avatarSrc(chat.image)} onError={handleAvatarError}
-                            alt={chat.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="material-symbols-outlined text-xl text-[#570013]">person</span>
-                        )}
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full p-[1px] bg-gradient-to-tr from-amber-400 via-rose-300 to-amber-500 shadow-2xs group-hover:scale-105 transition-transform">
+                          <div className="w-full h-full rounded-full bg-white overflow-hidden p-0.5">
+                            {chat.image ? (
+                              <img
+                                src={avatarSrc(chat.image)}
+                                onError={handleAvatarError}
+                                alt={chat.name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full rounded-full bg-amber-50 text-[#570013] flex items-center justify-center font-bold text-[10px]">
+                                {chat.name?.[0] || 'C'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* Active Online Indicator */}
+                        <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full shadow-2xs" />
                       </div>
+                      <span className="text-[9.5px] font-bold text-slate-700 max-w-[46px] truncate group-hover:text-[#570013] leading-tight">
+                        {chat.name?.split(' ')?.[0] || chat.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                      {/* Chat details */}
-                      <div className="min-w-0 flex-grow">
-                        <h3 className="font-bold text-xs md:text-sm text-slate-900 truncate flex items-center gap-1">
-                          {chat.name}
-                          {chat.verified && (
-                            <span className="material-symbols-outlined text-[13px] text-emerald-600">
-                              verified
-                            </span>
-                          )}
-                        </h3>
-                        <p
-                          className={`text-xs truncate ${
-                            typingConversationId === chat.id
-                              ? 'text-emerald-600 font-semibold'
-                              : chat.unreadCount > 0
-                              ? 'text-slate-900 font-semibold'
-                              : 'text-slate-400 font-medium'
+            {/* Category Filter Pills (Compact) */}
+            {chatsList.length > 0 && (
+              <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+                {[
+                  { id: 'all', label: 'All Messages', count: chatsList.length },
+                  { id: 'unread', label: 'Unread', count: chatsList.filter((c) => c.unreadCount > 0).length },
+                  { id: 'verified', label: 'Verified', count: chatsList.filter((c) => c.verified).length },
+                ].map((tab) => {
+                  const isActive = chatFilterTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setChatFilterTab(tab.id)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-bold transition flex items-center gap-1 shrink-0 cursor-pointer ${
+                        isActive
+                          ? 'bg-[#570013] text-white shadow-2xs'
+                          : 'bg-white border border-amber-200/80 text-gray-600 hover:bg-amber-50/60'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      {tab.count > 0 && (
+                        <span
+                          className={`text-[8.5px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                            isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-[#775a19]'
                           }`}
                         >
-                          {typingConversationId === chat.id ? 'Typing...' : chat.lastMessage}
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Chats List Render (Compact Cards) */}
+            {(() => {
+              const filteredList = chatsList.filter((chat) => {
+                const matchesSearch = chatSearchQuery.trim()
+                  ? (chat.name || '').toLowerCase().includes(chatSearchQuery.toLowerCase()) ||
+                    (chat.lastMessage || '').toLowerCase().includes(chatSearchQuery.toLowerCase())
+                  : true
+                const matchesTab =
+                  chatFilterTab === 'unread'
+                    ? chat.unreadCount > 0
+                    : chatFilterTab === 'verified'
+                    ? chat.verified
+                    : true
+                return matchesSearch && matchesTab
+              })
+
+              return (
+                <div className="space-y-1.5">
+                  {isLoadingChats && chatsList.length === 0 && (
+                    <div className="text-center py-10 text-xs text-slate-400 font-semibold bg-white rounded-xl border border-gray-100 shadow-2xs">
+                      <div className="w-6 h-6 border-2 border-[#570013] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      Loading conversations...
+                    </div>
+                  )}
+
+                  {!isLoadingChats && chatsList.length === 0 && (
+                    <div className="bg-gradient-to-br from-white via-[#FFFDF9] to-[#FFF8F0] border border-amber-200/70 rounded-xl p-5 text-center shadow-xs">
+                      <div className="w-12 h-12 rounded-full bg-amber-50 text-[#570013] border border-amber-200 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
+                        <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          forum
+                        </span>
+                      </div>
+                      <h3 className="text-xs sm:text-sm font-extrabold text-[#570013] font-display">No Conversations Yet</h3>
+                      <p className="text-[11px] text-gray-500 mt-0.5 max-w-xs mx-auto leading-relaxed">
+                        Chats open instantly once a candidate accepts your interest or sends you a request.
+                      </p>
+                      <button
+                        onClick={() => handleTabNavigate('Matches')}
+                        className="mt-3 px-3.5 py-1.5 bg-[#570013] hover:bg-[#72001a] text-white font-bold rounded-full text-[11px] shadow-2xs active:scale-95 transition inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">favorite</span>
+                        <span>Explore Matches</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {!isLoadingChats && chatsList.length > 0 && filteredList.length === 0 && (
+                    <div className="text-center py-8 px-4 bg-white rounded-xl border border-gray-100 text-gray-400 text-xs font-semibold shadow-2xs">
+                      No matching chats found for "{chatSearchQuery}".
+                    </div>
+                  )}
+
+                  {filteredList.map((chat) => {
+                    const isTyping = typingConversationId === chat.id
+                    const hasUnread = chat.unreadCount > 0
+
+                    return (
+                      <div
+                        key={chat.id}
+                        onClick={() => handleOpenChat(chat)}
+                        className={`p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer relative group flex items-center justify-between gap-2.5 ${
+                          hasUnread
+                            ? 'bg-gradient-to-r from-amber-50/80 via-white to-[#FFF9F3] border-amber-300 shadow-xs'
+                            : 'bg-white hover:bg-[#FFFDF9] border-amber-200/70 hover:border-amber-300 shadow-2xs hover:shadow-xs'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {/* Avatar with Gold Ring & Online Indicator */}
+                          <div className="relative shrink-0">
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-[1.2px] bg-gradient-to-tr from-amber-400 via-amber-200 to-amber-500 shadow-2xs overflow-hidden bg-white">
+                              {chat.image ? (
+                                <img
+                                  src={avatarSrc(chat.image)}
+                                  onError={handleAvatarError}
+                                  alt={chat.name}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full rounded-full bg-amber-50 text-[#570013] flex items-center justify-center font-bold text-xs">
+                                  <span className="material-symbols-outlined text-lg">person</span>
+                                </div>
+                              )}
+                            </div>
+                            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full shadow-2xs" />
+                          </div>
+
+                          {/* Candidate & Last Message details */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1">
+                              <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-900 truncate leading-tight group-hover:text-[#570013] transition-colors">
+                                {chat.name}
+                              </h3>
+                              {chat.verified && (
+                                <span
+                                  className="material-symbols-outlined text-[13px] text-amber-500 shrink-0"
+                                  style={{ fontVariationSettings: "'FILL' 1" }}
+                                  title="Verified Profile"
+                                >
+                                  verified
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {isTyping ? (
+                                <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping" />
+                                  Typing...
+                                </span>
+                              ) : (
+                                <p
+                                  className={`text-[10.5px] sm:text-[11px] truncate leading-tight ${
+                                    hasUnread ? 'text-slate-900 font-bold' : 'text-slate-500 font-medium'
+                                  }`}
+                                >
+                                  {chat.lastMessage}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Info: Time, Unread Badge & Chevron */}
+                        <div className="flex flex-col items-end justify-between self-stretch shrink-0 py-0.5">
+                          <span
+                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              hasUnread
+                                ? 'bg-[#570013] text-white font-bold'
+                                : 'text-amber-900/70 bg-amber-50/80 border border-amber-200/50'
+                            }`}
+                          >
+                            {chat.time}
+                          </span>
+
+                          <div className="flex items-center gap-0.5 mt-0.5">
+                            {hasUnread && (
+                              <span className="w-4 h-4 bg-gradient-to-r from-red-600 to-rose-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+                                {chat.unreadCount}
+                              </span>
+                            )}
+                            <span className="material-symbols-outlined text-[14px] text-gray-300 group-hover:text-[#570013] group-hover:translate-x-0.5 transition-all">
+                              chevron_right
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Safety & Matrimonial Trust Footer Card (Compact) */}
+                  {chatsList.length > 0 && (
+                    <div className="mt-3 p-2 bg-gradient-to-r from-amber-50/70 via-[#FFFDF9] to-amber-50/50 rounded-lg border border-amber-200/60 flex items-center gap-2 shadow-2xs">
+                      <div className="w-6 h-6 rounded-full bg-amber-100 text-[#775a19] flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-xs">verified_user</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-bold text-[#570013] leading-tight">Private & Verified Chats</p>
+                        <p className="text-[8.5px] text-gray-500 leading-tight">
+                          End-to-end safe communication for family privacy.
                         </p>
                       </div>
                     </div>
-
-                    {/* Time & Badge */}
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="text-[11px] text-gray-400 font-medium">{chat.time}</span>
-                      {chat.unreadCount > 0 && (
-                        <span className="w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-2xs">
-                          {chat.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
       ) : activeTab === 'Interests' ? (
@@ -2354,8 +2616,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     className="bg-white rounded-md p-2.5 border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md transition cursor-pointer"
                   >
                     <img
-                      src={avatarSrc(match.image, match.id || match.name)}
-                      onError={(e) => handleAvatarError(e, getMockFemaleAvatar(match.id || match.name))}
+                      src={avatarSrc(match.image)} onError={handleAvatarError}
                       alt={match.name}
                       className="w-12 h-12 rounded-md object-cover flex-shrink-0"
                     />
@@ -2489,14 +2750,12 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   ? 'You have viewed all profiles included in your plan today.'
                   : `${matchQuota.remaining} of ${matchQuota.limit} profile views left today`}
               </span>
-              {/* === [IOS-DEPLOY-COMMENT-START] Quota Upgrade button commented out for iOS deployment === */}
-              {/* <button
+              <button
                 onClick={() => navigate('/membership')}
                 className="px-2.5 py-1 bg-[#570013] text-amber-100 rounded-md text-[10px] font-extrabold shrink-0"
               >
                 Upgrade
-              </button> */}
-              {/* === [IOS-DEPLOY-COMMENT-END] === */}
+              </button>
             </div>
           )}
 
@@ -2580,8 +2839,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 {/* Candidate Image Card */}
                 <div className="w-full h-64 rounded-md overflow-hidden relative bg-gray-100 mb-4">
                   <img
-                    src={avatarSrc(match.image, match.id || match.name)}
-                    onError={(e) => handleAvatarError(e, getMockFemaleAvatar(match.id || match.name))}
+                    src={avatarSrc(match.image)} onError={handleAvatarError}
                     alt={match.name}
                     className="w-full h-full object-cover"
                   />
@@ -2596,15 +2854,14 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
                   {/* Heart Action Button */}
                   <button
-                    onClick={(e) => toggleFavorite(match.id, e, match.name)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer"
-                    title={isLiked(match) ? "Liked profile" : "Like profile"}
+                    onClick={(e) => toggleFavorite(match.id, e)}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition"
                   >
                     <span
-                      className={`material-symbols-outlined text-base transition-colors ${
-                        isLiked(match) ? 'text-red-600' : 'text-slate-400 hover:text-red-500'
+                      className={`material-symbols-outlined text-base ${
+                        favorites[match.id] ? 'text-red-600' : 'text-red-600'
                       }`}
-                      style={{ fontVariationSettings: isLiked(match) ? "'FILL' 1" : "'FILL' 0" }}
+                      style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       favorite
                     </span>
@@ -2878,69 +3135,430 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         </div>
       ) : (
         /* HOME PAGE VIEW */
-        <div className="px-5 pt-4">
-          {/* Clean Top App Bar */}
-          <div className="-mx-5 -mt-4 px-5 pt-5 pb-4 bg-[#f2ebd9] border-b border-[#e6dfd1]/80 flex items-center justify-between mb-6 shadow-sm">
-            {/* Left side: Avatar + Greeting */}
-            <div className="flex items-center gap-3">
-              <div className="relative w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] to-amber-300 shadow-sm flex items-center justify-center overflow-hidden bg-amber-50">
-                {userProfile?.profilePicture ? (
-                  <img
-                    src={avatarSrc(userProfile.profilePicture)} onError={handleAvatarError}
-                    alt={userProfile?.fullName ? `${userProfile.fullName} Profile` : "User Profile"}
-                    className="w-full h-full rounded-full object-cover border-2 border-white"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#775a19]">
-                    <span className="material-symbols-outlined text-[22px]">person</span>
+        <div className="px-4 sm:px-6 pt-3 pb-8 space-y-6 max-w-2xl mx-auto w-full">
+          {/* 1. Header / Welcome Area */}
+          <div className="relative pt-1 pb-1">
+            {/* Soft decorative background glow */}
+            <div className="absolute top-0 right-0 w-44 h-28 bg-gradient-to-bl from-amber-200/30 via-rose-200/15 to-transparent rounded-bl-full pointer-events-none -z-0" />
+            <div className="flex items-center justify-between relative z-10">
+              {/* Left: User Avatar & Welcome Details */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  onClick={() => handleTabNavigate('Profile')}
+                  className="relative cursor-pointer group shrink-0"
+                >
+                  <div className="w-13 h-13 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] via-amber-300 to-[#570013] shadow-md group-hover:scale-105 transition-transform overflow-hidden bg-white">
+                    {userProfile?.profilePicture ? (
+                      <img
+                        src={avatarSrc(userProfile.profilePicture)}
+                        onError={handleAvatarError}
+                        alt={userProfile?.fullName || 'User Profile'}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-[#570013]">
+                        <span className="material-symbols-outlined text-2xl">person</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-[#775a19] font-bold uppercase tracking-wider mb-0.5">Welcome back,</p>
-                <h1 className="text-lg font-extrabold text-[#570013] leading-tight truncate max-w-[150px]">
-                  {userProfile?.fullName || 'Rahul Garg'}
-                </h1>
-              </div>
-            </div>
+                  {/* Active / Online Status Indicator */}
+                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
+                </div>
 
-            {/* Right side: Notification */}
-            <div 
-              onClick={() => handleTabNavigate('Notifications')}
-              className="relative p-2.5 bg-white rounded-full shadow-sm border border-[#e6dfd1]/80 hover:bg-amber-50 active:scale-95 transition cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[#570013] text-xl block">notifications</span>
-              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full" />
+                <div className="min-w-0">
+                  <p className="text-[11px] text-[#775a19] font-medium tracking-wide">
+                    Welcome back,
+                  </p>
+                  <h1 className="text-base sm:text-lg font-extrabold text-[#570013] font-display leading-tight truncate">
+                    {userProfile?.fullName || 'Member'}
+                  </h1>
+                  <button
+                    onClick={() => navigate('/profile-completion-dashboard')}
+                    className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#570013] transition mt-0.5 cursor-pointer group truncate"
+                  >
+                    <span className="truncate">Complete your profile to get better matches</span>
+                    <span className="material-symbols-outlined text-[14px] text-gray-400 group-hover:text-[#570013] group-hover:translate-x-0.5 transition-all">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: Notifications and Settings Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleTabNavigate('Notifications')}
+                  className="relative w-10 h-10 bg-white rounded-full shadow-sm border border-amber-200/50 hover:bg-amber-50/70 hover:shadow active:scale-95 transition flex items-center justify-center cursor-pointer text-[#570013]"
+                  title="Notifications"
+                  aria-label="Notifications"
+                >
+                  <span className="material-symbols-outlined text-[20px]">notifications</span>
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
+                      {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="w-10 h-10 bg-white rounded-full shadow-sm border border-amber-200/50 hover:bg-amber-50/70 hover:shadow active:scale-95 transition flex items-center justify-center cursor-pointer text-slate-700"
+                  title="Settings"
+                  aria-label="Settings"
+                >
+                  <span className="material-symbols-outlined text-[20px]">settings</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Bio Data Action Card */}
-          <div className="bg-gradient-to-r from-amber-500/15 via-amber-100/60 to-amber-500/15 border border-amber-300/80 rounded-xl p-3.5 mb-3 shadow-xs relative overflow-hidden">
+          {/* 2. Hero / Connection Banner */}
+          <div className="bg-gradient-to-br from-[#4f0714] via-[#6f0c1f] to-[#3f030c] rounded-xl p-5 sm:p-6 text-white shadow-lg relative overflow-hidden">
+            {/* Subtle decorative background flourishes */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-rose-500/10 rounded-full blur-xl pointer-events-none" />
+            <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M-50,80 Q100,-20 250,90 T500,60" fill="none" stroke="#fed488" strokeWidth="1.5" />
+              <path d="M-20,120 Q120,40 300,130 T600,100" fill="none" stroke="#fed488" strokeWidth="1" />
+            </svg>
+
+            <div className="flex items-center justify-between gap-3 relative z-10">
+              {/* Left Column: Headline, Text & CTA */}
+              <div className="flex-1 pr-1">
+                <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight leading-snug font-display">
+                  Create meaningful connections
+                </h2>
+                <p className="text-xs text-white/80 mt-1.5 leading-relaxed max-w-[210px]">
+                  Find someone who matches your values and lifestyle
+                </p>
+                <button
+                  onClick={() => handleTabNavigate('Matches')}
+                  className="mt-4 px-4 py-2 rounded-full bg-white text-[#570013] font-extrabold text-xs shadow-md hover:bg-amber-50 active:scale-95 transition flex items-center gap-1.5 cursor-pointer group"
+                >
+                  <span>Explore Matches</span>
+                  <span className="material-symbols-outlined text-[15px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                </button>
+              </div>
+
+              {/* Right Column: Overlapping Couple Circles & Heart */}
+              <div className="relative shrink-0 flex items-center justify-center pr-2">
+                <div className="relative flex items-center">
+                  {/* Bride Avatar */}
+                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 border-amber-300 shadow-lg overflow-hidden bg-amber-100/30 shrink-0">
+                    <img
+                      src="/assets/hero-bride.jpg"
+                      alt="Bride"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  {/* Groom Avatar */}
+                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 border-amber-300 shadow-lg overflow-hidden bg-amber-100/30 shrink-0 -ml-5">
+                    <img
+                      src="/assets/hero-groom.jpg"
+                      alt="Groom"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  {/* Floating Heart Badge */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gradient-to-tr from-red-600 to-rose-400 border-2 border-white shadow-md flex items-center justify-center animate-pulse z-20">
+                    <span className="material-symbols-outlined text-white text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      favorite
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Profile Completion Card */}
+          {(() => {
+            const homePct = Number(userProfile?.completionPercentage ?? 75);
+            return (
+              <div className="bg-gradient-to-r from-[#FFFDF9] via-[#FFF9F2] to-[#FFF4E8] border border-[#F4DFC8] rounded-xl p-4 shadow-xs flex items-center justify-between gap-3">
+                {/* Progress Ring */}
+                <div className="relative w-13 h-13 sm:w-14 sm:h-14 shrink-0 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-[#F6DFCF]"
+                      strokeWidth="3.5"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-[#570013] transition-all duration-700 ease-out"
+                      strokeDasharray={`${homePct}, 100`}
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <span className="absolute font-extrabold text-[#570013] text-xs font-display">{homePct}%</span>
+                </div>
+
+                {/* Middle Text Details */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-extrabold text-xs sm:text-sm text-[#570013] font-display">
+                    Complete Your Profile
+                  </h3>
+                  <p className="text-[11px] text-gray-600 leading-tight mt-0.5">
+                    Add more details to get better and relevant matches.
+                  </p>
+                </div>
+
+                {/* Action CTA Button */}
+                <button
+                  onClick={() => navigate('/profile-completion-dashboard')}
+                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs shadow-xs flex items-center gap-1 active:scale-95 transition shrink-0 cursor-pointer"
+                >
+                  <span>{homePct >= 100 ? 'Edit' : 'Complete'}</span>
+                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* 4. Recommended / Today's Matches Section */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-amber-600 text-lg">auto_awesome</span>
+                <h2 className="text-base font-extrabold text-[#570013] font-display">
+                  Recommended For You
+                </h2>
+              </div>
+              <button
+                onClick={() => navigate('/matches')}
+                className="text-xs font-bold text-[#570013] hover:text-[#72001a] flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>See All</span>
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </button>
+            </div>
+
+            {/* Profile Cards Carousel */}
+            {(() => {
+              const displayMatches = (todayMatches && todayMatches.length > 0)
+                ? todayMatches
+                : (matchesList && matchesList.length > 0)
+                ? matchesList
+                : []
+
+              if (displayMatches.length === 0) {
+                return (
+                  <div className="p-6 bg-white rounded-xl border border-gray-100 text-center shadow-xs">
+                    <p className="text-xs text-gray-500 font-medium">No matches available right now.</p>
+                    <button
+                      onClick={() => navigate('/matches')}
+                      className="mt-2 text-xs font-bold text-[#570013] underline"
+                    >
+                      Browse All Profiles
+                    </button>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="flex gap-3.5 overflow-x-auto pb-3 pt-1 scrollbar-none -mx-1 px-1 snap-x">
+                  {displayMatches.map((match) => (
+                    <div
+                      key={match.id}
+                      onClick={() => onSelectProfile && onSelectProfile(match)}
+                      className="w-44 sm:w-48 shrink-0 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer relative group snap-start p-2.5"
+                    >
+                      {/* Match Photo */}
+                      <div className="w-full h-44 rounded-lg overflow-hidden relative bg-amber-50/50 mb-2.5">
+                        <img
+                          src={avatarSrc(match.image)}
+                          onError={handleAvatarError}
+                          alt={match.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+
+                        {/* Online Indicator Dot */}
+                        <span className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white shadow-xs" />
+
+                        {/* Favorite Action Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleFavorite(match.id, e)}
+                          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white active:scale-90 transition cursor-pointer"
+                          title="Shortlist profile"
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[17px] ${
+                              favorites[match.id] ? 'text-red-600' : 'text-slate-400 group-hover:text-red-500'
+                            }`}
+                            style={{ fontVariationSettings: favorites[match.id] ? "'FILL' 1" : "'FILL' 0" }}
+                          >
+                            favorite
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Card Info */}
+                      <div className="px-0.5">
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <h3 className="font-extrabold text-xs text-slate-900 truncate">
+                            {match.name}
+                          </h3>
+                          {match.verified && (
+                            <span
+                              className="material-symbols-outlined text-blue-600 text-[14px] shrink-0"
+                              style={{ fontVariationSettings: "'FILL' 1" }}
+                              title="Verified Profile"
+                            >
+                              verified
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-slate-500 font-medium truncate mb-2">
+                          {match.age ? `${match.age} yrs` : '26 yrs'} • {match.height || "5'6\""} • {match.city || 'Delhi'}
+                        </p>
+
+                        {/* Badges / Tags */}
+                        <div className="flex flex-wrap items-center gap-1">
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-bold shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>{match.matchScore ?? match.compatibility ?? 85}% Match</span>
+                          </div>
+
+                          {match.gotra ? (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-50 text-[#570013] border border-rose-100 text-[10px] font-semibold truncate max-w-[90px]">
+                              {match.gotra}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-[#775a19] border border-amber-200/60 text-[10px] font-semibold truncate max-w-[90px]">
+                              {match.profession || 'Active'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* 5. Quick Actions Section */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="material-symbols-outlined text-[#570013] text-lg">bolt</span>
+              <h2 className="text-base font-extrabold text-[#570013] font-display">
+                Quick Actions
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+              {/* Action 1: Search Profiles */}
+              <button
+                type="button"
+                onClick={() => handleTabNavigate('Search')}
+                className="bg-[#FDF3F1] border border-rose-200/70 hover:border-rose-300 rounded-xl p-3.5 flex items-center justify-between shadow-xs hover:shadow-sm active:scale-98 transition cursor-pointer text-left group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-lg">search</span>
+                  </div>
+                  <span className="font-extrabold text-xs text-slate-800 leading-tight">
+                    Search<br className="hidden sm:inline" /> Profiles
+                  </span>
+                </div>
+                <span className="material-symbols-outlined text-rose-400 group-hover:translate-x-0.5 transition-transform text-lg">
+                  chevron_right
+                </span>
+              </button>
+
+              {/* Action 2: Interests & Preferences */}
+              <button
+                type="button"
+                onClick={() => handleTabNavigate('Interests')}
+                className="bg-[#FDF8EE] border border-amber-200/70 hover:border-amber-300 rounded-xl p-3.5 flex items-center justify-between shadow-xs hover:shadow-sm active:scale-98 transition cursor-pointer text-left group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-lg">tune</span>
+                  </div>
+                  <span className="font-extrabold text-xs text-slate-800 leading-tight">
+                    Interests &<br className="hidden sm:inline" /> Preferences
+                  </span>
+                </div>
+                <span className="material-symbols-outlined text-amber-500 group-hover:translate-x-0.5 transition-transform text-lg">
+                  chevron_right
+                </span>
+              </button>
+
+              {/* Action 3: Messages */}
+              <button
+                type="button"
+                onClick={() => handleTabNavigate('Messages')}
+                className="bg-[#F1F7FE] border border-blue-200/70 hover:border-blue-300 rounded-xl p-3.5 flex items-center justify-between shadow-xs hover:shadow-sm active:scale-98 transition cursor-pointer text-left group relative"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 shadow-xs relative">
+                    <span className="material-symbols-outlined text-lg">chat</span>
+                    {totalUnreadMessages > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                        {totalUnreadMessages}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-extrabold text-xs text-slate-800 leading-tight">
+                    Messages
+                  </span>
+                </div>
+                <span className="material-symbols-outlined text-blue-400 group-hover:translate-x-0.5 transition-transform text-lg">
+                  chevron_right
+                </span>
+              </button>
+
+              {/* Action 4: Profile Visitors */}
+              <button
+                type="button"
+                onClick={() => setActiveModal('Visitors')}
+                className="bg-[#F8F3FE] border border-purple-200/70 hover:border-purple-300 rounded-xl p-3.5 flex items-center justify-between shadow-xs hover:shadow-sm active:scale-98 transition cursor-pointer text-left group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-lg">visibility</span>
+                  </div>
+                  <span className="font-extrabold text-xs text-slate-800 leading-tight">
+                    Profile<br className="hidden sm:inline" /> Visitors
+                  </span>
+                </div>
+                <span className="material-symbols-outlined text-purple-400 group-hover:translate-x-0.5 transition-transform text-lg">
+                  chevron_right
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Bio Data Action Card (View / PDF Export) */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-100/50 to-amber-500/10 border border-amber-300/80 rounded-xl p-4 shadow-xs relative overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              {/* Icon & Visible Title */}
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#570013] text-amber-300 flex items-center justify-center shrink-0 shadow-xs">
-                  <span className="material-symbols-outlined text-[22px]">badge</span>
+                  <span className="material-symbols-outlined text-[20px]">badge</span>
                 </div>
                 <div>
-                  <h2 className="text-sm font-extrabold text-[#570013] tracking-wide uppercase leading-tight">
-                    Your Bio Data
-                  </h2>
-                  <p className="text-[10px] text-[#775a19] font-semibold leading-tight mt-0.5">
-                    View profile preview or download PDF
+                  <h3 className="text-xs font-extrabold text-[#570013] tracking-wide uppercase leading-tight font-display">
+                    Your Official Bio Data
+                  </h3>
+                  <p className="text-[11px] text-[#775a19] font-medium leading-tight mt-0.5">
+                    View candidate preview or export customized PDF
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                 <button
                   type="button"
                   onClick={() => handleTabNavigate('MyProfile')}
-                  className="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-[#570013] font-bold text-xs hover:bg-amber-50 active:scale-95 transition-all shadow-xs flex items-center gap-1.5"
-                  title="View Bio Data"
+                  className="px-3.5 py-1.5 rounded-full bg-white border border-amber-300 text-[#570013] font-bold text-xs hover:bg-amber-50 active:scale-95 transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                  <span className="material-symbols-outlined text-[15px]">visibility</span>
                   <span>View</span>
                 </button>
                 <button
@@ -2952,216 +3570,56 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                     }, 300)
                   }}
                   disabled={isExportingPdf}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs active:scale-95 transition-all shadow-xs flex items-center gap-1.5"
-                  title="Download PDF Resume"
+                  className="px-3.5 py-1.5 rounded-full bg-[#570013] hover:bg-[#72001a] text-white font-bold text-xs active:scale-95 transition shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-75"
                 >
-                  <span className="material-symbols-outlined text-[16px]">download</span>
-                  <span>Download</span>
+                  <span className="material-symbols-outlined text-[15px]">download</span>
+                  <span>Download PDF</span>
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* Compact Profile Completion Banner */}
-          {(() => {
-            const homePct = Number(userProfile?.completionPercentage ?? 75);
-            return (
-              <div className="bg-gradient-to-r from-[#6e0b18] via-[#7d0d1c] to-[#50040f] rounded-md p-3.5 text-white shadow-lg relative overflow-hidden mb-4">
-                <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
-
-                <div className="flex items-center justify-between gap-3 relative z-10">
-                  <div className="flex-1">
-                    <h2 className="text-[11px] font-semibold text-amber-200/90 tracking-wide mb-1">
-                      Profile Completion
-                    </h2>
-
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/15">
-                        <span className="material-symbols-outlined text-amber-300 text-xs">badge</span>
-                      </div>
-                      <p className="text-[11px] text-white/90 leading-tight">
-                        {homePct >= 100 ? (
-                          <span>Your profile is <span className="font-bold text-amber-300">100% complete</span>!</span>
-                        ) : (
-                          <span>Your profile is <span className="font-bold text-amber-300">{homePct}% complete</span>.</span>
-                        )}
-                      </p>
-                    </div>
-
-                    <button 
-                      onClick={() => navigate('/profile-completion-dashboard')}
-                      className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#ffd375] to-[#f5ab2b] text-[#570013] font-bold text-[11px] shadow hover:brightness-105 active:scale-95 transition-all cursor-pointer"
-                    >
-                      {homePct >= 100 ? 'Edit Biodata' : 'Complete Now'}
-                    </button>
-                  </div>
-
-                  {/* Progress Ring */}
-                  <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                      <path
-                        className="text-white/15"
-                        strokeWidth="3.5"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      />
-                      <path
-                        className="text-amber-300 transition-all duration-700 ease-out"
-                        strokeDasharray={`${homePct}, 100`}
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      />
-                    </svg>
-                    <span className="absolute font-bold text-amber-300 text-xs">{homePct}%</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Today's Matches Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-slate-900">Today's Matches</h2>
-              <button
-                onClick={() => navigate('/matches')}
-                className="text-xs font-bold text-[#6e0b18] hover:underline cursor-pointer"
-              >
-                See All
-              </button>
-            </div>
-
-            <div className="flex gap-3.5 overflow-x-auto pb-3 pt-1 scrollbar-none -mx-1 px-1">
-              {todayMatches.map((match) => (
-                <div
-                  key={match.id}
-                  onClick={() => onSelectProfile && onSelectProfile(match)}
-                  className="w-36 flex-shrink-0 bg-white rounded-md border border-gray-100 p-2 shadow-sm hover:shadow-md transition cursor-pointer relative group"
-                >
-                  <div className="w-full h-36 rounded-md overflow-hidden relative bg-gray-100 mb-2">
-                    <img
-                      src={avatarSrc(match.image, match.id || match.name)}
-                      onError={(e) => handleAvatarError(e, getMockFemaleAvatar(match.id || match.name))}
-                      alt={match.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <button
-                      onClick={(e) => toggleFavorite(match.id, e, match.name)}
-                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center shadow hover:bg-white transition cursor-pointer"
-                      title={isLiked(match) ? "Liked profile" : "Like profile"}
-                    >
-                      <span
-                        className={`material-symbols-outlined text-sm transition-colors ${
-                          isLiked(match) ? 'text-red-600' : 'text-slate-400 hover:text-red-500'
-                        }`}
-                        style={{ fontVariationSettings: isLiked(match) ? "'FILL' 1" : "'FILL' 0" }}
-                      >
-                        favorite
-                      </span>
-                    </button>
-                  </div>
-
-                  <div className="px-0.5">
-                    <h3 className="font-bold text-xs text-slate-900 truncate mb-0.5">{match.name}</h3>
-                    <p className="text-[11px] text-slate-500 font-medium truncate mb-1.5">
-                      {match.age} • {match.height}
-                      <br />
-                      <span className="text-slate-400">{match.city}</span>
-                    </p>
-
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>{match.matchScore}% Match</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Actions Section */}
-          <div className="mb-4">
-            <h2 className="text-base font-bold text-slate-900 mb-3">Quick Actions</h2>
-
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { id: 'search', label: 'Search', icon: 'search' },
-                { id: 'interests', label: 'Interests', icon: 'person_search' },
-                {
-                  id: 'messages',
-                  label: 'Messages',
-                  icon: 'chat',
-                  badge: totalUnreadMessages > 0 ? String(totalUnreadMessages) : undefined,
-                },
-                { id: 'visitors', label: 'Visitors', icon: 'group' },
-              ].map((action) => (
-                <button
-                  key={action.id}
-                  onClick={() => {
-                    if (action.id === 'search') handleTabNavigate('Search')
-                    else if (action.id === 'interests') handleTabNavigate('Interests')
-                    else if (action.id === 'messages') handleTabNavigate('Messages')
-                    else if (action.id === 'visitors') setActiveModal('Visitors')
-                  }}
-                  className="flex flex-col items-center justify-center p-3 bg-white rounded-md border border-gray-100 shadow-sm hover:shadow-md hover:bg-amber-50/40 transition active:scale-95"
-                >
-                  <div className="relative w-11 h-11 rounded-md bg-gradient-to-b from-amber-50 to-amber-100/60 text-[#6e0b18] flex items-center justify-center mb-1.5">
-                    <span className="material-symbols-outlined text-xl">{action.icon}</span>
-                    {action.badge && (
-                      <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                        {action.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-700">{action.label}</span>
-                </button>
-              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* Sticky Bottom Navigation Bar */}
+      {/* Fixed Full-Width Bottom Navigation Bar */}
       {!selectedChat && activeTab !== 'MyProfile' && (
-        <nav className="lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-200/80 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-4 py-2 flex items-center justify-around z-50">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] px-2 py-2 sm:px-4 z-50 flex items-center justify-around">
           {navTabs.map((tab) => {
             const isActive = activeTab === tab.id || (activeTab === 'Notifications' && tab.id === 'Home') // Failsafe for route match
             return (
               <button
                 key={tab.id}
                 onClick={() => handleTabNavigate(tab.id)}
-                className="flex flex-col items-center justify-center relative py-1 px-2 text-center transition"
+                className="flex-1 flex flex-col items-center justify-center relative py-1 px-1 text-center transition group active:scale-95 cursor-pointer"
               >
                 <div className="relative">
                   <span
-                    className={`material-symbols-outlined text-2xl transition-colors ${
-                      isActive ? 'text-[#6e0b18]' : 'text-gray-400'
+                    className={`material-symbols-outlined text-[24px] transition-colors ${
+                      isActive ? 'text-[#570013]' : 'text-gray-400 group-hover:text-gray-600'
                     }`}
                     style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                   >
                     {tab.icon}
                   </span>
                   {tab.badge && (
-                    <span className="absolute -top-1 -right-1.5 w-4 h-4 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white">
+                    <span className="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white shadow-xs">
                       {tab.badge}
                     </span>
                   )}
                 </div>
                 <span
-                  className={`text-[10px] font-semibold mt-0.5 transition-colors ${
-                    isActive ? 'text-[#6e0b18]' : 'text-gray-400'
+                  className={`text-[11px] font-semibold mt-0.5 tracking-tight transition-colors ${
+                    isActive ? 'text-[#570013] font-bold' : 'text-gray-400 group-hover:text-gray-600'
                   }`}
                 >
                   {tab.label}
                 </span>
 
                 {/* Active Tab Underline */}
-                {isActive && (
-                  <div className="w-5 h-0.5 bg-[#6e0b18] rounded-full mt-0.5 animate-scale-fade" />
+                {isActive ? (
+                  <div className="w-5 h-0.5 bg-[#570013] rounded-full mt-0.5 animate-scale-fade" />
+                ) : (
+                  <div className="w-5 h-0.5 bg-transparent mt-0.5" />
                 )}
               </button>
             )
@@ -3209,13 +3667,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                           <p className="text-[10px] text-slate-500">{v.city} • {v.time}</p>
                         </div>
                       </div>
-                      <button
-                        disabled={!v.profileId}
-                        onClick={() => {
-                          setActiveModal(null)
-                          onSelectProfile && onSelectProfile(v)
-                        }}
-                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none"
+                      <button 
+                        onClick={() => { setActiveModal(null); navigate('/profile-detail'); }}
+                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition"
                       >
                         View Profile
                       </button>
@@ -3242,13 +3696,9 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                           <p className="text-[10px] text-slate-500">{s.profession} • {s.city}</p>
                         </div>
                       </div>
-                      <button
-                        disabled={!s.profileId}
-                        onClick={() => {
-                          setActiveModal(null)
-                          onSelectProfile && onSelectProfile(s)
-                        }}
-                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition disabled:opacity-40 disabled:pointer-events-none"
+                      <button 
+                        onClick={() => { setActiveModal(null); navigate('/profile-detail'); }}
+                        className="px-3 py-1 bg-[#570013] text-white text-[11px] font-bold rounded-lg hover:bg-[#72001a] active:scale-95 transition"
                       >
                         Open Profile
                       </button>
@@ -3275,77 +3725,6 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Account Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-2xl border border-red-100 text-left relative">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-3">
-              <span className="material-symbols-outlined text-2xl">delete_forever</span>
-            </div>
-
-            <h3 className="text-base font-extrabold text-slate-900 mb-1">
-              Delete Account Permanently?
-            </h3>
-            <p className="text-xs text-slate-600 leading-relaxed mb-3">
-              This action <span className="font-bold text-red-600">cannot be undone</span>. All your candidate biodata, photos, saved matches, and conversations will be permanently erased.
-            </p>
-
-            <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 mb-3">
-              <p className="text-[11px] font-semibold text-red-800 mb-1.5">
-                Type <span className="font-extrabold underline tracking-wider">DELETE</span> below to confirm:
-              </p>
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => {
-                  setDeleteConfirmText(e.target.value)
-                  setDeleteError('')
-                }}
-                placeholder="DELETE"
-                className="w-full px-3 py-2 bg-white border border-red-300 rounded-md text-xs font-bold text-red-700 tracking-wider focus:outline-none focus:ring-2 focus:ring-red-400 placeholder:text-gray-300 placeholder:font-normal"
-                autoFocus
-              />
-            </div>
-
-            {deleteError && (
-              <p className="text-[11px] text-red-600 font-semibold mb-3">
-                {deleteError}
-              </p>
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false)
-                  setDeleteConfirmText('')
-                  setDeleteError('')
-                }}
-                disabled={isDeletingAccount}
-                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-slate-700 font-bold rounded-lg text-xs transition cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeleteAccount}
-                disabled={isDeletingAccount || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shadow transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-              >
-                {isDeletingAccount ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <span>Permanently Delete</span>
-                )}
-              </button>
             </div>
           </div>
         </div>

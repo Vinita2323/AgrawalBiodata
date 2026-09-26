@@ -24,23 +24,29 @@ function initialsOf(name) {
     .toUpperCase()
 }
 
-/** Round avatar falling back to initials when a profile has no photo. */
-function ProfileAvatar({ profile, size = 'w-9 h-9' }) {
+/** Round avatar falling back to initials when a profile has no photo or image fails to load. */
+function ProfileAvatar({ profile, size = 'w-6 h-6' }) {
+  const [imgError, setImgError] = useState(false)
   const src = profile?.profilePicture ? resolveAssetUrl(profile.profilePicture) : ''
 
-  if (src) {
+  useEffect(() => {
+    setImgError(false)
+  }, [src])
+
+  if (src && !imgError) {
     return (
       <img
         src={src}
         alt={profile?.fullName || 'Profile'}
-        className={`${size} rounded-full object-cover border border-amber-300/70 shrink-0`}
+        onError={() => setImgError(true)}
+        className={`${size} rounded-full object-cover border border-amber-300/60 shrink-0`}
       />
     )
   }
 
   return (
     <span
-      className={`${size} rounded-full bg-[#570013] text-white text-[11px] font-bold flex items-center justify-center border border-amber-300/70 shrink-0`}
+      className={`${size} rounded-full bg-[#570013] text-white text-[9px] font-bold flex items-center justify-center border border-amber-300/60 shrink-0`}
     >
       {initialsOf(profile?.fullName)}
     </span>
@@ -110,23 +116,23 @@ export default function ProfileSwitcher() {
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-full border border-amber-300/70 bg-white hover:bg-amber-50/70 active:scale-95 transition shadow-sm max-w-[132px]"
+        className="flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full border border-amber-200/90 bg-white hover:bg-amber-50/70 active:scale-95 transition shadow-2xs max-w-[108px] cursor-pointer"
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={`Active profile: ${activeProfile.fullName}. Switch profile`}
       >
-        <ProfileAvatar profile={activeProfile} size="w-7 h-7" />
-        <span className="flex flex-col items-start min-w-0 leading-tight">
-          <span className="text-[11px] font-bold text-slate-900 truncate max-w-[64px]">
+        <ProfileAvatar profile={activeProfile} size="w-5.5 h-5.5" />
+        <span className="flex flex-col items-start min-w-0 leading-none">
+          <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-800 truncate max-w-[48px]">
             {activeProfile.fullName}
           </span>
           {activeRelation && (
-            <span className="text-[9px] font-semibold text-[#775a19] truncate max-w-[64px]">
+            <span className="text-[8px] font-medium text-[#775a19] truncate max-w-[48px] mt-0.5">
               {activeRelation}
             </span>
           )}
         </span>
-        <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0">
+        <span className="material-symbols-outlined text-[13px] text-slate-400 shrink-0">
           {isOpen ? 'expand_less' : 'expand_more'}
         </span>
       </button>
