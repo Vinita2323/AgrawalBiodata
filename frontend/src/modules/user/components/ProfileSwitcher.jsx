@@ -117,29 +117,19 @@ export default function ProfileSwitcher({ theme = 'light' }) {
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className={`flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border transition active:scale-95 shadow-sm max-w-[130px] cursor-pointer ${
+        className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-full p-[2px] transition-all active:scale-95 cursor-pointer flex items-center justify-center shadow-md ${
           isDark
-            ? 'border-[#f6cb68]/60 bg-white/10 hover:bg-white/15 backdrop-blur-xs text-white'
-            : 'border-amber-300/80 bg-gradient-to-r from-white via-[#fffdfa] to-amber-50/50 hover:border-amber-400 text-slate-800'
+            ? 'bg-gradient-to-tr from-[#ffe6a7] via-[#c69a3d] to-[#ffd580] hover:ring-2 hover:ring-[#ffd580]/50'
+            : 'bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 hover:ring-2 hover:ring-amber-400/50'
         }`}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={`Active profile: ${activeProfile.fullName}. Switch profile`}
+        title={`Active: ${activeProfile.fullName} - Tap to switch profile`}
       >
-        <ProfileAvatar profile={activeProfile} size="w-6 h-6" />
-        <span className="flex flex-col items-start min-w-0 leading-none">
-          <span className={`text-[10px] sm:text-[11px] font-bold truncate max-w-[56px] ${isDark ? 'text-white' : 'text-slate-800'}`}>
-            {activeProfile.fullName}
-          </span>
-          {activeRelation && (
-            <span className={`text-[8px] font-semibold truncate max-w-[56px] mt-0.5 ${isDark ? 'text-[#f6cb68]' : 'text-[#775a19]'}`}>
-              {activeRelation}
-            </span>
-          )}
-        </span>
-        <span className={`material-symbols-outlined text-[14px] shrink-0 ${isDark ? 'text-[#f6cb68]' : 'text-amber-700/80'}`}>
-          {isOpen ? 'expand_less' : 'expand_more'}
-        </span>
+        <div className="w-full h-full rounded-full overflow-hidden bg-white flex items-center justify-center">
+          <ProfileAvatar profile={activeProfile} size="w-full h-full" />
+        </div>
       </button>
 
       {isOpen && (
