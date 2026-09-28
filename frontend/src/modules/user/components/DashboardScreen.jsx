@@ -389,12 +389,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           setIsLoadingLive(true)
           setLiveMatches([])
           setLiveTodayMatches([])
-          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes] = await Promise.allSettled([
+          const [profileRes, matchesRes, todayRes, sentInterestsRes, quotaRes, shortlistsRes] = await Promise.allSettled([
             getMyProfile(),
             getMatches({ limit: 20 }),
             getTodayMatches(),
             getSentInterests({ limit: 100 }),
-            getMatchQuota()
+            getMatchQuota(),
+            getShortlists({ limit: 100 })
           ])
 
           if (quotaRes.status === 'fulfilled' && quotaRes.value?.quota) {
@@ -403,6 +404,20 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
           if (profileRes.status === 'fulfilled' && profileRes.value?.profile) {
             setUserProfile(profileRes.value.profile)
+          }
+
+          if (shortlistsRes.status === 'fulfilled' && shortlistsRes.value?.shortlists) {
+            const favMap = {}
+            shortlistsRes.value.shortlists.forEach((item) => {
+              const prof = item.shortlistedProfileId
+              if (prof) {
+                if (prof._id) favMap[prof._id] = true
+                if (prof.profileId) favMap[prof.profileId] = true
+              }
+              const rawTarget = item.targetProfileId || item.profileId
+              if (rawTarget && typeof rawTarget === 'string') favMap[rawTarget] = true
+            })
+            setFavorites(favMap)
           }
 
           if (sentInterestsRes.status === 'fulfilled' && sentInterestsRes.value?.interests) {
@@ -968,7 +983,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
         showToast('Added to shortlist', 'success')
       }
     } catch (err) {
-      showToast(err?.message || 'Updated shortlist', 'info')
+      setFavorites(prev => ({ ...prev, [profileId]: isFav }))
+      showToast(err?.message || 'Could not update shortlist', 'info')
     }
   }
 
