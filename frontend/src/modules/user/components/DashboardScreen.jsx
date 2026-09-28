@@ -11,6 +11,7 @@ import {
   getSavedSearches,
   recordSearch,
   deleteSavedSearch,
+  deleteAccount,
 } from '../../../services/accountService'
 import {
   getReceivedInterests,
@@ -232,6 +233,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [interested, setInterested] = useState({})
 
   const [activeModal, setActiveModal] = useState(null) // 'Visitors' | 'Saved' | 'Help & Support'
+  const [matchQuickFilter, setMatchQuickFilter] = useState('All') // 'All' | 'Verified' | 'HighMatch' | 'Kundali' | 'GovtOrBusiness'
+  const [matchSortBy, setMatchSortBy] = useState('compatibility') // 'compatibility' | 'age_asc' | 'age_desc'
   const [notificationsTab, setNotificationsTab] = useState('All')
   const [userProfile, setUserProfile] = useState(null)
   const [liveMatches, setLiveMatches] = useState([])
@@ -250,6 +253,26 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
   const [visitorsList, setVisitorsList] = useState([])
   const [savedList, setSavedList] = useState([])
   const [isLoadingModal, setIsLoadingModal] = useState(false)
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const [deleteAccountError, setDeleteAccountError] = useState('')
+
+  const handleConfirmDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') return
+    setIsDeletingAccount(true)
+    setDeleteAccountError('')
+    try {
+      await deleteAccount()
+      await logout()
+      localStorage.removeItem('userProfile')
+      setShowDeleteAccountModal(false)
+      navigate('/welcome', { replace: true })
+    } catch (err) {
+      setDeleteAccountError(err?.message || 'Failed to delete account. Please try again.')
+      setIsDeletingAccount(false)
+    }
+  }
 
   useEffect(() => {
     if (activeModal !== 'Visitors' && activeModal !== 'Saved') return
@@ -1394,21 +1417,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <path d="M-20,100 Q150,50 320,120 T620,90" fill="none" stroke="#fed488" strokeWidth="1" />
             </svg>
 
-            {/* Floating Subtle Heart Accent (Compact) */}
-            <div className="absolute top-2.5 right-3 flex items-center pointer-events-none select-none opacity-80">
-              <div className="relative">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-400/80 via-yellow-200/90 to-amber-500/80 shadow-2xs flex items-center justify-center transform rotate-12">
-                  <span className="material-symbols-outlined text-white text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    favorite
-                  </span>
-                </div>
-                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-gradient-to-tr from-rose-400 to-pink-300 shadow-2xs flex items-center justify-center -rotate-12">
-                  <span className="material-symbols-outlined text-white text-[8px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    favorite
-                  </span>
-                </div>
-              </div>
-            </div>
+
 
             <div className="flex items-center gap-2.5 relative z-10 pr-2">
               {/* Profile Picture with Online Status */}
@@ -1545,8 +1554,8 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
             );
           })()}
 
-          {/* 3. Action Grid (2 Rows x 4 Columns) - Enhanced Width & Clean Typography */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5 px-2.5 sm:px-4">
+          {/* 3. Action Grid (2 Rows x 4 Columns) - Enhanced Spacing & Breathing Room */}
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 px-3.5 sm:px-5">
             {[
               {
                 id: 'my-profile',
@@ -1671,7 +1680,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           </div>
 
           {/* 4. Full-Width Logout Action Card */}
-          <div className="px-2.5 sm:px-4 mt-4 sm:mt-5">
+          <div className="px-3.5 sm:px-5 mt-4 sm:mt-5 space-y-2.5">
             <button
               type="button"
               onClick={async () => {
@@ -1684,6 +1693,20 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <span className="material-symbols-outlined text-rose-600 text-lg sm:text-xl font-bold">logout</span>
               <span>Logout</span>
               <span className="material-symbols-outlined text-rose-400 text-sm sm:text-base group-hover:translate-x-0.5 transition-transform">chevron_right</span>
+            </button>
+
+            {/* Delete Account Button (directly below Logout) */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteAccountModal(true)
+                setDeleteConfirmText('')
+                setDeleteAccountError('')
+              }}
+              className="w-full bg-rose-50/50 border border-rose-200/80 hover:bg-rose-100/60 rounded-xl py-2.5 px-5 flex items-center justify-center gap-2 shadow-2xs active:scale-98 transition cursor-pointer text-red-700 font-bold text-xs group"
+            >
+              <span className="material-symbols-outlined text-red-600 text-base sm:text-lg">delete_forever</span>
+              <span>Delete Account</span>
             </button>
           </div>
         </div>
@@ -2722,226 +2745,429 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
           )}
         </div>
       ) : activeTab === 'Matches' ? (
-        /* MATCHES PAGE VIEW */
-        <div className="px-5 pt-4">
-          {/* Header */}
-          <div className="flex items-center gap-1 mb-2">
-            <button
-              onClick={() => navigate('/home')}
-              className="p-0.5 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013] -ml-1"
-              aria-label="Back to Home"
-            >
-              <span className="material-symbols-outlined text-2xl block">arrow_back</span>
-            </button>
-            <h1 className="text-lg font-display font-extrabold text-[#570013] flex-1">Matches</h1>
-            <button
-              onClick={() => handleTabNavigate('Notifications')}
-              className="p-1 rounded-full hover:bg-amber-50 active:scale-95 transition text-[#570013]"
-              aria-label="Notifications"
-            >
-              <span className="material-symbols-outlined text-xl block">notifications</span>
-            </button>
+        /* MATCHES PAGE VIEW - Royal Heritage Luxury Edition */
+        <div className="px-3 sm:px-6 pt-2 sm:pt-4 pb-12 max-w-5xl mx-auto w-full">
+          {/* Clean Elegant Top Bar */}
+          <div className="flex items-center justify-between gap-3 mb-3.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => navigate('/home')}
+                className="w-9 h-9 rounded-full bg-white border border-amber-200/90 hover:bg-amber-50 active:scale-95 transition text-[#570013] flex items-center justify-center shadow-2xs cursor-pointer shrink-0"
+                aria-label="Back to Home"
+              >
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+              </button>
+              <div>
+                <h1 className="text-lg sm:text-xl font-display font-extrabold text-[#570013] leading-tight">
+                  Discover Matches
+                </h1>
+                <p className="text-[11px] text-[#775a19] font-medium leading-tight mt-0.5">
+                  Curated profiles according to your partner preferences
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => navigate('/preferences')}
+                className="px-2.5 py-1.5 rounded-full bg-white border border-amber-200/90 hover:bg-amber-50 text-[#570013] text-xs font-semibold flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer"
+                title="Partner Preferences"
+              >
+                <span className="material-symbols-outlined text-[16px] text-[#c69a3d]">tune</span>
+                <span className="hidden sm:inline">Preferences</span>
+              </button>
+
+              <button
+                onClick={() => handleTabNavigate('Notifications')}
+                className="relative w-9 h-9 rounded-full bg-white border border-amber-200/90 hover:bg-amber-50 active:scale-95 transition text-[#570013] flex items-center justify-center shadow-2xs cursor-pointer shrink-0"
+                aria-label="Notifications"
+              >
+                <span className="material-symbols-outlined text-[20px]">notifications</span>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 bg-[#570013] text-[#fff5e1] text-[8.5px] font-extrabold rounded-full flex items-center justify-center border border-white">
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Daily profile-view quota indicator */}
+          {/* Daily Profile View Quota Meter */}
           {matchQuota && !matchQuota.unlimited && (
-            <div className={`mb-4 p-2.5 rounded-md border text-[11px] font-bold flex items-center justify-between gap-2 ${
+            <div className={`mb-4 px-3.5 py-2.5 rounded-2xl border text-xs font-medium flex items-center justify-between gap-3 shadow-2xs backdrop-blur-xs transition ${
               matchQuota.remaining === 0
-                ? 'bg-red-50 border-red-200 text-red-800'
-                : 'bg-amber-50 border-amber-200 text-[#775a19]'
+                ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                : 'bg-gradient-to-r from-amber-50 via-amber-100/40 to-white border-amber-200/90 text-[#775a19]'
             }`}>
-              <span className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm">visibility</span>
-                {matchQuota.remaining === 0
-                  ? 'You have viewed all profiles included in your plan today.'
-                  : `${matchQuota.remaining} of ${matchQuota.limit} profile views left today`}
-              </span>
-              {/* === [IOS-DEPLOY-COMMENT-START] Quota Upgrade button commented out for iOS deployment === */}
-              {/* <button
-                onClick={() => navigate('/membership')}
-                className="px-2.5 py-1 bg-[#570013] text-amber-100 rounded-md text-[10px] font-extrabold shrink-0"
+              <div className="flex items-center gap-2 truncate">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                  matchQuota.remaining === 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                </div>
+                <span className="truncate font-semibold">
+                  {matchQuota.remaining === 0
+                    ? 'Daily profile viewing quota reached on your current tier.'
+                    : `${matchQuota.remaining} of ${matchQuota.limit} profile views remaining today`}
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/preferences')}
+                className="text-xs font-bold text-[#570013] hover:underline shrink-0"
               >
-                Upgrade
-              </button> */}
-              {/* === [IOS-DEPLOY-COMMENT-END] === */}
+                Learn More
+              </button>
             </div>
           )}
 
-          {/* Sub-navigation Tabs */}
-          <div className="flex border-b border-gray-200/80 mb-5">
-            {['All', 'Nearby', 'Interested'].map((cat) => {
-              const isActive = matchesCategory === cat
+          {/* Primary Category Switcher (Regal Segmented Tabs) */}
+          <div className="bg-[#f2ece2] p-1 sm:p-1.5 rounded-2xl grid grid-cols-3 gap-1 mb-3 border border-amber-200/80 shadow-inner">
+            {[
+              { id: 'All', label: 'All Matches', shortLabel: 'All', icon: 'diversity_3' },
+              { id: 'Nearby', label: 'Nearby', shortLabel: 'Nearby', icon: 'location_on' },
+              { id: 'Interested', label: 'Interested', shortLabel: 'Interested', icon: 'favorite' },
+            ].map((tab) => {
+              const isActive = matchesCategory === tab.id
               return (
                 <button
-                  key={cat}
-                  onClick={() => setMatchesCategory(cat)}
-                  className={`flex-1 pb-2.5 text-xs md:text-sm font-semibold transition-all relative ${
+                  key={tab.id}
+                  onClick={() => setMatchesCategory(tab.id)}
+                  className={`py-2 sm:py-2.5 px-1.5 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer min-w-0 ${
                     isActive
-                      ? 'text-[#570013] font-bold border-b-2 border-[#570013]'
-                      : 'text-gray-400 hover:text-gray-600'
+                      ? 'bg-white text-[#570013] shadow-[0_2px_8px_rgba(87,0,19,0.12)] border border-amber-200/90'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                   }`}
                 >
-                  {cat}
+                  <span
+                    className={`material-symbols-outlined text-[16px] sm:text-[17px] shrink-0 ${isActive ? 'text-[#c69a3d]' : 'text-slate-400'}`}
+                    style={{ fontVariationSettings: tab.id === 'Interested' && isActive ? "'FILL' 1" : "'FILL' 0" }}
+                  >
+                    {tab.icon}
+                  </span>
+                  <span className="truncate">{tab.label}</span>
                 </button>
               )
             })}
           </div>
 
-          {/* Preference filter notice */}
+          {/* Secondary Quick Filters & Sort Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-5 pb-1">
+            {/* Quick Filter Pill Buttons */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+              {[
+                { id: 'All', label: 'All Profiles' },
+                { id: 'Verified', label: 'Verified Only', icon: 'verified' },
+                { id: 'HighMatch', label: '85%+ Match', icon: 'stars' },
+                { id: 'Kundali', label: 'Kundali Match', icon: 'auto_awesome' },
+                { id: 'GovtOrBusiness', label: 'Govt & Business', icon: 'business_center' },
+              ].map((pill) => {
+                const isSelected = matchQuickFilter === pill.id
+                return (
+                  <button
+                    key={pill.id}
+                    onClick={() => setMatchQuickFilter(pill.id)}
+                    className={`px-3 py-1.5 rounded-full text-[11.5px] font-bold shrink-0 transition-all flex items-center gap-1 cursor-pointer border ${
+                      isSelected
+                        ? 'bg-[#570013] text-[#fff5e1] border-[#570013] shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-amber-50/70 border-amber-200/80 shadow-2xs'
+                    }`}
+                  >
+                    {pill.icon && (
+                      <span className={`material-symbols-outlined text-[14px] ${isSelected ? 'text-amber-300' : 'text-[#775a19]'}`}>
+                        {pill.icon}
+                      </span>
+                    )}
+                    <span>{pill.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Sort Selector */}
+            <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+              <span className="text-[11px] font-semibold text-slate-500">Sort by:</span>
+              <select
+                value={matchSortBy}
+                onChange={(e) => setMatchSortBy(e.target.value)}
+                className="bg-white border border-amber-200/90 text-slate-800 text-xs font-bold rounded-xl px-2.5 py-1.5 shadow-2xs focus:outline-none focus:ring-1 focus:ring-[#570013] cursor-pointer"
+              >
+                <option value="compatibility">Highest Compatibility</option>
+                <option value="age_asc">Age: Youngest First</option>
+                <option value="age_desc">Age: Senior First</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Preference filter banner reminder */}
           {preferenceFilter && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3">
+            <div className="mb-4 p-3 bg-gradient-to-r from-amber-50 to-[#fffdfa] border border-amber-200/90 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="material-symbols-outlined text-base text-[#570013] shrink-0">tune</span>
-                <p className="text-[11px] font-bold text-amber-900 leading-snug">
+                <span className="material-symbols-outlined text-base text-[#c69a3d] shrink-0">tune</span>
+                <p className="text-[11.5px] font-semibold text-amber-950 leading-snug">
                   {preferenceFilter.beforeFilter > preferenceFilter.shown
-                    ? `Showing ${preferenceFilter.shown} of ${preferenceFilter.beforeFilter} candidates that fit your preferences.`
-                    : 'Filtered by your partner preferences.'}
+                    ? `Showing ${preferenceFilter.shown} of ${preferenceFilter.beforeFilter} candidates matching your partner preferences.`
+                    : 'Curated by your custom partner preferences.'}
                 </p>
               </div>
               <button
                 onClick={() => navigate('/preferences')}
-                className="text-[11px] font-bold text-[#570013] underline shrink-0"
+                className="text-xs font-bold text-[#570013] hover:underline shrink-0 cursor-pointer"
               >
                 Edit
               </button>
             </div>
           )}
 
-          {/* Matches List */}
-          <div className="space-y-5 lg:space-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-5">
+          {/* Matches Profiles Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {(() => {
-              const filteredMatches = matchesList.filter((match) => {
+              let filteredMatches = matchesList.filter((match) => {
                 const isItemInterested = !!interested[match.id] || match.isMockInterested
                 if (matchesCategory === 'Interested') {
-                  // Show explicitly interested profiles or mock interested profiles
                   return isItemInterested
                 } else if (matchesCategory === 'Nearby') {
-                  // Show profiles in Nearby, excluding any interested profile
-                  return !isItemInterested && (match.isNearby || match.city.includes('Jaipur') || match.city.includes('Rajasthan'))
+                  return !isItemInterested && (match.isNearby || match.city?.includes('Jaipur') || match.city?.includes('Rajasthan') || match.city?.includes('Delhi'))
                 } else {
-                  // 'All' tab: Show all profiles, strictly excluding any interested profile
                   return !isItemInterested
                 }
               })
 
+              // Apply Quick Filter Pill
+              if (matchQuickFilter === 'Verified') {
+                filteredMatches = filteredMatches.filter((m) => !!m.verified)
+              } else if (matchQuickFilter === 'HighMatch') {
+                filteredMatches = filteredMatches.filter((m) => (m.compatibility || m.matchScore || 0) >= 85)
+              } else if (matchQuickFilter === 'Kundali') {
+                filteredMatches = filteredMatches.filter((m) => m.gotra || m.motherGotra)
+              } else if (matchQuickFilter === 'GovtOrBusiness') {
+                filteredMatches = filteredMatches.filter((m) => {
+                  const prof = (m.profession || '').toLowerCase()
+                  return prof.includes('business') || prof.includes('govt') || prof.includes('officer') || prof.includes('ca') || prof.includes('engineer') || prof.includes('doctor')
+                })
+              }
+
+              // Apply Sorting
+              filteredMatches = [...filteredMatches].sort((a, b) => {
+                if (matchSortBy === 'compatibility') {
+                  const scoreA = a.compatibility || a.matchScore || 0
+                  const scoreB = b.compatibility || b.matchScore || 0
+                  return scoreB - scoreA
+                } else if (matchSortBy === 'age_asc') {
+                  return (a.age || 0) - (b.age || 0)
+                } else if (matchSortBy === 'age_desc') {
+                  return (b.age || 0) - (a.age || 0)
+                }
+                return 0
+              })
+
               if (filteredMatches.length === 0) {
                 return (
-                  <div className="text-center py-12 bg-white rounded-lg border border-gray-100 p-6">
-                    <span className="material-symbols-outlined text-4xl text-amber-300 mb-2 block">favorite_border</span>
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">No profiles in {matchesCategory}</h3>
-                    <p className="text-xs text-slate-500 max-w-[240px] mx-auto">
-                      {matchesCategory === 'Interested' 
-                        ? 'Click "Interested" on candidate profiles to save them here.' 
-                        : 'No profiles match this filter right now.'}
+                  <div className="text-center py-14 px-6 bg-gradient-to-b from-white via-[#fffdfa] to-amber-50/30 rounded-3xl border border-amber-200/80 shadow-sm col-span-full">
+                    <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-3.5 shadow-2xs text-[#775a19]">
+                      <span className="material-symbols-outlined text-3xl">favorite_border</span>
+                    </div>
+                    <h3 className="text-base font-extrabold text-[#570013] mb-1 font-display">
+                      No matching profiles found
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed mb-4">
+                      {matchesCategory === 'Interested'
+                        ? 'Tap "Send Interest" on candidates you like to build your shortlist here.'
+                        : 'Try adjusting your quick filter or partner preferences to view more eligible Agarwal candidates.'}
                     </p>
+                    {matchQuickFilter !== 'All' && (
+                      <button
+                        onClick={() => setMatchQuickFilter('All')}
+                        className="px-4 py-2 rounded-full bg-[#570013] hover:bg-[#72001a] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                      >
+                        Reset Quick Filters
+                      </button>
+                    )}
                   </div>
                 )
               }
 
-              return filteredMatches.map((match) => (
-              <div
-                key={match.id}
-                onClick={() => onSelectProfile && onSelectProfile(match)}
-                className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm hover:shadow-md transition cursor-pointer"
-              >
-                {/* Candidate Image Card */}
-                <div className="w-full h-64 rounded-md overflow-hidden relative bg-gray-100 mb-4">
-                  <img
-                    src={avatarSrc(match.image)} onError={handleAvatarError}
-                    alt={match.name}
-                    className="w-full h-full object-cover"
-                  />
+              return filteredMatches.map((match) => {
+                const matchScore = match.compatibility || match.matchScore || 88
+                const isShortlisted = !!favorites[match.id]
+                const isInterestSent = !!interested[match.id]
 
-                  {/* Premium Badge */}
-                  {match.isPremium && (
-                    <div className="absolute top-3 left-3 bg-gradient-to-r from-[#6e0b18] to-[#8f1224] text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1">
-                      <span className="text-amber-300">⭐</span>
-                      <span>Premium</span>
+                return (
+                  <div
+                    key={match.id}
+                    onClick={() => onSelectProfile && onSelectProfile(match)}
+                    className="bg-white rounded-3xl border border-amber-200/90 shadow-[0_6px_20px_rgba(87,0,19,0.06)] hover:shadow-[0_12px_32px_rgba(87,0,19,0.12)] hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col group relative"
+                  >
+                    {/* Top Gold Corner Accent Hairline */}
+                    <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent z-20" />
+
+                    {/* Candidate Photo Showcase */}
+                    <div className="w-full h-72 sm:h-80 relative bg-gradient-to-br from-amber-50 to-[#ecdcc4] overflow-hidden">
+                      <img
+                        src={avatarSrc(match.image)}
+                        onError={handleAvatarError}
+                        alt={match.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                      />
+
+                      {/* Multi-tier Gradient for rich photography feel & contrast */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10 pointer-events-none" />
+
+                      {/* Top Badges (Match Score, Verified, Premium) */}
+                      <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
+                        {/* High Compatibility Badge */}
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[10.5px] font-extrabold shadow-md border border-emerald-400/40 backdrop-blur-md">
+                          <span className="material-symbols-outlined text-[13px] text-emerald-200">check_circle</span>
+                          <span>{matchScore}% Match</span>
+                        </span>
+
+                        {match.isPremium && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 via-[#c69a3d] to-[#8f6a1e] text-white text-[10px] font-extrabold shadow-md border border-amber-300/40">
+                            <span>★ Premium</span>
+                          </span>
+                        )}
+
+                        {/* Online status indicator */}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-emerald-300 text-[9.5px] font-bold border border-white/15">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>Active</span>
+                        </span>
+                      </div>
+
+                      {/* Heart Shortlist Action Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => toggleFavorite(match.id, e)}
+                        className={`absolute top-3 right-3 w-10 h-10 rounded-full backdrop-blur-md border shadow-md flex items-center justify-center transition-all duration-200 z-10 cursor-pointer active:scale-90 ${
+                          isShortlisted
+                            ? 'bg-rose-50 border-rose-300 text-rose-600 shadow-rose-900/20'
+                            : 'bg-white/80 border-white/80 text-slate-500 hover:text-rose-600 hover:bg-white'
+                        }`}
+                        title={isShortlisted ? 'Shortlisted' : 'Shortlist Profile'}
+                        aria-label="Shortlist profile"
+                      >
+                        <span
+                          className="material-symbols-outlined text-[20px] transition-transform duration-200 group-hover:scale-110"
+                          style={{ fontVariationSettings: isShortlisted ? "'FILL' 1" : "'FILL' 0" }}
+                        >
+                          favorite
+                        </span>
+                      </button>
+
+                      {/* Bottom Overlay on Image: Name, Age, Location & Verified Tag */}
+                      <div className="absolute bottom-3 left-3.5 right-3.5 z-10 text-white">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <h2 className="text-lg sm:text-xl font-bold text-white drop-shadow-md font-display truncate">
+                            {match.name}{match.age ? `, ${match.age}` : ''}
+                          </h2>
+                          {match.verified && (
+                            <span
+                              className="material-symbols-outlined text-[#ffd580] text-[19px] shrink-0 drop-shadow-xs"
+                              style={{ fontVariationSettings: "'FILL' 1" }}
+                              title="Verified Agarwal Profile"
+                            >
+                              verified
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-amber-100/90 font-medium truncate">
+                          <span className="flex items-center gap-0.5 truncate">
+                            <span className="material-symbols-outlined text-[14px] text-amber-300">location_on</span>
+                            <span>{match.city || 'Rajasthan'}</span>
+                          </span>
+                          {match.height && (
+                            <span className="flex items-center gap-0.5 shrink-0">
+                              <span className="text-amber-300/60">•</span>
+                              <span>{match.height}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
 
-                  {/* Heart Action Button */}
-                  <button
-                    onClick={(e) => toggleFavorite(match.id, e)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition"
-                  >
-                    <span
-                      className={`material-symbols-outlined text-base ${
-                        favorites[match.id] ? 'text-red-600' : 'text-red-600'
-                      }`}
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      favorite
-                    </span>
-                  </button>
-                </div>
+                    {/* Candidate Biodata Key Highlights */}
+                    <div className="p-4 flex-1 flex flex-col justify-between bg-gradient-to-b from-white to-[#fffdfa]">
+                      <div className="space-y-3 mb-4">
+                        {/* Cultural Badges (Gotra & Maternal Gotra) */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {match.gotra ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50/90 border border-amber-200/90 text-[#775a19] text-[11px] font-bold">
+                              <span className="material-symbols-outlined text-[13px] text-[#c69a3d]">temple_hindu</span>
+                              <span>Gotra: <strong className="text-[#570013]">{match.gotra}</strong></span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50/80 border border-amber-200/80 text-[#775a19] text-[11px] font-semibold">
+                              <span className="material-symbols-outlined text-[13px]">shield</span>
+                              <span>Agarwal Vaishya</span>
+                            </span>
+                          )}
 
-                {/* Candidate Info Details */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <h2 className="text-lg font-bold text-slate-900">
-                      {match.name}, {match.age}
-                    </h2>
-                    {match.verified && (
-                      <span className="w-4 h-4 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px] font-bold" title="Verified Profile">
-                        ✓
-                      </span>
-                    )}
+                          {match.motherGotra && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-[10.5px] font-medium">
+                              <span>Maternal: {match.motherGotra}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Profession & Education Specs with Modern Icons */}
+                        <div className="space-y-2 bg-[#fdfbf7] p-2.5 rounded-xl border border-amber-100/80 text-xs">
+                          <div className="flex items-center gap-2 text-slate-800">
+                            <div className="w-6 h-6 rounded-md bg-amber-100/70 text-[#570013] flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-[14px]">work</span>
+                            </div>
+                            <span className="font-semibold truncate">{match.profession || 'Working Professional'}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-slate-700">
+                            <div className="w-6 h-6 rounded-md bg-amber-100/70 text-[#570013] flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-[14px]">school</span>
+                            </div>
+                            <span className="truncate">{match.education || 'Post Graduate / Degree'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Luxury Action Bar: View Biodata & Send Interest */}
+                      <div className="pt-2.5 border-t border-amber-200/60 flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectProfile && onSelectProfile(match)
+                          }}
+                          className="py-2.5 px-3.5 rounded-xl border border-amber-300/90 bg-white hover:bg-amber-50/80 text-[#570013] font-bold text-xs shadow-2xs transition active:scale-95 cursor-pointer shrink-0 flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">badge</span>
+                          <span>View Profile</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => toggleInterest(match.id, e)}
+                          className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
+                            isInterestSent
+                              ? 'bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100/80'
+                              : 'bg-gradient-to-r from-[#570013] via-[#70001a] to-[#570013] hover:from-[#70001a] hover:to-[#8c0022] text-white shadow-[0_3px_12px_rgba(87,0,19,0.25)] border border-[#80001e]'
+                          }`}
+                        >
+                          {isInterestSent ? (
+                            <>
+                              <span className="material-symbols-outlined text-[16px] text-emerald-600">check_circle</span>
+                              <span>Interest Sent</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-[16px] text-amber-300">send</span>
+                              <span>Connect / Express Interest</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-
-                  <p className="text-xs text-slate-500 font-medium mb-3">
-                    {match.height} • {match.city}
-                  </p>
-
-                  <div className="space-y-1.5 text-xs text-slate-700 font-medium">
-                    <p className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-gray-400 text-base">work</span>
-                      <span>{match.profession}</span>
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-gray-400 text-base">school</span>
-                      <span>{match.education}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Compatibility & Interested Action Row */}
-                <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
-                  {/* Compatibility Badge */}
-                  <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-md text-center">
-                    <span className="block text-sm font-extrabold text-emerald-700 leading-tight">
-                      {match.compatibility}%
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 tracking-tight">
-                      Compatibility
-                    </span>
-                  </div>
-
-                  {/* Interested / Undo Button */}
-                  <button
-                    onClick={(e) => toggleInterest(match.id, e)}
-                    className={`flex-1 py-3 px-5 rounded-md font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                      interested[match.id]
-                        ? 'bg-white border border-emerald-300 text-emerald-700'
-                        : 'bg-[#570013] hover:bg-[#72001a] text-white'
-                    }`}
-                  >
-                    {interested[match.id] ? (
-                      <>
-                        <span className="material-symbols-outlined text-base">undo</span>
-                        <span>Undo Interest</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Interested</span>
-                        <span className="material-symbols-outlined text-base">arrow_forward</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            ))
-          })()}
+                )
+              })
+            })()}
           </div>
         </div>
       ) : activeTab === 'MyProfile' ? (
@@ -3144,48 +3370,65 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
       ) : (
         /* HOME PAGE VIEW */
         <div className="px-4 sm:px-6 pt-3 pb-8 space-y-6 max-w-2xl mx-auto w-full">
-          {/* 1. Header / Welcome Area */}
-          <div className="relative pt-1 pb-1">
-            {/* Soft decorative background glow */}
-            <div className="absolute top-0 right-0 w-44 h-28 bg-gradient-to-bl from-amber-200/30 via-rose-200/15 to-transparent rounded-bl-full pointer-events-none -z-0" />
-            <div className="flex items-center justify-between relative z-10">
+          {/* 1. Header / Welcome Area - Royal Traditional Heritage Aesthetic */}
+          <div className="relative rounded-2xl bg-gradient-to-br from-[#fffdfa] via-[#fbf7ee] to-[#f6eee0] p-3.5 sm:p-4 border border-[#e8d5b5] shadow-[0_4px_20px_rgba(119,90,25,0.06)] overflow-hidden">
+            {/* Subtle Royal Traditional Background Ornamentation */}
+            <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-amber-300/20 via-rose-300/10 to-transparent rounded-full blur-2xl pointer-events-none -z-0" />
+            <div className="absolute -bottom-6 -left-6 w-28 h-28 bg-gradient-to-tr from-amber-400/15 to-transparent rounded-full blur-xl pointer-events-none -z-0" />
+            
+            {/* Top delicate golden decorative trim line */}
+            <div className="absolute top-0 left-6 right-6 h-[1.5px] bg-gradient-to-r from-transparent via-[#c69a3d]/40 to-transparent" />
+
+            <div className="flex items-center justify-between relative z-10 gap-3">
               {/* Left: User Avatar & Welcome Details */}
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
                 <div
                   onClick={() => handleTabNavigate('Profile')}
                   className="relative cursor-pointer group shrink-0"
                 >
-                  <div className="w-13 h-13 rounded-full p-0.5 bg-gradient-to-tr from-[#775a19] via-amber-300 to-[#570013] shadow-md group-hover:scale-105 transition-transform overflow-hidden bg-white">
-                    {userProfile?.profilePicture ? (
-                      <img
-                        src={avatarSrc(userProfile.profilePicture)}
-                        onError={handleAvatarError}
-                        alt={userProfile?.fullName || 'User Profile'}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-[#570013]">
-                        <span className="material-symbols-outlined text-2xl">person</span>
-                      </div>
-                    )}
+                  {/* Ornate Gold Double Ring */}
+                  <div className="w-14 h-14 sm:w-15 sm:h-15 rounded-full p-[2.5px] bg-gradient-to-tr from-[#8f681a] via-[#e5c158] to-[#570013] shadow-[0_2px_8px_rgba(87,0,19,0.15)] group-hover:scale-105 group-hover:shadow-[0_4px_12px_rgba(198,154,61,0.3)] transition-all overflow-hidden bg-white">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-white">
+                      {userProfile?.profilePicture ? (
+                        <img
+                          src={avatarSrc(userProfile.profilePicture)}
+                          onError={handleAvatarError}
+                          alt={userProfile?.fullName || 'User Profile'}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-50 to-[#faecd5] flex items-center justify-center text-[#570013]">
+                          <span className="material-symbols-outlined text-2xl">person</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {/* Active / Online Status Indicator */}
                   <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs" />
                 </div>
 
-                <div className="min-w-0">
-                  <p className="text-[11px] text-[#775a19] font-medium tracking-wide">
-                    Welcome back,
-                  </p>
-                  <h1 className="text-base sm:text-lg font-extrabold text-[#570013] font-display leading-tight truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="material-symbols-outlined text-[13px] text-[#9b7222]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      verified
+                    </span>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#8a681f]">
+                      Welcome back,
+                    </p>
+                  </div>
+                  
+                  <h1 className="text-base sm:text-lg font-extrabold text-[#570013] font-display leading-tight truncate capitalize">
                     {userProfile?.fullName || 'Member'}
                   </h1>
+
                   <button
                     onClick={() => navigate('/profile-completion-dashboard')}
-                    className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#570013] transition mt-0.5 cursor-pointer group truncate"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-[#570013] transition-colors mt-1 cursor-pointer group truncate max-w-full"
                   >
-                    <span className="truncate">Complete your profile to get better matches</span>
-                    <span className="material-symbols-outlined text-[14px] text-gray-400 group-hover:text-[#570013] group-hover:translate-x-0.5 transition-all">chevron_right</span>
+                    <span className="truncate">Complete your profile for best matches</span>
+                    <span className="material-symbols-outlined text-[14px] text-[#9b7222] group-hover:text-[#570013] group-hover:translate-x-0.5 transition-transform shrink-0">
+                      arrow_forward_ios
+                    </span>
                   </button>
                 </div>
               </div>
@@ -3194,13 +3437,13 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => handleTabNavigate('Notifications')}
-                  className="relative w-10 h-10 bg-white rounded-full shadow-sm border border-amber-200/50 hover:bg-amber-50/70 hover:shadow active:scale-95 transition flex items-center justify-center cursor-pointer text-[#570013]"
+                  className="relative w-10 h-10 sm:w-10.5 sm:h-10.5 bg-gradient-to-b from-white to-[#faf6ef] rounded-full shadow-xs border border-amber-300/70 hover:border-amber-400 hover:bg-amber-50 hover:shadow-sm active:scale-95 transition-all flex items-center justify-center cursor-pointer text-[#570013]"
                   title="Notifications"
                   aria-label="Notifications"
                 >
-                  <span className="material-symbols-outlined text-[20px]">notifications</span>
+                  <span className="material-symbols-outlined text-[21px]">notifications</span>
                   {unreadNotificationCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#570013] text-[#f7e7ce] text-[9px] font-extrabold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
                       {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
                     </span>
                   )}
@@ -3208,7 +3451,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
 
                 <button
                   onClick={() => navigate('/settings')}
-                  className="w-10 h-10 bg-white rounded-full shadow-sm border border-amber-200/50 hover:bg-amber-50/70 hover:shadow active:scale-95 transition flex items-center justify-center cursor-pointer text-slate-700"
+                  className="w-10 h-10 sm:w-10.5 sm:h-10.5 bg-gradient-to-b from-white to-[#faf6ef] rounded-full shadow-xs border border-amber-300/70 hover:border-amber-400 hover:bg-amber-50 hover:shadow-sm active:scale-95 transition-all flex items-center justify-center cursor-pointer text-[#6b5320]"
                   title="Settings"
                   aria-label="Settings"
                 >
@@ -3733,6 +3976,77 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-2xl border border-red-100 text-left relative">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-3">
+              <span className="material-symbols-outlined text-2xl">delete_forever</span>
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-900 mb-1">
+              Delete Account Permanently?
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              This action <span className="font-bold text-red-600">cannot be undone</span>. All your candidate biodata, photos, saved matches, and conversations will be permanently erased.
+            </p>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 mb-3">
+              <p className="text-[11px] font-semibold text-red-800 mb-1.5">
+                Type <span className="font-extrabold underline tracking-wider">DELETE</span> below to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => {
+                  setDeleteConfirmText(e.target.value)
+                  setDeleteAccountError('')
+                }}
+                placeholder="DELETE"
+                className="w-full px-3 py-2 bg-white border border-red-300 rounded-md text-xs font-bold text-red-700 tracking-wider focus:outline-none focus:ring-2 focus:ring-red-400 placeholder:text-gray-300 placeholder:font-normal"
+                autoFocus
+              />
+            </div>
+
+            {deleteAccountError && (
+              <p className="text-[11px] text-red-600 font-semibold mb-3">
+                {deleteAccountError}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteAccountModal(false)
+                  setDeleteConfirmText('')
+                  setDeleteAccountError('')
+                }}
+                disabled={isDeletingAccount}
+                className="flex-1 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-slate-700 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAccount}
+                disabled={deleteConfirmText.trim().toUpperCase() !== 'DELETE' || isDeletingAccount}
+                className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+              >
+                {isDeletingAccount ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete</span>
+                )}
+              </button>
             </div>
           </div>
         </div>

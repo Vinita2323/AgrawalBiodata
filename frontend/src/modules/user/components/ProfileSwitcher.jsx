@@ -59,7 +59,7 @@ function ProfileAvatar({ profile, size = 'w-6 h-6' }) {
  * Renders nothing until the account actually has a profile, since the header
  * is also shown on the pre-login screens.
  */
-export default function ProfileSwitcher() {
+export default function ProfileSwitcher({ theme = 'light' }) {
   const navigate = useNavigate()
   const { profiles, activeProfile, activeProfileId, switchProfile } = useActiveProfile()
   const [isOpen, setIsOpen] = useState(false)
@@ -110,29 +110,34 @@ export default function ProfileSwitcher() {
   }
 
   const activeRelation = relationLabel(activeProfile)
+  const isDark = theme === 'dark'
 
   return (
     <div className="relative shrink-0 ml-auto" ref={containerRef}>
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className="flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full border border-amber-200/90 bg-white hover:bg-amber-50/70 active:scale-95 transition shadow-2xs max-w-[108px] cursor-pointer"
+        className={`flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border transition active:scale-95 shadow-sm max-w-[130px] cursor-pointer ${
+          isDark
+            ? 'border-[#f6cb68]/60 bg-white/10 hover:bg-white/15 backdrop-blur-xs text-white'
+            : 'border-amber-300/80 bg-gradient-to-r from-white via-[#fffdfa] to-amber-50/50 hover:border-amber-400 text-slate-800'
+        }`}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={`Active profile: ${activeProfile.fullName}. Switch profile`}
       >
-        <ProfileAvatar profile={activeProfile} size="w-5.5 h-5.5" />
+        <ProfileAvatar profile={activeProfile} size="w-6 h-6" />
         <span className="flex flex-col items-start min-w-0 leading-none">
-          <span className="text-[10px] sm:text-[10.5px] font-bold text-slate-800 truncate max-w-[48px]">
+          <span className={`text-[10px] sm:text-[11px] font-bold truncate max-w-[56px] ${isDark ? 'text-white' : 'text-slate-800'}`}>
             {activeProfile.fullName}
           </span>
           {activeRelation && (
-            <span className="text-[8px] font-medium text-[#775a19] truncate max-w-[48px] mt-0.5">
+            <span className={`text-[8px] font-semibold truncate max-w-[56px] mt-0.5 ${isDark ? 'text-[#f6cb68]' : 'text-[#775a19]'}`}>
               {activeRelation}
             </span>
           )}
         </span>
-        <span className="material-symbols-outlined text-[13px] text-slate-400 shrink-0">
+        <span className={`material-symbols-outlined text-[14px] shrink-0 ${isDark ? 'text-[#f6cb68]' : 'text-amber-700/80'}`}>
           {isOpen ? 'expand_less' : 'expand_more'}
         </span>
       </button>
