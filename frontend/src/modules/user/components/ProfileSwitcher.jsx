@@ -25,7 +25,7 @@ function initialsOf(name) {
 }
 
 /** Round avatar falling back to initials when a profile has no photo or image fails to load. */
-function ProfileAvatar({ profile, size = 'w-6 h-6' }) {
+export function ProfileAvatar({ profile, size = 'w-6 h-6' }) {
   const [imgError, setImgError] = useState(false)
   const src = profile?.profilePicture ? resolveAssetUrl(profile.profilePicture) : ''
 
