@@ -89,7 +89,7 @@ export default function UserFlowPage() {
     ? location.pathname.slice(0, -1)
     : location.pathname
 
-  const showHeaderBar = !AUTH_AND_SPLASH_ROUTES.has(currentPath)
+  const showHeaderBar = !AUTH_AND_SPLASH_ROUTES.has(currentPath) && currentPath !== '/matches' && !['/chat', '/profile', '/interests'].includes(currentPath)
 
   return (
     <ActiveProfileProvider>

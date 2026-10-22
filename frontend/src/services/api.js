@@ -16,7 +16,8 @@ import safeStorage from '../utils/safeStorage';
  * deployed separately, so VITE_API_URL must point at the backend origin -
  * without it every request resolves against the static host and 404s.
  */
-const API_ORIGIN = (import.meta.env?.VITE_API_URL || '').replace(/\/+$/, '');
+const rawOrigin = (import.meta.env?.VITE_API_URL || '').trim().replace(/\/+$/, '');
+const API_ORIGIN = rawOrigin.replace(/\/api$/i, '');
 const BASE_URL = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
 
 /** How long a request may run before it is treated as failed. */

@@ -271,81 +271,132 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
     })
   }
 
+  const STEPS_CONFIG = [
+    { num: 1, title: 'Personal', icon: 'person', subtitle: 'Basic info' },
+    { num: 2, title: 'Family', icon: 'family_restroom', subtitle: 'Parents & Siblings' },
+    { num: 3, title: 'Maternal', icon: 'contacts', subtitle: 'Mama & Contact' },
+    { num: 4, title: 'Photo', icon: 'photo_camera', subtitle: 'Biodata Picture' },
+  ]
+
   return (
     <div className="bg-[#fbf9f5] min-h-screen text-slate-800 font-body flex flex-col relative select-none">
       
       {/* Top Traditional Accent Line */}
-      <div className="absolute top-0 left-0 w-full z-50 h-1 bg-gradient-to-r from-transparent via-[#775a19]/50 to-transparent opacity-80" />
+      <div className="absolute top-0 left-0 w-full z-50 h-1 bg-gradient-to-r from-transparent via-[#ffd580] to-transparent opacity-90" />
 
-      {/* Header Area */}
-      <div className="px-4 pt-3 pb-1 max-w-3xl w-full mx-auto">
-        <div className="flex items-center justify-between gap-2">
-          {/* Left: Back button + Page Title side-by-side */}
-          <div className="flex items-center gap-2.5 min-w-0">
+      {/* Header & Multi-Step Progress Container */}
+      <div className="px-4 sm:px-6 pt-4 pb-3 max-w-3xl w-full mx-auto">
+        {/* Top Navigation Row */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => {
                 if (step > 1) setStep(step - 1)
                 else navigate(-1)
               }}
-              className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-white border border-[#e6dfd1] hover:bg-amber-50 active:scale-95 transition text-[#570013] shadow-xs"
+              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full bg-white border border-amber-200/80 hover:bg-amber-50 active:scale-95 transition text-[#570013] shadow-xs cursor-pointer"
               aria-label="Go Back"
             >
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+              <span className="material-symbols-outlined text-[19px]">arrow_back</span>
             </button>
-            <h1 className="text-lg sm:text-xl font-display font-extrabold text-[#570013] tracking-tight truncate">
-              {step === 1 ? 'Personal Details' : step === 2 ? 'Family Details' : step === 3 ? 'Maternal Family & Contact' : 'Upload Profile Picture'}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-display font-extrabold text-[#570013] tracking-tight truncate">
+                {isNewProfile ? 'Create New Biodata' : 'Edit Biodata Profile'}
+              </h1>
+              <p className="text-[11px] text-[#775a19] font-medium truncate">
+                Step {step} of 4: {STEPS_CONFIG[step - 1]?.subtitle}
+              </p>
+            </div>
           </div>
           
-          {/* Right: Icon-only Edit button & Compact Step Badge (1/4) */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
                 if (isEditing) {
                   safeStorage.setItem('userProfile', JSON.stringify(formData))
-                  alert('Details saved successfully!')
+                  showToast('Details saved to local storage!', 'success')
                   setIsEditing(false)
                 } else {
                   setIsEditing(true)
                 }
               }}
-              title={isEditing ? 'Save Details' : 'Edit Details'}
-              className={`w-8 h-8 rounded-full flex items-center justify-center shadow-xs transition-all active:scale-95 border ${
+              title={isEditing ? 'Save Progress' : 'Edit Mode'}
+              className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 border text-xs font-bold cursor-pointer ${
                 isEditing
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                  : 'bg-amber-100/80 hover:bg-amber-200 text-[#570013] border-[#775a19]/30'
+                  : 'bg-white hover:bg-amber-50 text-[#570013] border-amber-200/90'
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">
-                {isEditing ? 'save' : 'edit'}
+                {isEditing ? 'save' : 'edit_note'}
               </span>
+              <span className="hidden sm:inline">{isEditing ? 'Saved' : 'Edit'}</span>
             </button>
-            <div className="px-2.5 py-1 rounded-full bg-[#570013]/10 border border-[#570013]/15">
-              <span className="text-[11px] font-extrabold text-[#570013] tracking-wider">
-                {step}/4
-              </span>
-            </div>
           </div>
         </div>
 
-        <p className="text-[11px] text-[#775a19] font-medium mt-1 mb-1 pl-10">
-          {step === 1 
-            ? 'Tell us about yourself to find your perfect match.'
-            : step === 2 
-            ? 'Tell us about your family background.' 
-            : step === 3
-            ? 'Provide contact and maternal family details.'
-            : 'Add a clear photo to get better matches.'}
-        </p>
+        {/* Step Progress Timeline Card */}
+        <div className="bg-white rounded-2xl p-3.5 border border-amber-200/80 shadow-[0_2px_12px_rgba(87,0,19,0.04)] mb-2">
+          <div className="grid grid-cols-4 gap-1 sm:gap-2 relative">
+            {STEPS_CONFIG.map((s, idx) => {
+              const isPassed = step > s.num
+              const isCurrent = step === s.num
+              return (
+                <button
+                  key={s.num}
+                  type="button"
+                  onClick={() => setStep(s.num)}
+                  className={`flex flex-col items-center text-center p-1.5 rounded-xl transition-all cursor-pointer ${
+                    isCurrent
+                      ? 'bg-amber-50/90 border border-amber-300 shadow-2xs'
+                      : isPassed
+                      ? 'hover:bg-amber-50/40 text-slate-700'
+                      : 'opacity-60 hover:opacity-90'
+                  }`}
+                >
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-extrabold transition-all mb-1 ${
+                      isCurrent
+                        ? 'bg-[#570013] text-white shadow-sm ring-2 ring-amber-300'
+                        : isPassed
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-100 text-gray-500 border border-gray-200'
+                    }`}
+                  >
+                    {isPassed ? (
+                      <span className="material-symbols-outlined text-[15px]">check</span>
+                    ) : (
+                      <span className="material-symbols-outlined text-[15px]">{s.icon}</span>
+                    )}
+                  </div>
+                  <span className={`text-[10px] sm:text-[11px] font-bold truncate max-w-full leading-tight ${
+                    isCurrent ? 'text-[#570013]' : 'text-slate-600'
+                  }`}>
+                    {s.title}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Smooth Linear Progress Bar */}
+          <div className="w-full bg-amber-100/60 h-1.5 rounded-full overflow-hidden mt-2.5">
+            <div
+              className="bg-gradient-to-r from-[#9b7222] via-[#e5c158] to-[#570013] h-full transition-all duration-300 rounded-full"
+              style={{ width: `${(step / 4) * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-3xl mx-auto px-4 pb-6">
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pb-8">
         
-        <div className="bg-white rounded-lg shadow-[0_8px_30px_rgba(87,0,19,0.04)] border border-[#e6dfd1]/60 p-5 relative overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(87,0,19,0.06)] border border-amber-200/80 p-4 sm:p-7 relative overflow-hidden">
           {/* Subtle card background glow */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-50 to-transparent rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-amber-100/30 via-rose-100/10 to-transparent rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
           
           {step === 1 && (
             <form className="space-y-4 relative z-10">
@@ -546,11 +597,11 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 </div>
               </div>
 
-              <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
+              <div className="w-full h-px bg-amber-200/60 my-4"></div>
 
               <div className="flex justify-end pt-1">
-                <button type="button" onClick={() => setStep(2)} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
-                  <span>Next Step</span>
+                <button type="button" onClick={() => setStep(2)} className="bg-gradient-to-r from-[#570013] to-[#7a001b] hover:from-[#72001a] hover:to-[#910022] text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 transition-all cursor-pointer">
+                  <span>Next</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
               </div>
@@ -579,8 +630,9 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 </div>
               </div>
 
-              <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm my-2">
-                Parents
+              <div className="w-full bg-gradient-to-r from-amber-50 via-[#faf4e8] to-transparent border-l-4 border-[#9b7222] py-2 px-3.5 rounded-r-lg font-bold text-[#570013] text-xs uppercase tracking-wider my-3 flex items-center gap-2 shadow-2xs">
+                <span className="material-symbols-outlined text-[17px] text-[#9b7222]">diversity_3</span>
+                <span>Parents Information</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -632,8 +684,9 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 </div>
               </div>
 
-              <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm mt-4 mb-2">
-                Siblings & Relatives
+              <div className="w-full bg-gradient-to-r from-amber-50 via-[#faf4e8] to-transparent border-l-4 border-[#9b7222] py-2 px-3.5 rounded-r-lg font-bold text-[#570013] text-xs uppercase tracking-wider mt-5 mb-3 flex items-center gap-2 shadow-2xs">
+                <span className="material-symbols-outlined text-[17px] text-[#9b7222]">family_restroom</span>
+                <span>Siblings & Extended Family</span>
               </div>
 
               <div className="space-y-4">
@@ -724,14 +777,14 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 ))}
               </div>
 
-              <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
+              <div className="w-full h-px bg-amber-200/60 my-4"></div>
 
-              <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(1)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide">
+              <div className="flex justify-end gap-2.5 pt-1">
+                <button type="button" onClick={() => setStep(1)} className="bg-white border border-amber-200/90 hover:bg-amber-50/50 text-slate-700 font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center shadow-2xs active:scale-95 transition-all cursor-pointer">
                   Back
                 </button>
-                <button type="button" onClick={() => setStep(3)} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide">
-                  <span>Next Step</span>
+                <button type="button" onClick={() => setStep(3)} className="bg-gradient-to-r from-[#570013] to-[#7a001b] hover:from-[#72001a] hover:to-[#910022] text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 transition-all cursor-pointer">
+                  <span>Next</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
               </div>
@@ -740,40 +793,41 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
 
           {step === 3 && (
             <form className="space-y-4 relative z-10">
-              <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm mb-2">
-                Maternal Details
+              <div className="w-full bg-gradient-to-r from-amber-50 via-[#faf4e8] to-transparent border-l-4 border-[#9b7222] py-2 px-3.5 rounded-r-lg font-bold text-[#570013] text-xs uppercase tracking-wider mb-3 flex items-center gap-2 shadow-2xs">
+                <span className="material-symbols-outlined text-[17px] text-[#9b7222]">family_history</span>
+                <span>Maternal Details (Nanihal)</span>
               </div>
 
               {/* Mama Ji Dynamic Cards */}
-              <div className="bg-[#fbf9f5] border border-[#e6dfd1] rounded-lg p-3 space-y-3">
-                <div className="flex items-center justify-between border-b border-[#e6dfd1]/60 pb-2">
+              <div className="bg-[#fcfaf7] border border-amber-200/80 rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
                   <label className="text-[11px] font-bold text-[#570013] uppercase tracking-wider flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[#775a19] text-[18px]">person_3</span> Mama Ji (Maternal Uncle)
                   </label>
                   <button
                     type="button"
                     onClick={() => addRelativeItem('mamajiList')}
-                    className="text-[11px] font-bold text-[#570013] hover:text-[#775a19] bg-white border border-[#e6dfd1] hover:border-[#775a19] px-2.5 py-1 rounded flex items-center gap-1 transition-all shadow-xs active:scale-95"
+                    className="text-[11px] font-bold text-[#570013] hover:text-[#775a19] bg-white border border-amber-200/90 hover:border-[#775a19] px-2.5 py-1 rounded-md flex items-center gap-1 transition-all shadow-xs active:scale-95 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[14px]">add</span> Add Another
                   </button>
                 </div>
 
                 {(formData.mamajiList || []).map((item, idx) => (
-                  <div key={idx} className="bg-white border border-[#e6dfd1] rounded-md p-3 space-y-2.5 relative shadow-xs">
+                  <div key={idx} className="bg-white border border-amber-200/70 rounded-lg p-3 space-y-2.5 relative shadow-xs">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <input
                         type="text"
                         placeholder={`Mama Ji ${idx + 1} Name / Details`}
                         value={item.name}
                         onChange={(e) => handleRelativeChange('mamajiList', idx, 'name', e.target.value)}
-                        className="flex-1 min-w-0 bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                        className="flex-1 min-w-0 bg-[#fcfaf7] border border-amber-200/80 rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                       />
                       <div className="flex items-center gap-2 shrink-0">
                         <select
                           value={item.status}
                           onChange={(e) => handleRelativeChange('mamajiList', idx, 'status', e.target.value)}
-                          className="flex-1 sm:flex-none text-[12px] font-semibold bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-2.5 py-2 text-slate-700 focus:outline-none focus:border-[#570013]"
+                          className="flex-1 sm:flex-none text-[12px] font-semibold bg-[#fcfaf7] border border-amber-200/80 rounded-md px-2.5 py-2 text-slate-700 focus:outline-none focus:border-[#570013]"
                         >
                           <option value="Unmarried">Unmarried</option>
                           <option value="Married">Married</option>
@@ -781,7 +835,7 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                         <button
                           type="button"
                           onClick={() => saveRelativeItem('mamajiList')}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-md flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 shrink-0 text-[11px] font-bold"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-2 rounded-md flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 shrink-0 text-[11px] font-bold cursor-pointer"
                           title="Save this entry"
                         >
                           <span className="material-symbols-outlined text-[16px]">check</span>
@@ -791,7 +845,7 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                           <button
                             type="button"
                             onClick={() => removeRelativeItem('mamajiList', idx)}
-                            className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 border border-transparent hover:border-red-200 transition-all shrink-0"
+                            className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50 border border-transparent hover:border-red-200 transition-all shrink-0 cursor-pointer"
                             title="Delete entry"
                           >
                             <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -807,14 +861,14 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                           placeholder="Mami Ji's Name"
                           value={item.spouseName}
                           onChange={(e) => handleRelativeChange('mamajiList', idx, 'spouseName', e.target.value)}
-                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                          className="w-full bg-[#fcfaf7] border border-amber-200/80 rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                         />
                         <input
                           type="text"
                           placeholder="Mami Ji's Home Place"
                           value={item.homePlace}
                           onChange={(e) => handleRelativeChange('mamajiList', idx, 'homePlace', e.target.value)}
-                          className="w-full bg-[#fbf9f5] border border-[#e6dfd1] rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
+                          className="w-full bg-[#fcfaf7] border border-amber-200/80 rounded-md px-3 py-2 text-[12px] font-semibold text-slate-800 focus:outline-none focus:border-[#570013] focus:bg-white placeholder-slate-400"
                         />
                       </div>
                     )}
@@ -822,8 +876,9 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 ))}
               </div>
 
-              <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm mt-4 mb-2">
-                Contact Information
+              <div className="w-full bg-gradient-to-r from-amber-50 via-[#faf4e8] to-transparent border-l-4 border-[#9b7222] py-2 px-3.5 rounded-r-lg font-bold text-[#570013] text-xs uppercase tracking-wider mt-5 mb-3 flex items-center gap-2 shadow-2xs">
+                <span className="material-symbols-outlined text-[17px] text-[#9b7222]">contacts</span>
+                <span>Contact & Residential Information</span>
               </div>
 
               {/* Residential Address */}
@@ -855,10 +910,10 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 </div>
               </div>
 
-              <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
+              <div className="w-full h-px bg-amber-200/60 my-4"></div>
 
-              <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(2)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer">
+              <div className="flex justify-end gap-2.5 pt-1">
+                <button type="button" onClick={() => setStep(2)} className="bg-white border border-amber-200/90 hover:bg-amber-50/50 text-slate-700 font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center shadow-2xs active:scale-95 transition-all cursor-pointer">
                   Back
                 </button>
                 <button 
@@ -867,9 +922,9 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                     await saveToBackend(formData, true);
                     setStep(4);
                   }} 
-                  className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer"
+                  className="bg-gradient-to-r from-[#570013] to-[#7a001b] hover:from-[#72001a] hover:to-[#910022] text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 transition-all cursor-pointer"
                 >
-                  <span>{isSaving ? 'Saving...' : 'Next Step'}</span>
+                  <span>{isSaving ? 'Saving...' : 'Next'}</span>
                   <span className="material-symbols-outlined text-[16px]">{isSaving ? 'sync' : 'arrow_forward'}</span>
                 </button>
               </div>
@@ -905,30 +960,31 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 setIsSaving(false);
               }
             }}>
-              <div className="w-full bg-amber-50 border-l-4 border-[#775a19] py-1.5 px-3 font-bold text-[#570013] text-sm mb-4">
-                Profile Photo
+              <div className="w-full bg-gradient-to-r from-amber-50 via-[#faf4e8] to-transparent border-l-4 border-[#9b7222] py-2 px-3.5 rounded-r-lg font-bold text-[#570013] text-xs uppercase tracking-wider mb-4 flex items-center gap-2 shadow-2xs">
+                <span className="material-symbols-outlined text-[17px] text-[#9b7222]">photo_camera</span>
+                <span>Profile Photo & Biodata Picture</span>
               </div>
 
-              <div className="flex flex-col items-center justify-center mt-6 mb-8">
+              <div className="flex flex-col items-center justify-center mt-4 mb-6">
                 <label 
                   htmlFor="photo-upload" 
-                  className="w-48 h-48 rounded-full border-2 border-dashed border-[#e6dfd1] bg-[#fbf9f5] flex flex-col items-center justify-center cursor-pointer hover:bg-white hover:border-[#775a19] hover:shadow-md transition-all group overflow-hidden relative"
+                  className="w-44 h-44 sm:w-48 sm:h-48 rounded-full border-2 border-dashed border-[#c69a3d]/80 bg-[#fffdfa] p-1.5 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-50/50 hover:border-[#9b7222] hover:shadow-[0_8px_25px_rgba(119,90,25,0.15)] transition-all group overflow-hidden relative"
                 >
                   {formData.profilePicture ? (
-                    <div className="w-full h-full relative">
+                    <div className="w-full h-full rounded-full overflow-hidden relative shadow-inner">
                       <img src={formData.profilePicture} alt="Profile Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <span className="material-symbols-outlined text-white text-[24px] mb-1">edit</span>
                         <span className="text-white text-xs font-bold">Change Photo</span>
                       </div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center text-center p-4">
-                      <div className="w-12 h-12 rounded-full bg-[#570013]/5 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                        <span className="material-symbols-outlined text-[#570013] text-[24px]">add_a_photo</span>
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-100 to-amber-50 border border-amber-200/90 text-[#570013] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-2xs">
+                        <span className="material-symbols-outlined text-[26px]">add_a_photo</span>
                       </div>
-                      <span className="text-xs font-bold text-slate-700">Upload Photo</span>
-                      <span className="text-[10px] text-slate-500 mt-1">JPG, PNG, max 5MB</span>
+                      <span className="text-xs font-extrabold text-[#570013]">Upload Photo</span>
+                      <span className="text-[10px] text-slate-500 mt-1">JPG, PNG · max 5MB</span>
                     </div>
                   )}
                   
@@ -962,19 +1018,23 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
                 </label>
               </div>
 
-              <div className="bg-blue-50 border border-blue-100 rounded-md p-3 flex gap-3 text-sm text-blue-800">
-                <span className="material-symbols-outlined text-blue-500 shrink-0">tips_and_updates</span>
-                <p className="text-[11px] leading-tight">Profiles with clear, front-facing photos get up to 5x more responses. Avoid sunglasses or heavy filters.</p>
+              <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex gap-3 text-sm text-[#775a19] shadow-2xs">
+                <span className="material-symbols-outlined text-[#c69a3d] shrink-0 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  verified
+                </span>
+                <p className="text-[11.5px] leading-relaxed font-medium">
+                  Profiles with clear, front-facing photos receive up to <span className="font-extrabold text-[#570013]">5x more interest responses</span>. Avoid sunglasses or low-light photos.
+                </p>
               </div>
 
-              <div className="w-full h-px bg-[#e6dfd1]/80 my-5"></div>
+              <div className="w-full h-px bg-amber-200/60 my-4"></div>
 
-              <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setStep(3)} className="bg-white border border-[#e6dfd1] hover:bg-gray-50 text-slate-600 font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center shadow-xs active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer">
+              <div className="flex justify-end gap-2.5 pt-1">
+                <button type="button" onClick={() => setStep(3)} className="bg-white border border-amber-200/90 hover:bg-amber-50/50 text-slate-700 font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center shadow-2xs active:scale-95 transition-all cursor-pointer">
                   Back
                 </button>
-                <button type="submit" disabled={isSaving} className="bg-[#570013] hover:bg-[#72001a] text-white font-semibold text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all w-full sm:w-auto tracking-wide cursor-pointer disabled:opacity-75">
-                  <span>{isSaving ? 'Saving to Database...' : 'Complete Profile'}</span>
+                <button type="submit" disabled={isSaving} className="bg-gradient-to-r from-[#570013] to-[#7a001b] hover:from-[#72001a] hover:to-[#910022] text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-75">
+                  <span>{isSaving ? 'Saving...' : 'Complete Profile'}</span>
                   <span className="material-symbols-outlined text-[16px]">{isSaving ? 'sync' : 'check_circle'}</span>
                 </button>
               </div>

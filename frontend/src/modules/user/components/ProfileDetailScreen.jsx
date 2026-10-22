@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { sendInterest, getInterestStatus } from '../../../services/interestService'
-import { addToShortlist, recordVisitor } from '../../../services/socialService'
+import { addToShortlist, removeFromShortlist, checkShortlistStatus, recordVisitor } from '../../../services/socialService'
 import { getMatchScore } from '../../../services/matchService'
 import { getProfileById } from '../../../services/profileService'
 import { isAuthenticated } from '../../../services/authService'
@@ -131,6 +131,16 @@ export default function ProfileDetailScreen({ onBack }) {
       } catch {
         // Non-blocking
       }
+
+      // Check existing shortlist status
+      try {
+        const shortlistRes = await checkShortlistStatus(targetId)
+        if (shortlistRes?.isShortlisted) {
+          setIsShortlisted(true)
+        }
+      } catch {
+        // Non-blocking
+      }
     }
     initProfileDetail()
   }, [targetId])
@@ -164,16 +174,23 @@ export default function ProfileDetailScreen({ onBack }) {
   }
 
   const handleShortlist = async () => {
-    setIsShortlisted(prev => !prev)
+    const nextState = !isShortlisted
+    setIsShortlisted(nextState)
     if (isAuthenticated() && targetId) {
       try {
-        await addToShortlist(targetId)
-        showToast('Profile added to shortlist', 'success')
+        if (nextState) {
+          await addToShortlist(targetId)
+          showToast('Profile added to shortlist', 'success')
+        } else {
+          await removeFromShortlist(targetId)
+          showToast('Profile removed from shortlist', 'info')
+        }
       } catch (err) {
-        showToast(err.message || 'Shortlisted', 'info')
+        setIsShortlisted(!nextState)
+        showToast(err?.message || 'Could not update shortlist', 'info')
       }
     } else {
-      showToast(`Shortlisted ${displayName}`, 'success')
+      showToast(nextState ? `Shortlisted ${displayName}` : `Removed ${displayName} from shortlist`, 'info')
     }
   }
 

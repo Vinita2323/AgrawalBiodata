@@ -4,8 +4,8 @@
   "description": "Production-Ready REST API Backend for Agrawal Biodata Matrimony Platform",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node api.js && node server.js",
+    "dev": "node api.js && nodemon server.js",
     "test": "cross-env NODE_ENV=test MAX_PROFILES_PER_ACCOUNT=50 jest --runInBand --detectOpenHandles --forceExit",
     "seed": "node scripts/seedAll.js",
     "seed:all": "node scripts/seedAll.js",

@@ -17,16 +17,6 @@ export default function AuthLandingScreen({ onStartCreate, onStartLogin, onGuest
       {/* Header / Brand Logo & Name */}
       <header className="flex flex-col items-center text-center pt-2 pb-4 relative z-10">
 
-        {/* Top Hindi Organization Text above Logo */}
-        <div className="flex flex-col items-center justify-center text-center mb-5 max-w-md px-2">
-          <h2 className="text-lg sm:text-xl leading-snug font-black text-[#570013] font-display tracking-tight drop-shadow-xs">
-            महाराजा अग्रसेन एवं माँ माधवी बायोडाटा प्रकल्प
-          </h2>
-          <p className="text-sm leading-snug text-[#775a19] font-extrabold tracking-tight mt-1.5">
-            ( दक्षिणी पश्चिमी राजस्थान अग्रवाल सम्मेलन द्वारा संचालित )
-          </p>
-        </div>
-
         {/* Modern Logo Presentation */}
         <div className="relative mb-6">
           {/* Outer glowing rings */}
