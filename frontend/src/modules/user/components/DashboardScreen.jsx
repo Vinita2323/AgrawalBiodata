@@ -1732,7 +1732,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                 </div>
               </button>
 
-              {/* Membership / Wallet */}
+              {/* === [IOS-DEPLOY-COMMENT-START] Membership Plan row (Membership / Wallet) commented out for iOS deployment ===
               <button
                 type="button"
                 onClick={() => navigate('/membership')}
@@ -1753,6 +1753,7 @@ export default function DashboardScreen({ initialTab, onSelectProfile, onBack, i
                   <span className="material-symbols-outlined text-[16px]">chevron_right</span>
                 </div>
               </button>
+              === [IOS-DEPLOY-COMMENT-END] === */}
             </div>
           </div>
 
