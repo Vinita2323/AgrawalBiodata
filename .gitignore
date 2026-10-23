@@ -4,3 +4,5 @@ temp_interactive_push.bat
 *.exe
 *.apk
 *-firebase-adminsdk-*.json
+config.bat
+node_modules
