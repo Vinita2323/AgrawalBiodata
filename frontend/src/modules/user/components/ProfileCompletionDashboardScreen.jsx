@@ -292,7 +292,11 @@ export default function ProfileCompletionDashboardScreen({ onContinue, onSkip, i
             <button
               onClick={() => {
                 if (step > 1) setStep(step - 1)
-                else navigate(-1)
+                // A direct visit (refresh, deep link, notification tap) has no
+                // in-app history, and navigate(-1) would leave the app. The
+                // router records the position within the app in history.state.
+                else if (window.history.state?.idx > 0) navigate(-1)
+                else navigate(isNewProfile ? '/profiles' : '/home')
               }}
               className="w-9 h-9 shrink-0 flex items-center justify-center rounded-full bg-white border border-amber-200/80 hover:bg-amber-50 active:scale-95 transition text-[#570013] shadow-xs cursor-pointer"
               aria-label="Go Back"

@@ -504,13 +504,73 @@ async function request(endpoint, options = {}) {
 }
 
 /**
+ * Identical GETs that are already on the wire share one request.
+ *
+ * Screens mount several loaders at once, and React StrictMode runs every effect
+ * twice in development, so the same endpoint is often asked for twice within a
+ * few milliseconds. Only in-flight requests are shared - nothing is cached once
+ * the response lands, so a later call always hits the network and can never
+ * serve stale data. The key includes the token and active profile, so a switch
+ * of account or candidate never joins another's request. Each caller receives
+ * its own copy of the result so one cannot mutate what another is holding.
+ */
+const inFlightGets = new Map();
+
+function dedupedGet(endpoint, params, options) {
+  // A caller-supplied signal, timeout or header override means this call is not
+  // interchangeable with another, so it goes straight through.
+  const shareable = !options.signal && !options.headers && options.timeoutMs === undefined && !options.skipAuth;
+  if (!shareable) return request(endpoint, { method: 'GET', params, ...options });
+
+  const key = [
+    getAuthToken() || '',
+    getActiveProfileId() || '',
+    resolveUrl(endpoint),
+    buildQueryString(params),
+    options.skipRefresh ? 'norefresh' : ''
+  ].join('|');
+
+  let pending = inFlightGets.get(key);
+  if (!pending) {
+    pending = request(endpoint, { method: 'GET', params, ...options });
+    inFlightGets.set(key, pending);
+    const release = () => {
+      if (inFlightGets.get(key) === pending) inFlightGets.delete(key);
+    };
+    pending.then(release, release);
+  }
+
+  return pending.then(cloneResult);
+}
+
+/**
+ * Copies a response for one caller. structuredClone drops non-enumerable
+ * properties, and request() attaches _raw/_meta/_message that callers read, so
+ * they are carried over by hand.
+ */
+function cloneResult(data) {
+  if (!data || typeof data !== 'object' || typeof structuredClone !== 'function') return data;
+  try {
+    const copy = structuredClone(data);
+    ['_raw', '_meta', '_message'].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        Object.defineProperty(copy, key, { value: data[key], writable: true, configurable: true, enumerable: false });
+      }
+    });
+    return copy;
+  } catch {
+    return data;
+  }
+}
+
+/**
  * Convenience helper methods for standard REST verbs
  */
 export const api = {
   request,
 
   get(endpoint, params = null, options = {}) {
-    return request(endpoint, { method: 'GET', params, ...options });
+    return dedupedGet(endpoint, params, options);
   },
 
   post(endpoint, body = null, options = {}) {

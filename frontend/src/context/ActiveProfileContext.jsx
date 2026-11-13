@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { getUserProfiles, switchActiveProfile as switchActiveProfileApi } from '../services/profileService'
 import { getActiveProfileId, setActiveProfileId } from '../services/api'
@@ -21,6 +21,13 @@ export function ActiveProfileProvider({ children }) {
   const [activeProfileId, setActiveId] = useState(() => getActiveProfileId())
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  // Mirrors of state for the navigation effect below. Reading them through refs
+  // keeps that effect keyed on the route alone: with `isLoading`/`profiles` in
+  // its deps, an account with no profile yet (or a failed fetch) re-ran the
+  // effect every time loading finished, refetching in an endless loop.
+  const profilesRef = useRef([])
+  const loadingRef = useRef(false)
+  profilesRef.current = profiles
 
   const profileIdOf = (profile) => (profile ? profile.id || profile._id : null)
 
@@ -35,6 +42,7 @@ export function ActiveProfileProvider({ children }) {
       return []
     }
 
+    loadingRef.current = true
     setIsLoading(true)
     setError('')
     try {
@@ -59,6 +67,7 @@ export function ActiveProfileProvider({ children }) {
       setError(err?.message || 'Could not load your profiles')
       return []
     } finally {
+      loadingRef.current = false
       setIsLoading(false)
     }
   }, [])
@@ -75,7 +84,7 @@ export function ActiveProfileProvider({ children }) {
     // Signing out must empty the store, or the switcher would keep showing the
     // previous account's profiles on the login screen.
     if (!isAuthenticated()) {
-      if (profiles.length > 0) {
+      if (profilesRef.current.length > 0) {
         setProfiles([])
         setActiveId(null)
         setActiveProfileId(null)
@@ -83,9 +92,9 @@ export function ActiveProfileProvider({ children }) {
       return
     }
 
-    if (profiles.length > 0 || isLoading) return
+    if (profilesRef.current.length > 0 || loadingRef.current) return
     refreshProfiles()
-  }, [location.pathname, profiles.length, isLoading, refreshProfiles])
+  }, [location.pathname, refreshProfiles])
 
   /**
    * Makes another profile current. The header is updated before the network
